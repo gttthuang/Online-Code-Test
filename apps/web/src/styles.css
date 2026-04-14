@@ -1,0 +1,117 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: light;
+  --bg: #f4efe5;
+  --bg-accent: #f8c37d;
+  --panel: rgba(255, 252, 247, 0.82);
+  --panel-strong: rgba(255, 248, 238, 0.96);
+  --text: #1c1a18;
+  --muted: #665e55;
+  --line: rgba(28, 26, 24, 0.1);
+  --shadow: 0 28px 80px rgba(77, 47, 17, 0.14);
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 193, 107, 0.52), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(230, 155, 60, 0.22), transparent 30%),
+    linear-gradient(135deg, #f7f1e4 0%, #efe5d4 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(1080px, calc(100vw - 2rem));
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 4rem 0 3rem;
+}
+
+.hero-panel,
+.status-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.hero-panel {
+  padding: 2rem;
+  border-radius: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.hero-panel h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 7vw, 5.4rem);
+  line-height: 0.94;
+}
+
+.hero-copy {
+  width: min(34rem, 100%);
+  margin: 1.2rem 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.status-card {
+  padding: 1.4rem;
+  border-radius: 22px;
+}
+
+.status-card h2 {
+  margin: 0 0 0.7rem;
+  font-size: 1.1rem;
+}
+
+.status-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100vw - 1.25rem, 1080px);
+    padding-top: 1.5rem;
+  }
+
+  .hero-panel {
+    padding: 1.4rem;
+    border-radius: 22px;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}
