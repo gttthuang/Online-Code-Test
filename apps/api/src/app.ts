@@ -21,6 +21,10 @@ export function buildApp() {
   app.get("/", async () => ({
     service: "online-code-test-api",
     status: "ok",
+    docs: {
+      apiContractFile: "docs/api-contract.md",
+      frontendIntegrationFile: "docs/frontend-integration.md"
+    },
     healthcheck: "/healthz",
     demoAccounts: {
       candidate: "alice.candidate@example.com",

@@ -60,6 +60,19 @@ Start with these:
 - judge job payload
 - judge result payload
 
+## Current scaffold implementation
+
+The current backend scaffold intentionally uses development adapters:
+
+- `apps/api` uses an in-memory repository instead of PostgreSQL
+- judge execution is simulated by an in-process fake queue instead of Redis + worker
+
+This keeps the route surface stable while the team starts frontend work. The next backend iteration should swap these adapters for:
+
+- PostgreSQL-backed repositories
+- Redis-backed queue
+- separate `apps/judge-worker` consumer
+
 ## First real integration path
 
 Build this path before adding advanced features:
