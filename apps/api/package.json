@@ -2,8 +2,14 @@
   "name": "@oct/api",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@oct/contracts": "0.1.0",
+    "fastify": "^4",
+    "zod": "^3"
   }
 }

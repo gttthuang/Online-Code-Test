@@ -2,5 +2,10 @@
   "name": "@oct/contracts",
   "private": true,
   "version": "0.1.0",
-  "types": "src/index.ts"
+  "type": "module",
+  "exports": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
 }

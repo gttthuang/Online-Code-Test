@@ -12,6 +12,88 @@ export type SubmissionStatus = (typeof submissionStatuses)[number];
 export const languages = ["python", "cpp"] as const;
 export type SupportedLanguage = (typeof languages)[number];
 
+export const problemDifficulties = ["easy", "medium", "hard"] as const;
+export type ProblemDifficulty = (typeof problemDifficulties)[number];
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface ApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+
+export interface LoginRequest {
+  email: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export interface ProblemSummary {
+  id: string;
+  title: string;
+  difficulty: ProblemDifficulty;
+  timeLimitMs: number;
+  memoryLimitKb: number;
+  supportedLanguages: SupportedLanguage[];
+}
+
+export interface ProblemDetail extends ProblemSummary {
+  description: string;
+  sampleInput: string;
+  sampleOutput: string;
+}
+
+export interface HiddenTestCaseInput {
+  input: string;
+  expectedOutput: string;
+}
+
+export interface CreateProblemRequest {
+  title: string;
+  description: string;
+  difficulty: ProblemDifficulty;
+  timeLimitMs: number;
+  memoryLimitKb: number;
+  supportedLanguages: SupportedLanguage[];
+  sampleInput: string;
+  sampleOutput: string;
+  hiddenTestCases?: HiddenTestCaseInput[];
+}
+
+export interface CreateProblemResponse {
+  problem: ProblemSummary;
+}
+
+export interface AssignmentSummary {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  problemTitle: string;
+  difficulty: ProblemDifficulty;
+  assignedAt: string;
+  latestSubmissionStatus: SubmissionStatus | null;
+}
+
+export interface CreateAssignmentRequest {
+  candidateId: string;
+  problemId: string;
+}
+
+export interface CreateAssignmentResponse {
+  assignment: AssignmentSummary;
+}
+
 export interface CreateSubmissionRequest {
   problemId: string;
   language: SupportedLanguage;
@@ -43,4 +125,32 @@ export interface JudgeResult {
   score: number;
   cases: JudgeCaseResult[];
   errorMessage?: string;
+}
+
+export interface SubmissionDetail {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  language: SupportedLanguage;
+  status: SubmissionStatus;
+  sourceCode: string;
+  score: number | null;
+  createdAt: string;
+  updatedAt: string;
+  result: JudgeResult | null;
+}
+
+export interface CandidateResultItem {
+  submissionId: string;
+  problemId: string;
+  problemTitle: string;
+  status: SubmissionStatus;
+  score: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CandidateResultsResponse {
+  candidate: AuthUser;
+  submissions: CandidateResultItem[];
 }
