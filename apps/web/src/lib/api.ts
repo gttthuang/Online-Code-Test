@@ -1,9 +1,15 @@
 import type {
   AssignmentSummary,
   AuthUser,
+  CandidateResultsResponse,
+  CreateAssignmentRequest,
+  CreateAssignmentResponse,
+  CreateProblemRequest,
+  CreateProblemResponse,
   CreateSubmissionRequest,
   CreateSubmissionResponse,
   LoginResponse,
+  ProblemSummary,
   ProblemDetail,
   SubmissionDetail
 } from "@oct/contracts";
@@ -87,4 +93,34 @@ export function createSubmission(token: string, payload: CreateSubmissionRequest
 
 export function getSubmission(token: string, submissionId: string) {
   return request<SubmissionDetail>(`/me/submissions/${submissionId}`, undefined, token);
+}
+
+export function getAdminProblems(token: string) {
+  return request<ProblemSummary[]>("/admin/problems", undefined, token);
+}
+
+export function createProblem(token: string, payload: CreateProblemRequest) {
+  return request<CreateProblemResponse>(
+    "/admin/problems",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function createAssignment(token: string, payload: CreateAssignmentRequest) {
+  return request<CreateAssignmentResponse>(
+    "/admin/assignments",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function getCandidateResults(token: string, candidateId: string) {
+  return request<CandidateResultsResponse>(`/admin/candidates/${candidateId}/results`, undefined, token);
 }

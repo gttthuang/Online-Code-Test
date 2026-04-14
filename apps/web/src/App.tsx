@@ -4,7 +4,9 @@ import type { AuthUser } from "@oct/contracts";
 import { getHealth, getMe, loginWithEmail } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
 import { CandidateWorkspace } from "./views/CandidateWorkspace";
+import { InterviewerWorkspace } from "./views/InterviewerWorkspace";
 import { LoginPanel } from "./views/LoginPanel";
+import { ProblemAdminWorkspace } from "./views/ProblemAdminWorkspace";
 
 interface HealthState {
   status: "idle" | "ready" | "error";
@@ -18,8 +20,8 @@ interface SessionState {
 
 const roleCopy = {
   candidate: "Candidate workspace is live. You can already test assignments, problem detail, submission, and result polling.",
-  interviewer: "Interviewer workspace lands in the next commit. Backend APIs are already ready.",
-  problem_admin: "Problem admin workspace lands in the next commit. Backend APIs are already ready."
+  interviewer: "Interviewer workspace is live. You can assign problems and inspect candidate results.",
+  problem_admin: "Problem admin workspace is live. You can create problems and verify the admin APIs."
 } satisfies Record<AuthUser["role"], string>;
 
 export function App() {
@@ -169,24 +171,9 @@ export function App() {
             </button>
           </section>
 
-          {session.user.role === "candidate" ? (
-            <CandidateWorkspace token={session.token} user={session.user} />
-          ) : (
-            <section className="status-grid">
-              <article className="status-card">
-                <h2>{session.user.role} workspace</h2>
-                <p>{roleCopy[session.user.role]}</p>
-              </article>
-
-              <article className="status-card">
-                <h2>Backend Is Ready</h2>
-                <p>
-                  The admin APIs are already live. The next commit will expose a frontend surface for
-                  them.
-                </p>
-              </article>
-            </section>
-          )}
+          {session.user.role === "candidate" ? <CandidateWorkspace token={session.token} user={session.user} /> : null}
+          {session.user.role === "interviewer" ? <InterviewerWorkspace token={session.token} /> : null}
+          {session.user.role === "problem_admin" ? <ProblemAdminWorkspace token={session.token} /> : null}
         </>
       )}
     </main>
