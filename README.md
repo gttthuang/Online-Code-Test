@@ -2,40 +2,34 @@
 
 # Online Code Test
 
-Lightweight bootstrap template for a team of five building an online coding exam system.
+An online coding exam system scaffold with a working backend MVP and a frontend MVP for candidate, interviewer, and problem admin flows.
 
-## Why this template exists
+## Current Status
 
-This repo is intentionally thin. It fixes the boundaries that usually cause PR conflicts early:
+- `apps/api`: Fastify + TypeScript backend
+- `apps/web`: React + Vite + TypeScript frontend
+- `packages/contracts`: shared DTOs and enums
+- data layer: in-memory seed data
+- judge flow: in-process fake judge
 
-- `apps/api`: auth, problem management, submissions, results
-- `apps/judge-worker`: queue consumer, sandbox runner, compile and execute pipeline
-- `apps/web`: candidate and admin UI
-- `packages/contracts`: shared enums and payload shapes
-- `infra`: local dependencies such as PostgreSQL and Redis
-- `docs`: contracts, ownership, and the first delivery path
+This means the app is ready for UI iteration and API integration work, but it is not connected to PostgreSQL or Redis yet.
 
-The template does not lock the team into a heavy framework yet. The main goal is to agree on module ownership and the first integration path:
+## Quick Start
 
-`web -> api -> db -> queue -> worker -> db -> web`
+```bash
+npm ci
+npm run dev:api
+npm run dev:web
+```
 
-## Suggested team split
+- frontend: `http://localhost:5173`
+- backend: `http://localhost:3000`
 
-- Member 1: `apps/api` auth, roles, candidate assignment
-- Member 2: `apps/api` problems and hidden test cases
-- Member 3: `apps/api` submissions, results, queue producer
-- Member 4: `apps/judge-worker` sandbox, language runtime, judge execution
-- Member 5: `apps/web`, `infra`, CI, E2E, observability
+## Docs
 
-## First bootstrap milestone
-
-1. Bring up PostgreSQL and Redis with Docker Compose.
-2. Implement `POST /submissions` to store a queued submission.
-3. Push a fake judge job to Redis.
-4. Let the worker mark the submission as `finished` after a delay.
-5. Poll submission status from the web app.
-
-If this flow works, the team can expand modules in parallel without redesigning the whole repo.
+- [API Contract](./docs/api-contract.md)
+- [Architecture Notes](./docs/architecture.md)
+- [Team Handoff (Chinese)](./docs/team-handoff-zh.md)
 
 ## Repo Layout
 

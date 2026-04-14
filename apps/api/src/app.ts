@@ -23,7 +23,7 @@ export function buildApp() {
     status: "ok",
     docs: {
       apiContractFile: "docs/api-contract.md",
-      frontendIntegrationFile: "docs/frontend-integration.md"
+      teamHandoffFile: "docs/team-handoff-zh.md"
     },
     healthcheck: "/healthz",
     demoAccounts: {
