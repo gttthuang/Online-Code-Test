@@ -1,0 +1,21 @@
+{
+  "name": "online-code-test",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @oct/api",
+    "dev:web": "npm run dev --workspace @oct/web",
+    "dev:worker": "npm run dev --workspace @oct/judge-worker",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
