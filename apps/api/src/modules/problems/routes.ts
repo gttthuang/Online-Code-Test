@@ -56,12 +56,62 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
     return context.store.listProblems();
   });
 
-  app.post("/admin/problems", async (request) => {
+  // app.post("/admin/problems", async (request) => {
+  //   const user = requireUser(request, context);
+  //   requireRole(user, ["problem_admin"]);
+
+  //   const body = createProblemSchema.parse(request.body);
+
+  //   return {
+  //     problem: context.store.createProblem(body, user.id)
+  //   };
+  // });
+  app.post("/admin/problems", async (request, reply) => {
     const user = requireUser(request, context);
     requireRole(user, ["problem_admin"]);
 
-    const body = createProblemSchema.parse(request.body);
+    const parts = request.parts();
 
+    const fields: Record<string, any> = {};
+
+    for await (const part of request.parts()) {
+      if (part.type === "field") {
+        fields[part.fieldname] = part.value;
+      }
+    }
+
+    // ----------------------------
+    // Step 3: build hiddenTestCases
+    // ----------------------------
+    const hiddenTestCases = [];
+
+    let i = 0;
+    while (fields[`testcases[${i}][input]`]) {
+      hiddenTestCases.push({
+        input: fields[`testcases[${i}][input]`],
+        expectedOutput: fields[`testcases[${i}][output]`]
+      });
+      i++;
+    }
+
+    // ----------------------------
+    // Step 4: Zod parse
+    // ----------------------------
+    const body = createProblemSchema.parse({
+      title: fields.title,
+      description: fields.description,
+      difficulty: fields.difficulty,
+      timeLimitMs: Number(fields.timeLimitMs),
+      memoryLimitKb: Number(fields.memoryLimitKb),
+      supportedLanguages: JSON.parse(fields.supportedLanguages),
+      sampleInput: fields.sampleInput,
+      sampleOutput: fields.sampleOutput,
+      hiddenTestCases
+    });
+
+    // ----------------------------
+    // Step 5: create problem
+    // ----------------------------
     return {
       problem: context.store.createProblem(body, user.id)
     };
