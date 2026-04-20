@@ -110,6 +110,16 @@ export function createProblem(token: string, payload: CreateProblemRequest) {
   );
 }
 
+export function deleteProblem(token: string, problemId: string) {
+  return request<void>(
+    `/admin/problems/${problemId}`,
+    {
+      method: "DELETE",
+    },
+    token
+  );
+}
+
 export function createAssignment(token: string, payload: CreateAssignmentRequest) {
   return request<CreateAssignmentResponse>(
     "/admin/assignments",

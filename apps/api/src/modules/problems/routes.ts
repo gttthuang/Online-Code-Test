@@ -66,4 +66,31 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
       problem: context.store.createProblem(body, user.id)
     };
   });
+  app.delete("/admin/problems/:problemId", async (request, reply) => {
+    const { problemId } = request.params as { problemId: string };
+
+    // ❗新增：檢查是否被使用
+    const hasAssignment = context.store.hasAnyAssignment(problemId);
+    const hasSubmission = context.store.hasAnySubmission(problemId);
+
+    if (hasAssignment || hasSubmission) {
+      return reply.status(400).send({
+        error: {
+          message: "Cannot delete problem in use"
+        }
+      });
+    }
+
+    const deleted = context.store.deleteProblem(problemId);
+
+    if (!deleted) {
+      return reply.status(404).send({
+        error: {
+          message: "Problem not found"
+        }
+      });
+    }
+
+    return reply.status(204).send();
+  });
 }

@@ -221,6 +221,12 @@ textarea {
   color: var(--text);
 }
 
+.chip-button.active {
+  background: rgba(248, 195, 125, 0.24);
+  border-color: rgba(140, 84, 22, 0.4);
+  color: #8c5416;
+}
+
 .primary-button:hover,
 .secondary-button:hover,
 .chip-button:hover,
@@ -423,4 +429,59 @@ textarea {
   .table-row {
     grid-template-columns: 1fr;
   }
+}
+
+.problem-table-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr 40px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.delete-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  /* border: 1px solid var(--line); */
+  border: none;
+  background: white;
+  color: #c6554b;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-button:hover {
+  background: rgba(198, 85, 75, 0.12);
+  transform: translateY(-1px);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  width: 320px;
+  box-shadow: var(--shadow);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }
