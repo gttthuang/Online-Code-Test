@@ -10,7 +10,8 @@ Browser
   -> proxy /auth /me /admin /healthz
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
-      -> FakeJudgeQueue
+  -> apps/judge-worker (polling worker)
+      -> PostgreSQL
 ```
 
 ## 目前各層責任
@@ -63,7 +64,6 @@ Browser
 
 目前這版：
 
-- 不是正式 queue + worker 架構
 - 不是正式雲端部署架構
 - 不是正式 sandbox judge
 
@@ -84,17 +84,14 @@ Browser
 
 ## 目前的判題流程
 
-目前判題不是透過真正的 worker，而是在 API process 內用假的 queue 模擬：
+目前 submission 會先寫進 PostgreSQL，接著由獨立的 `apps/judge-worker` 輪詢並處理：
 
-- 檔案：`apps/api/src/infra/fake-judge-queue.ts`
+- API 只負責建立 `queued` submission
+- worker 會 claim queued job
+- worker 會把 submission 更新成 `running`
+- worker 會回寫 `finished` 或 `failed`
 
-狀態流程：
-
-- `queued`
-- `running`
-- `finished` 或 `failed`
-
-前端可以先依這個狀態流做 UI。
+目前 worker 仍然是 fake judge 邏輯，不是真正 sandbox execution。
 
 ## 下一階段目標架構
 
@@ -113,6 +110,5 @@ Browser
 ## 建議替換順序
 
 1. 先把 `FakeJudgeQueue` 換成 Redis queue
-2. 把 judge execution 移到 `apps/judge-worker`
-3. 再補 sandbox / resource limit
-4. 最後整理 deployment / observability / scaling
+2. 再補 sandbox / resource limit
+3. 再做 deployment / observability / scaling

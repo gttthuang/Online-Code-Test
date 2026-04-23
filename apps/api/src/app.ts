@@ -7,8 +7,8 @@ import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { toErrorResponse } from "./core/errors.js";
-import { FakeJudgeQueue } from "./infra/fake-judge-queue.js";
 import { config } from "./config.js";
+import { DatabaseJudgeQueue } from "./infra/judge-queue.js";
 import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
 import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
@@ -23,7 +23,7 @@ export async function buildApp() {
   await initializePostgres(postgresPool);
 
   const store = new PostgresStore(postgresPool);
-  const judgeQueue = new FakeJudgeQueue(store);
+  const judgeQueue = new DatabaseJudgeQueue();
   const context = { store, judgeQueue };
 
   app.addHook("onClose", async () => {
@@ -63,7 +63,7 @@ export async function buildApp() {
     status: "ok",
     service: "api",
     storageMode: "postgres",
-    queueMode: "fake-judge",
+    queueMode: "database-polling",
     postgres: {
       configuredHost: config.postgres.host,
       configuredDatabase: config.postgres.database,

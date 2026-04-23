@@ -8,9 +8,10 @@
 
 - `apps/api`：Fastify + TypeScript 後端
 - `apps/web`：React + Vite + TypeScript 前端
+- `apps/judge-worker`：TypeScript 判題 worker
 - `packages/contracts`：前後端共用 DTO / enum
 - 資料層：PostgreSQL
-- 判題流程：in-process fake judge
+- 判題流程：PostgreSQL queue + 獨立 worker process
 
 也就是說，目前已經可以：
 
@@ -18,17 +19,20 @@
 - candidate 看 assignment / 題目 / 送 submission / 輪詢結果
 - interviewer 建 assignment / 查 candidate results
 - problem admin 建題 / 看題目列表
+- worker 會在背景消化 queued submissions
 
 但目前還沒有：
 
 - 真正的 Redis queue
-- 真正的 worker / sandbox
+- 真正的 sandbox 隔離
 
 ## 本機啟動
 
 ```bash
 npm ci
+docker compose -f infra/docker-compose.yml up -d postgres
 npm run dev:api
+npm run dev:worker
 npm run dev:web
 ```
 

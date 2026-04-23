@@ -8,17 +8,20 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 
 - `apps/api`: Fastify + TypeScript backend
 - `apps/web`: React + Vite + TypeScript frontend
+- `apps/judge-worker`: TypeScript judge worker
 - `packages/contracts`: shared DTOs and enums
 - data layer: PostgreSQL
-- judge flow: in-process fake judge
+- judge flow: PostgreSQL-backed queue + separate worker process
 
-This means the app is ready for UI iteration and API integration work. PostgreSQL is already connected; Redis and a real worker are not in place yet.
+This means the app is ready for UI iteration and API integration work. PostgreSQL and a basic worker are connected; Redis and sandboxed execution are not in place yet.
 
 ## Quick Start
 
 ```bash
 npm ci
+docker compose -f infra/docker-compose.yml up -d postgres
 npm run dev:api
+npm run dev:worker
 npm run dev:web
 ```
 

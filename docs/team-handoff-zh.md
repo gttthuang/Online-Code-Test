@@ -331,7 +331,7 @@
 建議主要檔案：
 
 - `apps/judge-worker/*`
-- `apps/api/src/infra/fake-judge-queue.ts`
+- `apps/api/src/infra/judge-queue.ts`
 - `apps/api/src/modules/submissions/*`
 - `apps/web/src/lib/api.ts`
 - `apps/web/src/views/CandidateWorkspace.tsx` 的 async 邏輯部分
@@ -388,7 +388,7 @@
 
 依賴與阻塞：
 
-- 現在就可以開始，因為 repo 已經有 `apps/judge-worker` placeholder
+- 現在就可以開始，因為 repo 已經有可跑的 `apps/judge-worker`
 - 最好和 A、D 同步進行
 - A 把 candidate 畫面整理好之後，E 會更容易抽 async 顯示邏輯
 - 若你之後把 fake judge 換成真 queue / worker，E 會是第一個要跟著驗證 submission 狀態是否還一致的人

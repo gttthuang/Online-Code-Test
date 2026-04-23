@@ -38,7 +38,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
 
     const submission = await context.store.createSubmission(user.id, body);
 
-    context.judgeQueue.enqueue({
+    await context.judgeQueue.enqueue({
       submissionId: submission.id,
       candidateId: user.id,
       problemId: submission.problemId,
