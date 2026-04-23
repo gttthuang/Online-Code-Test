@@ -2,6 +2,7 @@ import type {
   AssignmentSummary,
   AuthUser,
   CandidateResultsResponse,
+  CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   JudgeResult,
@@ -25,6 +26,8 @@ export interface ProblemRecord extends ProblemDetail {
 export interface AppStore {
   getUserById(userId: string): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<AuthUser | null>;
+  listCandidates(): Promise<AuthUser[]>;
+  createCandidate(input: CreateCandidateRequest): Promise<AuthUser>;
   listProblems(): Promise<ProblemSummary[]>;
   getProblem(problemId: string): Promise<ProblemRecord | null>;
   getProblemDetail(problemId: string): Promise<ProblemDetail | null>;

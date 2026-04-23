@@ -39,6 +39,15 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
+export interface CreateCandidateRequest {
+  name: string;
+  email: string;
+}
+
+export interface CreateCandidateResponse {
+  candidate: AuthUser;
+}
+
 export interface ProblemSummary {
   id: string;
   title: string;

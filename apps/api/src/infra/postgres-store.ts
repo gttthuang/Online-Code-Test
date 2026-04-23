@@ -5,6 +5,7 @@ import type {
   AuthUser,
   CandidateResultItem,
   CandidateResultsResponse,
+  CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   JudgeResult,
@@ -77,6 +78,34 @@ export class PostgresStore implements AppStore {
     );
 
     return result.rows[0] ?? null;
+  }
+
+  async listCandidates(): Promise<AuthUser[]> {
+    const result = await this.pool.query<AuthUser>(
+      `
+        select id, name, email, role
+        from users
+        where role = 'candidate'
+        order by name asc, email asc
+      `
+    );
+
+    return result.rows;
+  }
+
+  async createCandidate(input: CreateCandidateRequest): Promise<AuthUser> {
+    const candidateId = `candidate_${randomUUID()}`;
+
+    const result = await this.pool.query<AuthUser>(
+      `
+        insert into users (id, name, email, role)
+        values ($1, $2, $3, 'candidate')
+        returning id, name, email, role
+      `,
+      [candidateId, input.name, input.email]
+    );
+
+    return result.rows[0];
   }
 
   async listProblems(): Promise<ProblemSummary[]> {

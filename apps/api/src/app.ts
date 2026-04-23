@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
+import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
@@ -49,6 +50,8 @@ export async function buildApp() {
       "GET /me/problems/:problemId",
       "POST /me/submissions",
       "GET /me/submissions/:submissionId",
+      "GET /admin/candidates",
+      "POST /admin/candidates",
       "POST /admin/problems",
       "GET /admin/problems",
       "POST /admin/assignments",
@@ -77,6 +80,7 @@ export async function buildApp() {
   });
 
   registerAuthRoutes(app, context);
+  registerCandidateRoutes(app, context);
   registerAssignmentRoutes(app, context);
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);

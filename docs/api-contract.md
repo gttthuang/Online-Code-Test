@@ -70,6 +70,8 @@ Authorization: Bearer <token>
 
 ### Interviewer
 
+- `GET /admin/candidates`
+- `POST /admin/candidates`
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
 
@@ -82,6 +84,54 @@ Request:
 ```json
 {
   "email": "alice.candidate@example.com"
+}
+```
+
+### `GET /admin/candidates`
+
+用途：
+
+- 讓 interviewer 取得 candidate 清單
+- 前端之後可以拿這份資料做 assignment form 下拉選單
+
+Response:
+
+```json
+[
+  {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  }
+]
+```
+
+### `POST /admin/candidates`
+
+用途：
+
+- interviewer 建立新的 candidate 帳號
+
+Request:
+
+```json
+{
+  "name": "David Candidate",
+  "email": "david.candidate@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_xxx",
+    "name": "David Candidate",
+    "email": "david.candidate@example.com",
+    "role": "candidate"
+  }
 }
 ```
 
