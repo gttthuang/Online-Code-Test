@@ -12,7 +12,7 @@ const loginSchema = z.object({
 export async function registerAuthRoutes(app: FastifyInstance, context: AppContext) {
   app.post("/auth/login", async (request) => {
     const body = loginSchema.parse(request.body);
-    const user = context.store.findUserByEmail(body.email);
+    const user = await context.store.findUserByEmail(body.email);
 
     if (!user) {
       throw new AppError(401, "invalid_credentials", "Unknown email for demo login");

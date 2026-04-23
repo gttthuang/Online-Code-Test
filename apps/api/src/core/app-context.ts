@@ -1,7 +1,7 @@
 import type { FakeJudgeQueue } from "../infra/fake-judge-queue.js";
-import type { InMemoryStore } from "../infra/in-memory-store.js";
+import type { AppStore } from "../infra/store.js";
 
 export interface AppContext {
-  store: InMemoryStore;
+  store: AppStore;
   judgeQueue: FakeJudgeQueue;
 }

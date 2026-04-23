@@ -11,11 +11,11 @@ const candidateIdParamsSchema = z.object({
 
 export async function registerResultRoutes(app: FastifyInstance, context: AppContext) {
   app.get("/admin/candidates/:candidateId/results", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["interviewer"]);
 
     const params = candidateIdParamsSchema.parse(request.params);
-    const result = context.store.listCandidateResults(params.candidateId);
+    const result = await context.store.listCandidateResults(params.candidateId);
 
     if (!result) {
       throw new AppError(404, "candidate_not_found", "Candidate does not exist");

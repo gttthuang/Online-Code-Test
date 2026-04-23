@@ -9,7 +9,7 @@
 - `apps/api`：Fastify + TypeScript 後端
 - `apps/web`：React + Vite + TypeScript 前端
 - `packages/contracts`：前後端共用 DTO / enum
-- 資料層：in-memory seed data
+- 資料層：PostgreSQL
 - 判題流程：in-process fake judge
 
 也就是說，目前已經可以：
@@ -21,7 +21,6 @@
 
 但目前還沒有：
 
-- 真正的 PostgreSQL
 - 真正的 Redis queue
 - 真正的 worker / sandbox
 

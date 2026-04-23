@@ -1,18 +1,18 @@
 import type { JudgeCaseResult, JudgeJob, JudgeResult } from "@oct/contracts";
 
-import type { InMemoryStore } from "./in-memory-store.js";
+import type { AppStore } from "./store.js";
 
 export class FakeJudgeQueue {
-  constructor(private readonly store: InMemoryStore) {}
+  constructor(private readonly store: AppStore) {}
 
   enqueue(job: JudgeJob) {
-    setTimeout(() => {
-      this.store.updateSubmissionStatus(job.submissionId, "running");
+    setTimeout(async () => {
+      await this.store.updateSubmissionStatus(job.submissionId, "running");
     }, 150);
 
-    setTimeout(() => {
-      const submission = this.store.getRawSubmission(job.submissionId);
-      const problem = this.store.getProblem(job.problemId);
+    setTimeout(async () => {
+      const submission = await this.store.getRawSubmission(job.submissionId);
+      const problem = await this.store.getProblem(job.problemId);
 
       if (!submission || !problem) {
         return;
@@ -24,7 +24,7 @@ export class FakeJudgeQueue {
         problem.hiddenTestCases.map((testCase) => testCase.id)
       );
 
-      this.store.completeSubmission(job.submissionId, result);
+      await this.store.completeSubmission(job.submissionId, result);
     }, 900);
   }
 }

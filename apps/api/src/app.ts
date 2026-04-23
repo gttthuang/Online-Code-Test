@@ -7,16 +7,27 @@ import { registerResultRoutes } from "./modules/results/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { toErrorResponse } from "./core/errors.js";
 import { FakeJudgeQueue } from "./infra/fake-judge-queue.js";
-import { InMemoryStore } from "./infra/in-memory-store.js";
+import { config } from "./config.js";
+import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
+import { initializePostgres } from "./infra/postgres-init.js";
+import { PostgresStore } from "./infra/postgres-store.js";
 
-export function buildApp() {
+export async function buildApp() {
   const app = Fastify({
     logger: true
   });
 
-  const store = new InMemoryStore();
+  await ensurePostgresDatabase(config.postgres);
+  const postgresPool = createPostgresPool(config.postgres);
+  await initializePostgres(postgresPool);
+
+  const store = new PostgresStore(postgresPool);
   const judgeQueue = new FakeJudgeQueue(store);
   const context = { store, judgeQueue };
+
+  app.addHook("onClose", async () => {
+    await postgresPool.end();
+  });
 
   app.get("/", async () => ({
     service: "online-code-test-api",
@@ -48,8 +59,15 @@ export function buildApp() {
   app.get("/healthz", async () => ({
     status: "ok",
     service: "api",
-    storageMode: "in-memory",
-    queueMode: "fake-judge"
+    storageMode: "postgres",
+    queueMode: "fake-judge",
+    postgres: {
+      configuredHost: config.postgres.host,
+      configuredDatabase: config.postgres.database,
+      status: await pingPostgres(postgresPool)
+        .then(() => "reachable")
+        .catch(() => "unreachable")
+    }
   }));
 
   app.setErrorHandler((error, _request, reply) => {

@@ -31,16 +31,16 @@ const createProblemSchema = z.object({
 
 export async function registerProblemRoutes(app: FastifyInstance, context: AppContext) {
   app.get("/me/problems/:problemId", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["candidate"]);
 
     const params = problemIdParamsSchema.parse(request.params);
 
-    if (!context.store.isProblemAssigned(user.id, params.problemId)) {
+    if (!(await context.store.isProblemAssigned(user.id, params.problemId))) {
       throw new AppError(403, "problem_not_assigned", "Candidate has not been assigned this problem");
     }
 
-    const problem = context.store.getProblemDetail(params.problemId);
+    const problem = await context.store.getProblemDetail(params.problemId);
 
     if (!problem) {
       throw new AppError(404, "problem_not_found", "Problem does not exist");
@@ -50,20 +50,20 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
   });
 
   app.get("/admin/problems", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["interviewer", "problem_admin"]);
 
     return context.store.listProblems();
   });
 
   app.post("/admin/problems", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["problem_admin"]);
 
     const body = createProblemSchema.parse(request.body);
 
     return {
-      problem: context.store.createProblem(body, user.id)
+      problem: await context.store.createProblem(body, user.id)
     };
   });
 }

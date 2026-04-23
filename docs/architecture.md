@@ -9,7 +9,7 @@ Browser
   -> apps/web (React + Vite, localhost:5173)
   -> proxy /auth /me /admin /healthz
   -> apps/api (Fastify, localhost:3000)
-      -> InMemoryStore
+      -> PostgreSQL
       -> FakeJudgeQueue
 ```
 
@@ -63,23 +63,24 @@ Browser
 
 目前這版：
 
-- 不是正式資料庫架構
 - 不是正式 queue + worker 架構
 - 不是正式雲端部署架構
 - 不是正式 sandbox judge
 
 ## 目前的資料層
 
-目前資料都放在 API process 的記憶體裡：
+目前資料已經改成 PostgreSQL 持久化：
 
+- 連線與 DB helper：`apps/api/src/infra/postgres.ts`
+- schema/init/seed：`apps/api/src/infra/postgres-init.ts`
+- repository：`apps/api/src/infra/postgres-store.ts`
 - seed data 來源：`apps/api/src/infra/seed.ts`
-- runtime data：`apps/api/src/infra/in-memory-store.ts`
 
-所以只要 backend 重啟：
+所以現在：
 
-- 新增的 problem 會消失
-- 新增的 assignment 會消失
-- submission 與 result 會消失
+- backend 重啟後資料不會消失
+- 新增的 problem / assignment / submission / result 都會寫進 DB
+- 本地預設使用 `localhost:5433` 對接 docker compose 裡的 PostgreSQL，避免撞到本機自己的 `5432`
 
 ## 目前的判題流程
 
@@ -111,7 +112,7 @@ Browser
 
 ## 建議替換順序
 
-1. 先把 `InMemoryStore` 換成 PostgreSQL repository
-2. 再把 `FakeJudgeQueue` 換成 Redis queue
-3. 把 judge execution 移到 `apps/judge-worker`
-4. 最後再做 sandbox / resource limit / deployment
+1. 先把 `FakeJudgeQueue` 換成 Redis queue
+2. 把 judge execution 移到 `apps/judge-worker`
+3. 再補 sandbox / resource limit
+4. 最後整理 deployment / observability / scaling

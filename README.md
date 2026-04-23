@@ -9,10 +9,10 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 - `apps/api`: Fastify + TypeScript backend
 - `apps/web`: React + Vite + TypeScript frontend
 - `packages/contracts`: shared DTOs and enums
-- data layer: in-memory seed data
+- data layer: PostgreSQL
 - judge flow: in-process fake judge
 
-This means the app is ready for UI iteration and API integration work, but it is not connected to PostgreSQL or Redis yet.
+This means the app is ready for UI iteration and API integration work. PostgreSQL is already connected; Redis and a real worker are not in place yet.
 
 ## Quick Start
 

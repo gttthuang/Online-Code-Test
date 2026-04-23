@@ -68,7 +68,7 @@
 
 - 可載入 problem list
 - 可建立 problem
-- 建立後會回到目前執行中的 in-memory data
+- 建立後會寫進 PostgreSQL，重啟 backend 不會消失
 
 目前檔案：
 
@@ -391,7 +391,7 @@
 - 現在就可以開始，因為 repo 已經有 `apps/judge-worker` placeholder
 - 最好和 A、D 同步進行
 - A 把 candidate 畫面整理好之後，E 會更容易抽 async 顯示邏輯
-- 若你之後把 in-memory 換掉，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
+- 若你之後把 fake judge 換成真 queue / worker，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
 - E 做完會直接 cover spec 裡最容易漏掉的 async / scalability / deployment / test 幾塊
 
 ## Spec 對應檢查
