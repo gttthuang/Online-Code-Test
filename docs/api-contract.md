@@ -6,10 +6,11 @@
 
 - 資料層：PostgreSQL
 - 判題：獨立 judge worker，以 database polling 方式處理 queued submission
+- 執行：worker 會直接呼叫本機 `python3` / `g++`，並用題目的 `timeLimitMs` 做 timeout
 - 驗證方式：`Authorization: Bearer <token>`
 - demo login 會直接回傳 `token = user.id`
 
-目前的目的，是先讓前端可以穩定串接。現在 persistence 已經進 PostgreSQL，worker 也已經獨立；之後把 fake judge 換成 Redis + sandbox worker 時，盡量不改 API surface。
+目前的目的，是先讓前端可以穩定串接。現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission；之後把 database polling 換成 Redis、把本機執行換成 sandbox worker 時，盡量不改 API surface。
 
 ## Base URL
 

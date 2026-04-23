@@ -12,10 +12,16 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 - `packages/contracts`: shared DTOs and enums
 - data layer: PostgreSQL
 - judge flow: PostgreSQL-backed queue + separate worker process
+- execution: local `python3` and `g++` runners with timeout
 
 This means the app is ready for UI iteration and API integration work. PostgreSQL and a basic worker are connected; Redis and sandboxed execution are not in place yet.
 
 ## Quick Start
+
+Host prerequisites:
+
+- `python3`
+- `g++`
 
 ```bash
 npm ci

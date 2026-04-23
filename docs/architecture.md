@@ -89,9 +89,17 @@ Browser
 - API 只負責建立 `queued` submission
 - worker 會 claim queued job
 - worker 會把 submission 更新成 `running`
+- worker 會用本機 `python3` / `g++` 執行 submission
+- worker 會讀 hidden test cases，逐筆比對輸出
 - worker 會回寫 `finished` 或 `failed`
 
-目前 worker 仍然是 fake judge 邏輯，不是真正 sandbox execution。
+目前 worker 已經有第一版真實執行能力，但還不是 sandbox execution：
+
+- 有 compile / run / timeout
+- 有 hidden testcase output compare
+- 沒有 container isolation
+- 沒有 network isolation
+- 沒有 memory / process limit
 
 ## 下一階段目標架構
 
@@ -109,6 +117,6 @@ Browser
 
 ## 建議替換順序
 
-1. 先把 `FakeJudgeQueue` 換成 Redis queue
+1. 先把 database polling 換成 Redis queue
 2. 再補 sandbox / resource limit
 3. 再做 deployment / observability / scaling

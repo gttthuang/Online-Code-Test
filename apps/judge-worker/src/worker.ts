@@ -1,10 +1,15 @@
 import type { Pool } from "pg";
-import type { SubmissionDetail } from "@oct/contracts";
+import type { JudgeResult, SubmissionDetail } from "@oct/contracts";
 
-import { buildFakeJudgeResult } from "./fake-judge.js";
+import { executeSubmission } from "./executor.js";
 
 type ClaimedSubmission = SubmissionDetail & {
-  hiddenCaseIds: string[];
+  timeLimitMs: number;
+  hiddenTestCases: Array<{
+    id: string;
+    input: string;
+    expectedOutput: string;
+  }>;
 };
 
 export class JudgeWorker {
@@ -26,11 +31,13 @@ export class JudgeWorker {
 
       console.log(`claim submission ${submission.id} (${submission.language})`);
 
-      const result = buildFakeJudgeResult(
-        submission.id,
-        submission.sourceCode,
-        submission.hiddenCaseIds
-      );
+      const result = await executeSubmission({
+        submissionId: submission.id,
+        language: submission.language,
+        sourceCode: submission.sourceCode,
+        timeLimitMs: submission.timeLimitMs,
+        hiddenTestCases: submission.hiddenTestCases
+      });
 
       await this.completeSubmission(submission.id, result);
       console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
@@ -55,22 +62,23 @@ export class JudgeWorker {
         source_code: string;
         status: SubmissionDetail["status"];
         score: number | null;
+        time_limit_ms: number;
         created_at: string;
         updated_at: string;
       }>(
         `
           with next_submission as (
-            select id
-            from submissions
-            where status = 'queued'
-            order by created_at asc
+            select s.id
+            from submissions s
+            where s.status = 'queued'
+            order by s.created_at asc
             for update skip locked
             limit 1
           )
           update submissions s
           set status = 'running', updated_at = now()
-          from next_submission n
-          where s.id = n.id
+          from next_submission n, problems p
+          where s.id = n.id and p.id = s.problem_id
           returning
             s.id,
             s.candidate_id,
@@ -79,6 +87,7 @@ export class JudgeWorker {
             s.source_code,
             s.status,
             s.score,
+            p.time_limit_ms,
             s.created_at,
             s.updated_at
         `
@@ -91,9 +100,13 @@ export class JudgeWorker {
 
       const submission = claimed.rows[0];
 
-      const testCases = await client.query<{ id: string }>(
+      const testCases = await client.query<{
+        id: string;
+        input: string;
+        expected_output: string;
+      }>(
         `
-          select id
+          select id, input, expected_output
           from test_cases
           where problem_id = $1 and is_hidden = true
           order by id asc
@@ -111,10 +124,15 @@ export class JudgeWorker {
         sourceCode: submission.source_code,
         status: submission.status,
         score: submission.score,
+        timeLimitMs: submission.time_limit_ms,
         createdAt: submission.created_at,
         updatedAt: submission.updated_at,
         result: null,
-        hiddenCaseIds: testCases.rows.map((row) => row.id)
+        hiddenTestCases: testCases.rows.map((row) => ({
+          id: row.id,
+          input: row.input,
+          expectedOutput: row.expected_output
+        }))
       };
     } catch (error) {
       await client.query("rollback");
@@ -126,7 +144,7 @@ export class JudgeWorker {
 
   private async completeSubmission(
     submissionId: string,
-    result: ReturnType<typeof buildFakeJudgeResult>
+    result: JudgeResult
   ) {
     const client = await this.pool.connect();
 

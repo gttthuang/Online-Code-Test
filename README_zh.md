@@ -12,6 +12,7 @@
 - `packages/contracts`：前後端共用 DTO / enum
 - 資料層：PostgreSQL
 - 判題流程：PostgreSQL queue + 獨立 worker process
+- 執行方式：本機 `python3` / `g++` runner + timeout
 
 也就是說，目前已經可以：
 
@@ -27,6 +28,11 @@
 - 真正的 sandbox 隔離
 
 ## 本機啟動
+
+主機環境需要先有：
+
+- `python3`
+- `g++`
 
 ```bash
 npm ci
