@@ -12,7 +12,7 @@
 - `packages/contracts`：前後端共用 DTO / enum
 - 資料層：PostgreSQL
 - 判題流程：PostgreSQL queue + 獨立 worker process
-- 執行方式：本機 `python3` / `g++` runner + timeout
+- 執行方式：Docker 隔離的 `python` / `cpp` runner + timeout
 
 也就是說，目前已經可以：
 
@@ -25,14 +25,13 @@
 但目前還沒有：
 
 - 真正的 Redis queue
-- 真正的 sandbox 隔離
+- 更完整的 production-grade sandbox 隔離
 
 ## 本機啟動
 
 主機環境需要先有：
 
-- `python3`
-- `g++`
+- Docker / Docker Desktop
 
 ```bash
 npm ci
@@ -41,6 +40,8 @@ npm run dev:api
 npm run dev:worker
 npm run dev:web
 ```
+
+第一次啟動 worker 時，可能會先花一些時間拉 sandbox images。
 
 - 前端：`http://localhost:5173`
 - 後端：`http://localhost:3000`

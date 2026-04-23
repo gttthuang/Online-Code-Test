@@ -1,7 +1,7 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 
 import type { JudgeCaseResult, JudgeResult, SupportedLanguage } from "@oct/contracts";
 
@@ -17,6 +17,14 @@ export type ExecutionSubmission = {
   sourceCode: string;
   timeLimitMs: number;
   hiddenTestCases: HiddenTestCase[];
+  sandbox: {
+    workRoot: string;
+    pythonImage: string;
+    cppImage: string;
+    cpuLimit: string;
+    memoryLimitMb: number;
+    pidsLimit: number;
+  };
 };
 
 type CommandResult = {
@@ -29,14 +37,23 @@ type CommandResult = {
 
 const COMPILE_TIMEOUT_MS = 10_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024;
+const ensuredImages = new Set<string>();
 
 export async function executeSubmission(
   submission: ExecutionSubmission
 ): Promise<JudgeResult> {
-  const workingDirectory = await mkdtemp(join(tmpdir(), "oct-judge-"));
+  const workRoot = resolve(process.cwd(), submission.sandbox.workRoot);
+  await mkdir(workRoot, { recursive: true });
+
+  const workingDirectory = await mkdtemp(join(workRoot, "oct-judge-"));
 
   try {
-    const runnable = await prepareRunnable(submission.language, submission.sourceCode, workingDirectory);
+    const runnable = await prepareRunnable(
+      submission.language,
+      submission.sourceCode,
+      workingDirectory,
+      submission.sandbox
+    );
 
     if ("compileError" in runnable) {
       return {
@@ -54,7 +71,8 @@ export async function executeSubmission(
       const runResult = await runCommand(runnable.command, runnable.args, {
         cwd: workingDirectory,
         input: testCase.input,
-        timeoutMs: submission.timeLimitMs
+        timeoutMs: submission.timeLimitMs,
+        sandbox: submission.sandbox
       });
 
       if (runResult.timedOut) {
@@ -100,28 +118,34 @@ export async function executeSubmission(
   }
 }
 
-async function prepareRunnable(language: SupportedLanguage, sourceCode: string, workingDirectory: string) {
+async function prepareRunnable(
+  language: SupportedLanguage,
+  sourceCode: string,
+  workingDirectory: string,
+  sandbox: ExecutionSubmission["sandbox"]
+) {
   if (language === "python") {
+    await ensureDockerImage(sandbox.pythonImage);
     const sourcePath = join(workingDirectory, "main.py");
     await writeFile(sourcePath, sourceCode, "utf8");
 
     return {
       command: "python3",
-      args: [sourcePath]
+      args: ["/workspace/main.py"]
     };
   }
 
+  await ensureDockerImage(sandbox.cppImage);
   const sourcePath = join(workingDirectory, "main.cpp");
-  const outputPath = join(workingDirectory, "main");
-
   await writeFile(sourcePath, sourceCode, "utf8");
 
   const compileResult = await runCommand(
     "g++",
-    [sourcePath, "-std=c++17", "-O2", "-o", outputPath],
+    ["/workspace/main.cpp", "-std=c++17", "-O2", "-o", "/workspace/main"],
     {
       cwd: workingDirectory,
-      timeoutMs: COMPILE_TIMEOUT_MS
+      timeoutMs: COMPILE_TIMEOUT_MS,
+      sandbox
     }
   );
 
@@ -138,7 +162,7 @@ async function prepareRunnable(language: SupportedLanguage, sourceCode: string, 
   }
 
   return {
-    command: outputPath,
+    command: "/workspace/main",
     args: []
   };
 }
@@ -150,12 +174,20 @@ async function runCommand(
     cwd: string;
     input?: string;
     timeoutMs: number;
+    sandbox: ExecutionSubmission["sandbox"];
   }
 ): Promise<CommandResult> {
   return await new Promise((resolve, reject) => {
     const start = Date.now();
-    const child = spawn(command, args, {
-      cwd: options.cwd,
+    const containerName = `oct-judge-${randomUUID()}`;
+    const dockerArgs = buildDockerRunArgs(
+      containerName,
+      options.cwd,
+      options.sandbox,
+      command,
+      args
+    );
+    const child = spawn("docker", dockerArgs, {
       stdio: "pipe"
     });
 
@@ -168,6 +200,7 @@ async function runCommand(
 
     const timer = setTimeout(() => {
       timedOut = true;
+      void cleanupContainer(containerName);
       child.kill("SIGKILL");
     }, options.timeoutMs);
 
@@ -227,6 +260,127 @@ async function runCommand(
 
     child.stdin.end();
   });
+}
+
+async function ensureDockerImage(image: string) {
+  if (ensuredImages.has(image)) {
+    return;
+  }
+
+  const inspectResult = await runHostCommand("docker", ["image", "inspect", image], 15_000);
+
+  if (inspectResult.exitCode !== 0) {
+      const pullResult = await runHostCommand("docker", ["pull", image], 180_000);
+
+      if (pullResult.exitCode !== 0) {
+        throw new Error(
+          `failed_to_pull_sandbox_image: ${image}${pullResult.stderr ? ` (${pullResult.stderr.trim()})` : ""}`
+        );
+      }
+    }
+
+  ensuredImages.add(image);
+}
+
+async function runHostCommand(command: string, args: string[], timeoutMs: number) {
+  return await new Promise<CommandResult>((resolve, reject) => {
+    const start = Date.now();
+    const child = spawn(command, args, {
+      stdio: "pipe"
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("error", (error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+
+    child.on("close", (exitCode) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        exitCode,
+        stdout,
+        stderr,
+        durationMs: Date.now() - start,
+        timedOut
+      });
+    });
+  });
+}
+
+function buildDockerRunArgs(
+  containerName: string,
+  workingDirectory: string,
+  sandbox: ExecutionSubmission["sandbox"],
+  command: string,
+  args: string[]
+) {
+  return [
+    "run",
+    "--rm",
+    "--name",
+    containerName,
+    "-i",
+    "--network",
+    "none",
+    "--cpus",
+    sandbox.cpuLimit,
+    "--memory",
+    `${sandbox.memoryLimitMb}m`,
+    "--memory-swap",
+    `${sandbox.memoryLimitMb}m`,
+    "--pids-limit",
+    String(sandbox.pidsLimit),
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,noexec,nosuid,size=64m",
+    "--volume",
+    `${workingDirectory}:/workspace`,
+    "--workdir",
+    "/workspace",
+    command === "python3" ? sandbox.pythonImage : sandbox.cppImage,
+    command,
+    ...args
+  ];
+}
+
+async function cleanupContainer(containerName: string) {
+  try {
+    await runHostCommand("docker", ["rm", "-f", containerName], 10_000);
+  } catch {
+    // Best-effort cleanup after timeout.
+  }
 }
 
 function normalizeOutput(output: string) {

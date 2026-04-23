@@ -7,5 +7,13 @@ export const config = {
     user: process.env.POSTGRES_USER || "postgres",
     password: process.env.POSTGRES_PASSWORD || "postgres",
     ssl: process.env.POSTGRES_SSL === "true"
+  },
+  sandbox: {
+    workRoot: process.env.JUDGE_SANDBOX_WORK_ROOT || ".judge-work",
+    pythonImage: process.env.JUDGE_PYTHON_IMAGE || "python:3.13-slim",
+    cppImage: process.env.JUDGE_CPP_IMAGE || "gcc:13",
+    cpuLimit: process.env.JUDGE_SANDBOX_CPUS || "1",
+    memoryLimitMb: Number(process.env.JUDGE_SANDBOX_MEMORY_MB || 256),
+    pidsLimit: Number(process.env.JUDGE_SANDBOX_PIDS_LIMIT || 64)
   }
 };

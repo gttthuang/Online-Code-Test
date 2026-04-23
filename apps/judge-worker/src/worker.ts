@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { JudgeResult, SubmissionDetail } from "@oct/contracts";
 
 import { executeSubmission } from "./executor.js";
+import type { config as workerConfig } from "./config.js";
 
 type ClaimedSubmission = SubmissionDetail & {
   timeLimitMs: number;
@@ -17,30 +18,57 @@ export class JudgeWorker {
 
   constructor(
     private readonly pool: Pool,
-    private readonly pollIntervalMs: number
+    private readonly pollIntervalMs: number,
+    private readonly sandbox: typeof workerConfig.sandbox
   ) {}
 
   async start() {
     while (this.running) {
-      const submission = await this.claimNextSubmission();
+      let submission: ClaimedSubmission | null = null;
 
-      if (!submission) {
+      try {
+        submission = await this.claimNextSubmission();
+
+        if (!submission) {
+          await delay(this.pollIntervalMs);
+          continue;
+        }
+
+        console.log(`claim submission ${submission.id} (${submission.language})`);
+
+        const result = await executeSubmission({
+          submissionId: submission.id,
+          language: submission.language,
+          sourceCode: submission.sourceCode,
+          timeLimitMs: submission.timeLimitMs,
+          hiddenTestCases: submission.hiddenTestCases,
+          sandbox: this.sandbox
+        });
+
+        await this.completeSubmission(submission.id, result);
+        console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
+      } catch (error) {
+        console.error("judge worker error", error);
+
+        if (submission) {
+          const failureResult: JudgeResult = {
+            submissionId: submission.id,
+            status: "failed",
+            score: 0,
+            cases: [],
+            errorMessage: toErrorMessage(error)
+          };
+
+          try {
+            await this.completeSubmission(submission.id, failureResult);
+            console.log(`complete submission ${submission.id} -> failed (0)`);
+          } catch (completionError) {
+            console.error("failed to persist submission failure", completionError);
+          }
+        }
+
         await delay(this.pollIntervalMs);
-        continue;
       }
-
-      console.log(`claim submission ${submission.id} (${submission.language})`);
-
-      const result = await executeSubmission({
-        submissionId: submission.id,
-        language: submission.language,
-        sourceCode: submission.sourceCode,
-        timeLimitMs: submission.timeLimitMs,
-        hiddenTestCases: submission.hiddenTestCases
-      });
-
-      await this.completeSubmission(submission.id, result);
-      console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
     }
   }
 
@@ -202,4 +230,12 @@ function delay(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function toErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Judge worker failed unexpectedly";
 }

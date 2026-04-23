@@ -321,7 +321,7 @@
 - queue / worker 流程設計
 - submission 狀態流轉
 - 至少兩種語言的 judge runner 規劃與實作
-- timeout / memory / process limit 的第一版策略
+- Docker sandbox、timeout / memory / process limit 的第一版策略
 - 前端 polling / async 顯示對齊
 - 真實 code execution 情境驗證
 - smoke test / integration test / demo 驗證流程
@@ -365,6 +365,7 @@
 涉及技術：
 
 - queue-based async processing
+- Docker-based sandboxing
 - async state management
 - polling / retry
 - judge runner design
