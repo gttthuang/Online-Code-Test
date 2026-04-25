@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import multipart from "@fastify/multipart";
 
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
 import { registerCandidateRoutes } from "./modules/candidates/routes.js";
@@ -78,7 +79,7 @@ export async function buildApp() {
 
     reply.status(statusCode).send(body);
   });
-
+  app.register(multipart);
   registerAuthRoutes(app, context);
   registerCandidateRoutes(app, context);
   registerAssignmentRoutes(app, context);

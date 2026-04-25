@@ -32,6 +32,9 @@ export interface AppStore {
   getProblem(problemId: string): Promise<ProblemRecord | null>;
   getProblemDetail(problemId: string): Promise<ProblemDetail | null>;
   createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary>;
+  hasAnyAssignment(problemId: string): Promise<boolean>;
+  hasAnySubmission(problemId: string): Promise<boolean>;
+  deleteProblem(problemId: string): Promise<boolean>;
   isProblemAssigned(candidateId: string, problemId: string): Promise<boolean>;
   createAssignment(candidateId: string, problemId: string, assignedBy: string): Promise<AssignmentSummary>;
   hasAssignment(candidateId: string, problemId: string): Promise<boolean>;

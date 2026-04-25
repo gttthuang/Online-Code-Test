@@ -239,6 +239,48 @@ export class PostgresStore implements AppStore {
     return this.toProblemSummary(problem);
   }
 
+  async hasAnyAssignment(problemId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from assignments
+          where problem_id = $1
+        ) as exists
+      `,
+      [problemId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async hasAnySubmission(problemId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from submissions
+          where problem_id = $1
+        ) as exists
+      `,
+      [problemId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async deleteProblem(problemId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+        delete from problems
+        where id = $1
+      `,
+      [problemId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async isProblemAssigned(candidateId: string, problemId: string): Promise<boolean> {
     const result = await this.pool.query<{ exists: boolean }>(
       `
