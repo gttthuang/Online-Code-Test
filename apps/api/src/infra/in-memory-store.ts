@@ -276,4 +276,18 @@ export class InMemoryStore {
         : null
     };
   }
+
+  deleteProblem(problemId: string): boolean {
+    return this.problems.delete(problemId);
+  }
+  hasAnySubmission(problemId: string) {
+    return Array.from(this.submissions.values()).some(
+      (s) => s.problemId === problemId
+    );
+  }
+  hasAnyAssignment(problemId: string) {
+    return Array.from(this.assignments.values()).some(
+      (assignment) => assignment.problemId === problemId
+    );
+  }
 }

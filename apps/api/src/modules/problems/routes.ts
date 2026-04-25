@@ -56,14 +56,91 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
     return context.store.listProblems();
   });
 
-  app.post("/admin/problems", async (request) => {
+  // app.post("/admin/problems", async (request) => {
+  //   const user = requireUser(request, context);
+  //   requireRole(user, ["problem_admin"]);
+
+  //   const body = createProblemSchema.parse(request.body);
+
+  //   return {
+  //     problem: context.store.createProblem(body, user.id)
+  //   };
+  // });
+  app.post("/admin/problems", async (request, reply) => {
     const user = requireUser(request, context);
     requireRole(user, ["problem_admin"]);
 
-    const body = createProblemSchema.parse(request.body);
+    const parts = request.parts();
 
+    const fields: Record<string, any> = {};
+
+    for await (const part of request.parts()) {
+      if (part.type === "field") {
+        fields[part.fieldname] = part.value;
+      }
+    }
+
+    // ----------------------------
+    // Step 3: build hiddenTestCases
+    // ----------------------------
+    const hiddenTestCases = [];
+
+    let i = 0;
+    while (fields[`testcases[${i}][input]`]) {
+      hiddenTestCases.push({
+        input: fields[`testcases[${i}][input]`],
+        expectedOutput: fields[`testcases[${i}][output]`]
+      });
+      i++;
+    }
+
+    // ----------------------------
+    // Step 4: Zod parse
+    // ----------------------------
+    const body = createProblemSchema.parse({
+      title: fields.title,
+      description: fields.description,
+      difficulty: fields.difficulty,
+      timeLimitMs: Number(fields.timeLimitMs),
+      memoryLimitKb: Number(fields.memoryLimitKb),
+      supportedLanguages: JSON.parse(fields.supportedLanguages),
+      sampleInput: fields.sampleInput,
+      sampleOutput: fields.sampleOutput,
+      hiddenTestCases
+    });
+
+    // ----------------------------
+    // Step 5: create problem
+    // ----------------------------
     return {
       problem: context.store.createProblem(body, user.id)
     };
+  });
+  app.delete("/admin/problems/:problemId", async (request, reply) => {
+    const { problemId } = request.params as { problemId: string };
+
+    // ❗新增：檢查是否被使用
+    const hasAssignment = context.store.hasAnyAssignment(problemId);
+    const hasSubmission = context.store.hasAnySubmission(problemId);
+
+    if (hasAssignment || hasSubmission) {
+      return reply.status(400).send({
+        error: {
+          message: "Cannot delete problem in use"
+        }
+      });
+    }
+
+    const deleted = context.store.deleteProblem(problemId);
+
+    if (!deleted) {
+      return reply.status(404).send({
+        error: {
+          message: "Problem not found"
+        }
+      });
+    }
+
+    return reply.status(204).send();
   });
 }
