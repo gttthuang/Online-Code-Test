@@ -1,0 +1,607 @@
+import { randomUUID } from "node:crypto";
+
+import type {
+  AssignmentSummary,
+  AuthUser,
+  CandidateResultItem,
+  CandidateResultsResponse,
+  CreateCandidateRequest,
+  CreateProblemRequest,
+  CreateSubmissionRequest,
+  JudgeResult,
+  ProblemDetail,
+  ProblemSummary,
+  SubmissionDetail,
+  SubmissionStatus
+} from "@oct/contracts";
+import type { Pool } from "pg";
+
+import type { AppStore, HiddenTestCaseRecord, ProblemRecord } from "./store.js";
+
+type ProblemRow = {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: ProblemSummary["difficulty"];
+  time_limit_ms: number;
+  memory_limit_kb: number;
+  supported_languages: string[];
+  sample_input: string;
+  sample_output: string;
+  created_by: string;
+};
+
+type AssignmentRow = {
+  id: string;
+  candidate_id: string;
+  problem_id: string;
+  assigned_by: string;
+  assigned_at: string;
+};
+
+type SubmissionRow = {
+  id: string;
+  candidate_id: string;
+  problem_id: string;
+  language: SubmissionDetail["language"];
+  source_code: string;
+  status: SubmissionStatus;
+  score: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SubmissionCaseRow = {
+  test_case_id: string;
+  passed: boolean;
+  execution_time_ms: number;
+  memory_kb: number;
+};
+
+export class PostgresStore implements AppStore {
+  constructor(private readonly pool: Pool) {}
+
+  async getUserById(userId: string): Promise<AuthUser | null> {
+    const result = await this.pool.query<AuthUser>(
+      `select id, name, email, role from users where id = $1`,
+      [userId]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  async findUserByEmail(email: string): Promise<AuthUser | null> {
+    const result = await this.pool.query<AuthUser>(
+      `select id, name, email, role from users where email = $1`,
+      [email]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  async listCandidates(): Promise<AuthUser[]> {
+    const result = await this.pool.query<AuthUser>(
+      `
+        select id, name, email, role
+        from users
+        where role = 'candidate'
+        order by name asc, email asc
+      `
+    );
+
+    return result.rows;
+  }
+
+  async createCandidate(input: CreateCandidateRequest): Promise<AuthUser> {
+    const candidateId = `candidate_${randomUUID()}`;
+
+    const result = await this.pool.query<AuthUser>(
+      `
+        insert into users (id, name, email, role)
+        values ($1, $2, $3, 'candidate')
+        returning id, name, email, role
+      `,
+      [candidateId, input.name, input.email]
+    );
+
+    return result.rows[0];
+  }
+
+  async listProblems(): Promise<ProblemSummary[]> {
+    const result = await this.pool.query<ProblemRow>(
+      `
+        select
+          id,
+          title,
+          description,
+          difficulty,
+          time_limit_ms,
+          memory_limit_kb,
+          supported_languages,
+          sample_input,
+          sample_output,
+          created_by
+        from problems
+        order by title asc
+      `
+    );
+
+    return result.rows.map((row) => this.toProblemSummary(row));
+  }
+
+  async getProblem(problemId: string): Promise<ProblemRecord | null> {
+    const problemResult = await this.pool.query<ProblemRow>(
+      `
+        select
+          id,
+          title,
+          description,
+          difficulty,
+          time_limit_ms,
+          memory_limit_kb,
+          supported_languages,
+          sample_input,
+          sample_output,
+          created_by
+        from problems
+        where id = $1
+      `,
+      [problemId]
+    );
+
+    const problem = problemResult.rows[0];
+
+    if (!problem) {
+      return null;
+    }
+
+    const testCaseResult = await this.pool.query<{
+      id: string;
+      input: string;
+      expected_output: string;
+    }>(
+      `
+        select id, input, expected_output
+        from test_cases
+        where problem_id = $1 and is_hidden = true
+        order by id asc
+      `,
+      [problemId]
+    );
+
+    const hiddenTestCases: HiddenTestCaseRecord[] = testCaseResult.rows.map((row) => ({
+      id: row.id,
+      input: row.input,
+      expectedOutput: row.expected_output
+    }));
+
+    return {
+      ...this.toProblemDetail(problem),
+      hiddenTestCases,
+      createdBy: problem.created_by
+    };
+  }
+
+  async getProblemDetail(problemId: string): Promise<ProblemDetail | null> {
+    const problem = await this.getProblem(problemId);
+    return problem ? this.toProblemDetail(problem) : null;
+  }
+
+  async createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary> {
+    const problemId = `problem_${randomUUID()}`;
+
+    await this.pool.query(
+      `
+        insert into problems (
+          id,
+          title,
+          description,
+          difficulty,
+          time_limit_ms,
+          memory_limit_kb,
+          supported_languages,
+          sample_input,
+          sample_output,
+          created_by
+        )
+        values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10)
+      `,
+      [
+        problemId,
+        input.title,
+        input.description,
+        input.difficulty,
+        input.timeLimitMs,
+        input.memoryLimitKb,
+        input.supportedLanguages,
+        input.sampleInput,
+        input.sampleOutput,
+        createdBy
+      ]
+    );
+
+    for (const testCase of input.hiddenTestCases ?? []) {
+      await this.pool.query(
+        `
+          insert into test_cases (id, problem_id, input, expected_output, is_hidden)
+          values ($1, $2, $3, $4, true)
+        `,
+        [`case_${randomUUID()}`, problemId, testCase.input, testCase.expectedOutput]
+      );
+    }
+
+    const problem = await this.getProblem(problemId);
+    if (!problem) {
+      throw new Error("failed_to_create_problem");
+    }
+
+    return this.toProblemSummary(problem);
+  }
+
+  async hasAnyAssignment(problemId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from assignments
+          where problem_id = $1
+        ) as exists
+      `,
+      [problemId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async hasAnySubmission(problemId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from submissions
+          where problem_id = $1
+        ) as exists
+      `,
+      [problemId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async deleteProblem(problemId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+        delete from problems
+        where id = $1
+      `,
+      [problemId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async isProblemAssigned(candidateId: string, problemId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from assignments
+          where candidate_id = $1 and problem_id = $2
+        ) as exists
+      `,
+      [candidateId, problemId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async createAssignment(candidateId: string, problemId: string, assignedBy: string): Promise<AssignmentSummary> {
+    const assignmentId = `assignment_${randomUUID()}`;
+    const assignedAt = new Date().toISOString();
+
+    await this.pool.query(
+      `
+        insert into assignments (id, candidate_id, problem_id, assigned_by, assigned_at)
+        values ($1, $2, $3, $4, $5::timestamptz)
+      `,
+      [assignmentId, candidateId, problemId, assignedBy, assignedAt]
+    );
+
+    const result = await this.pool.query<AssignmentRow>(
+      `select id, candidate_id, problem_id, assigned_by, assigned_at from assignments where id = $1`,
+      [assignmentId]
+    );
+
+    return this.toAssignmentSummary(result.rows[0]);
+  }
+
+  async hasAssignment(candidateId: string, problemId: string): Promise<boolean> {
+    return this.isProblemAssigned(candidateId, problemId);
+  }
+
+  async listAssignmentsForCandidate(candidateId: string): Promise<AssignmentSummary[]> {
+    const result = await this.pool.query<AssignmentRow>(
+      `
+        select id, candidate_id, problem_id, assigned_by, assigned_at
+        from assignments
+        where candidate_id = $1
+        order by assigned_at asc
+      `,
+      [candidateId]
+    );
+
+    const summaries = await Promise.all(result.rows.map((row) => this.toAssignmentSummary(row)));
+    return summaries;
+  }
+
+  async createSubmission(candidateId: string, input: CreateSubmissionRequest): Promise<SubmissionDetail> {
+    const submissionId = `submission_${randomUUID()}`;
+    const now = new Date().toISOString();
+
+    await this.pool.query(
+      `
+        insert into submissions (
+          id,
+          candidate_id,
+          problem_id,
+          language,
+          source_code,
+          status,
+          score,
+          error_message,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, 'queued', null, null, $6::timestamptz, $6::timestamptz)
+      `,
+      [submissionId, candidateId, input.problemId, input.language, input.sourceCode, now]
+    );
+
+    const submission = await this.getSubmissionById(submissionId);
+
+    if (!submission) {
+      throw new Error("failed_to_create_submission");
+    }
+
+    return submission;
+  }
+
+  async getSubmissionById(submissionId: string): Promise<SubmissionDetail | null> {
+    const result = await this.pool.query<SubmissionRow>(
+      `
+        select
+          id,
+          candidate_id,
+          problem_id,
+          language,
+          source_code,
+          status,
+          score,
+          error_message,
+          created_at,
+          updated_at
+        from submissions
+        where id = $1
+      `,
+      [submissionId]
+    );
+
+    const submission = result.rows[0];
+
+    if (!submission) {
+      return null;
+    }
+
+    const caseResult = await this.pool.query<SubmissionCaseRow>(
+      `
+        select test_case_id, passed, execution_time_ms, memory_kb
+        from submission_case_results
+        where submission_id = $1
+        order by test_case_id asc
+      `,
+      [submissionId]
+    );
+
+    const resultPayload =
+      submission.status === "finished" || submission.status === "failed"
+        ? {
+            submissionId: submission.id,
+            status: submission.status,
+            score: submission.score ?? 0,
+            cases: caseResult.rows.map((row) => ({
+              testCaseId: row.test_case_id,
+              passed: row.passed,
+              executionTimeMs: row.execution_time_ms,
+              memoryKb: row.memory_kb
+            })),
+            errorMessage: submission.error_message ?? undefined
+          }
+        : null;
+
+    return {
+      id: submission.id,
+      candidateId: submission.candidate_id,
+      problemId: submission.problem_id,
+      language: submission.language,
+      sourceCode: submission.source_code,
+      status: submission.status,
+      score: submission.score,
+      createdAt: submission.created_at,
+      updatedAt: submission.updated_at,
+      result: resultPayload
+    };
+  }
+
+  async getRawSubmission(submissionId: string): Promise<SubmissionDetail | null> {
+    return this.getSubmissionById(submissionId);
+  }
+
+  async updateSubmissionStatus(
+    submissionId: string,
+    status: SubmissionStatus
+  ): Promise<SubmissionDetail | null> {
+    await this.pool.query(
+      `
+        update submissions
+        set status = $2, updated_at = now()
+        where id = $1
+      `,
+      [submissionId, status]
+    );
+
+    return this.getSubmissionById(submissionId);
+  }
+
+  async completeSubmission(submissionId: string, result: JudgeResult): Promise<SubmissionDetail | null> {
+    await this.pool.query("begin");
+
+    try {
+      await this.pool.query(
+        `
+          update submissions
+          set
+            status = $2,
+            score = $3,
+            error_message = $4,
+            updated_at = now()
+          where id = $1
+        `,
+        [submissionId, result.status, result.score, result.errorMessage ?? null]
+      );
+
+      await this.pool.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
+
+      for (const judgeCase of result.cases) {
+        await this.pool.query(
+          `
+            insert into submission_case_results (
+              submission_id,
+              test_case_id,
+              passed,
+              execution_time_ms,
+              memory_kb
+            )
+            values ($1, $2, $3, $4, $5)
+          `,
+          [
+            submissionId,
+            judgeCase.testCaseId,
+            judgeCase.passed,
+            judgeCase.executionTimeMs,
+            judgeCase.memoryKb
+          ]
+        );
+      }
+
+      await this.pool.query("commit");
+    } catch (error) {
+      await this.pool.query("rollback");
+      throw error;
+    }
+
+    return this.getSubmissionById(submissionId);
+  }
+
+  async listCandidateResults(candidateId: string): Promise<CandidateResultsResponse | null> {
+    const candidate = await this.getUserById(candidateId);
+
+    if (!candidate) {
+      return null;
+    }
+
+    const submissions = await this.pool.query<
+      CandidateResultItem & {
+        submissionid: string;
+      }
+    >(
+      `
+        select
+          s.id as "submissionId",
+          s.problem_id as "problemId",
+          p.title as "problemTitle",
+          s.status,
+          s.score,
+          s.created_at as "createdAt",
+          s.updated_at as "updatedAt"
+        from submissions s
+        join problems p on p.id = s.problem_id
+        where s.candidate_id = $1
+        order by s.created_at desc
+      `,
+      [candidateId]
+    );
+
+    return {
+      candidate,
+      submissions: submissions.rows
+    };
+  }
+
+  private async toAssignmentSummary(assignment: AssignmentRow): Promise<AssignmentSummary> {
+    const [problemResult, submissionResult] = await Promise.all([
+      this.pool.query<ProblemRow>(
+        `
+          select
+            id,
+            title,
+            description,
+            difficulty,
+            time_limit_ms,
+            memory_limit_kb,
+            supported_languages,
+            sample_input,
+            sample_output,
+            created_by
+          from problems
+          where id = $1
+        `,
+        [assignment.problem_id]
+      ),
+      this.pool.query<{ status: SubmissionStatus }>(
+        `
+          select status
+          from submissions
+          where candidate_id = $1 and problem_id = $2
+          order by created_at desc
+          limit 1
+        `,
+        [assignment.candidate_id, assignment.problem_id]
+      )
+    ]);
+
+    const problem = problemResult.rows[0];
+    const latestSubmission = submissionResult.rows[0];
+
+    return {
+      id: assignment.id,
+      candidateId: assignment.candidate_id,
+      problemId: assignment.problem_id,
+      problemTitle: problem?.title ?? "Unknown problem",
+      difficulty: problem?.difficulty ?? "easy",
+      assignedAt: assignment.assigned_at,
+      latestSubmissionStatus: latestSubmission?.status ?? null
+    };
+  }
+
+  private toProblemSummary(problem: ProblemRow | ProblemRecord): ProblemSummary {
+    return {
+      id: problem.id,
+      title: problem.title,
+      difficulty: problem.difficulty,
+      timeLimitMs: "time_limit_ms" in problem ? problem.time_limit_ms : problem.timeLimitMs,
+      memoryLimitKb: "memory_limit_kb" in problem ? problem.memory_limit_kb : problem.memoryLimitKb,
+      supportedLanguages:
+        "supported_languages" in problem ? problem.supported_languages as ProblemSummary["supportedLanguages"] : problem.supportedLanguages
+    };
+  }
+
+  private toProblemDetail(problem: ProblemRow | ProblemRecord): ProblemDetail {
+    return {
+      ...this.toProblemSummary(problem),
+      description: problem.description,
+      sampleInput: "sample_input" in problem ? problem.sample_input : problem.sampleInput,
+      sampleOutput: "sample_output" in problem ? problem.sample_output : problem.sampleOutput
+    };
+  }
+}

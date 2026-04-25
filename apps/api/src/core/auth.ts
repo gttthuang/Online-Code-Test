@@ -20,7 +20,7 @@ function getBearerToken(request: FastifyRequest) {
   return token;
 }
 
-export function getCurrentUser(request: FastifyRequest, context: AppContext): AuthUser | null {
+export async function getCurrentUser(request: FastifyRequest, context: AppContext): Promise<AuthUser | null> {
   const token = getBearerToken(request);
 
   if (!token) {
@@ -30,8 +30,8 @@ export function getCurrentUser(request: FastifyRequest, context: AppContext): Au
   return context.store.getUserById(token);
 }
 
-export function requireUser(request: FastifyRequest, context: AppContext): AuthUser {
-  const user = getCurrentUser(request, context);
+export async function requireUser(request: FastifyRequest, context: AppContext): Promise<AuthUser> {
+  const user = await getCurrentUser(request, context);
 
   if (!user) {
     throw new AppError(401, "unauthorized", "A valid Bearer token is required");

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { languages, problemDifficulties } from "@oct/contracts";
 
 import type { AppContext } from "../../core/app-context.js";
@@ -31,16 +31,16 @@ const createProblemSchema = z.object({
 
 export async function registerProblemRoutes(app: FastifyInstance, context: AppContext) {
   app.get("/me/problems/:problemId", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["candidate"]);
 
     const params = problemIdParamsSchema.parse(request.params);
 
-    if (!context.store.isProblemAssigned(user.id, params.problemId)) {
+    if (!(await context.store.isProblemAssigned(user.id, params.problemId))) {
       throw new AppError(403, "problem_not_assigned", "Candidate has not been assigned this problem");
     }
 
-    const problem = context.store.getProblemDetail(params.problemId);
+    const problem = await context.store.getProblemDetail(params.problemId);
 
     if (!problem) {
       throw new AppError(404, "problem_not_found", "Problem does not exist");
@@ -50,97 +50,94 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
   });
 
   app.get("/admin/problems", async (request) => {
-    const user = requireUser(request, context);
+    const user = await requireUser(request, context);
     requireRole(user, ["interviewer", "problem_admin"]);
 
     return context.store.listProblems();
   });
 
-  // app.post("/admin/problems", async (request) => {
-  //   const user = requireUser(request, context);
-  //   requireRole(user, ["problem_admin"]);
-
-  //   const body = createProblemSchema.parse(request.body);
-
-  //   return {
-  //     problem: context.store.createProblem(body, user.id)
-  //   };
-  // });
-  app.post("/admin/problems", async (request, reply) => {
-    const user = requireUser(request, context);
+  app.post("/admin/problems", async (request) => {
+    const user = await requireUser(request, context);
     requireRole(user, ["problem_admin"]);
 
-    const parts = request.parts();
+    const body = await parseCreateProblemRequest(request);
 
-    const fields: Record<string, any> = {};
-
-    for await (const part of request.parts()) {
-      if (part.type === "field") {
-        fields[part.fieldname] = part.value;
-      }
-    }
-
-    // ----------------------------
-    // Step 3: build hiddenTestCases
-    // ----------------------------
-    const hiddenTestCases = [];
-
-    let i = 0;
-    while (fields[`testcases[${i}][input]`]) {
-      hiddenTestCases.push({
-        input: fields[`testcases[${i}][input]`],
-        expectedOutput: fields[`testcases[${i}][output]`]
-      });
-      i++;
-    }
-
-    // ----------------------------
-    // Step 4: Zod parse
-    // ----------------------------
-    const body = createProblemSchema.parse({
-      title: fields.title,
-      description: fields.description,
-      difficulty: fields.difficulty,
-      timeLimitMs: Number(fields.timeLimitMs),
-      memoryLimitKb: Number(fields.memoryLimitKb),
-      supportedLanguages: JSON.parse(fields.supportedLanguages),
-      sampleInput: fields.sampleInput,
-      sampleOutput: fields.sampleOutput,
-      hiddenTestCases
-    });
-
-    // ----------------------------
-    // Step 5: create problem
-    // ----------------------------
     return {
-      problem: context.store.createProblem(body, user.id)
+      problem: await context.store.createProblem(body, user.id)
     };
   });
-  app.delete("/admin/problems/:problemId", async (request, reply) => {
-    const { problemId } = request.params as { problemId: string };
 
-    // ❗新增：檢查是否被使用
-    const hasAssignment = context.store.hasAnyAssignment(problemId);
-    const hasSubmission = context.store.hasAnySubmission(problemId);
+  app.delete("/admin/problems/:problemId", async (request, reply) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+
+    const [hasAssignment, hasSubmission] = await Promise.all([
+      context.store.hasAnyAssignment(params.problemId),
+      context.store.hasAnySubmission(params.problemId)
+    ]);
 
     if (hasAssignment || hasSubmission) {
-      return reply.status(400).send({
-        error: {
-          message: "Cannot delete problem in use"
-        }
-      });
+      throw new AppError(400, "problem_in_use", "Cannot delete problem in use");
     }
 
-    const deleted = context.store.deleteProblem(problemId);
+    const deleted = await context.store.deleteProblem(params.problemId);
 
     if (!deleted) {
-      return reply.status(404).send({
-        error: {
-          message: "Problem not found"
-        }
-      });
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
     return reply.status(204).send();
+  });
+}
+
+async function parseCreateProblemRequest(request: FastifyRequest) {
+  if (!request.isMultipart()) {
+    return createProblemSchema.parse(request.body);
+  }
+
+  const fields = new Map<string, string>();
+
+  for await (const part of request.parts()) {
+    if (part.type === "field") {
+      fields.set(part.fieldname, String(part.value));
+      continue;
+    }
+
+    const content = (await part.toBuffer()).toString("utf8");
+    fields.set(part.fieldname, content);
+  }
+
+  const hiddenTestCases: Array<{ input: string; expectedOutput: string }> = [];
+
+  for (let index = 0; ; index += 1) {
+    const input = fields.get(`testcases[${index}][input]`);
+    const output = fields.get(`testcases[${index}][output]`);
+
+    if (!input && !output) {
+      break;
+    }
+
+    if (!input || !output) {
+      throw new AppError(400, "invalid_testcase_upload", "Each testcase must include both input and output");
+    }
+
+    hiddenTestCases.push({
+      input,
+      expectedOutput: output
+    });
+  }
+
+  return createProblemSchema.parse({
+    title: fields.get("title"),
+    description: fields.get("description"),
+    difficulty: fields.get("difficulty"),
+    timeLimitMs: Number(fields.get("timeLimitMs")),
+    memoryLimitKb: Number(fields.get("memoryLimitKb")),
+    supportedLanguages: JSON.parse(fields.get("supportedLanguages") ?? "[]"),
+    sampleInput: fields.get("sampleInput"),
+    sampleOutput: fields.get("sampleOutput"),
+    hiddenTestCases
   });
 }

@@ -9,8 +9,9 @@ Browser
   -> apps/web (React + Vite, localhost:5173)
   -> proxy /auth /me /admin /healthz
   -> apps/api (Fastify, localhost:3000)
-      -> InMemoryStore
-      -> FakeJudgeQueue
+      -> PostgreSQL
+  -> apps/judge-worker (polling worker)
+      -> PostgreSQL
 ```
 
 ## 目前各層責任
@@ -63,37 +64,43 @@ Browser
 
 目前這版：
 
-- 不是正式資料庫架構
-- 不是正式 queue + worker 架構
 - 不是正式雲端部署架構
 - 不是正式 sandbox judge
 
 ## 目前的資料層
 
-目前資料都放在 API process 的記憶體裡：
+目前資料已經改成 PostgreSQL 持久化：
 
+- 連線與 DB helper：`apps/api/src/infra/postgres.ts`
+- schema/init/seed：`apps/api/src/infra/postgres-init.ts`
+- repository：`apps/api/src/infra/postgres-store.ts`
 - seed data 來源：`apps/api/src/infra/seed.ts`
-- runtime data：`apps/api/src/infra/in-memory-store.ts`
 
-所以只要 backend 重啟：
+所以現在：
 
-- 新增的 problem 會消失
-- 新增的 assignment 會消失
-- submission 與 result 會消失
+- backend 重啟後資料不會消失
+- 新增的 problem / assignment / submission / result 都會寫進 DB
+- 本地預設使用 `localhost:5433` 對接 docker compose 裡的 PostgreSQL，避免撞到本機自己的 `5432`
 
 ## 目前的判題流程
 
-目前判題不是透過真正的 worker，而是在 API process 內用假的 queue 模擬：
+目前 submission 會先寫進 PostgreSQL，接著由獨立的 `apps/judge-worker` 輪詢並處理：
 
-- 檔案：`apps/api/src/infra/fake-judge-queue.ts`
+- API 只負責建立 `queued` submission
+- worker 會 claim queued job
+- worker 會把 submission 更新成 `running`
+- worker 會用本機 `python3` / `g++` 執行 submission
+- worker 會讀 hidden test cases，逐筆比對輸出
+- worker 會回寫 `finished` 或 `failed`
 
-狀態流程：
+目前 worker 已經有第一版 Docker sandbox execution：
 
-- `queued`
-- `running`
-- `finished` 或 `failed`
-
-前端可以先依這個狀態流做 UI。
+- 有 compile / run / timeout
+- 有 hidden testcase output compare
+- 有 Docker container isolation
+- 有 `--network none`
+- 有 CPU / memory / pids limit
+- 還沒有更嚴格的 seccomp / filesystem hardening
 
 ## 下一階段目標架構
 
@@ -111,7 +118,6 @@ Browser
 
 ## 建議替換順序
 
-1. 先把 `InMemoryStore` 換成 PostgreSQL repository
-2. 再把 `FakeJudgeQueue` 換成 Redis queue
-3. 把 judge execution 移到 `apps/judge-worker`
-4. 最後再做 sandbox / resource limit / deployment
+1. 先把 database polling 換成 Redis queue
+2. 再補更嚴格的 sandbox / filesystem / seccomp 策略
+3. 再做 deployment / observability / scaling

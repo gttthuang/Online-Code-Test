@@ -4,12 +4,13 @@
 
 ## 目前後端模式
 
-- 資料層：in-memory seed data
-- 判題：in-process fake judge
+- 資料層：PostgreSQL
+- 判題：獨立 judge worker，以 database polling 方式處理 queued submission
+- 執行：worker 會用短生命週期 Docker container 跑 `python` / `cpp`，並用題目的 `timeLimitMs` 做 timeout
 - 驗證方式：`Authorization: Bearer <token>`
 - demo login 會直接回傳 `token = user.id`
 
-目前的目的，是先讓前端可以穩定串接。之後把 in-memory 換成 PostgreSQL、把 fake judge 換成 Redis + worker 時，盡量不改 API surface。
+目前的目的，是先讓前端可以穩定串接。現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission；之後把 database polling 換成 Redis、把 Docker sandbox 強化成更完整的 production worker 時，盡量不改 API surface。
 
 ## Base URL
 
@@ -70,6 +71,8 @@ Authorization: Bearer <token>
 
 ### Interviewer
 
+- `GET /admin/candidates`
+- `POST /admin/candidates`
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
 
@@ -82,6 +85,54 @@ Request:
 ```json
 {
   "email": "alice.candidate@example.com"
+}
+```
+
+### `GET /admin/candidates`
+
+用途：
+
+- 讓 interviewer 取得 candidate 清單
+- 前端之後可以拿這份資料做 assignment form 下拉選單
+
+Response:
+
+```json
+[
+  {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  }
+]
+```
+
+### `POST /admin/candidates`
+
+用途：
+
+- interviewer 建立新的 candidate 帳號
+
+Request:
+
+```json
+{
+  "name": "David Candidate",
+  "email": "david.candidate@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_xxx",
+    "name": "David Candidate",
+    "email": "david.candidate@example.com",
+    "role": "candidate"
+  }
 }
 ```
 

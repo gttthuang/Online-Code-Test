@@ -68,7 +68,7 @@
 
 - 可載入 problem list
 - 可建立 problem
-- 建立後會回到目前執行中的 in-memory data
+- 建立後會寫進 PostgreSQL，重啟 backend 不會消失
 
 目前檔案：
 
@@ -321,9 +321,9 @@
 - queue / worker 流程設計
 - submission 狀態流轉
 - 至少兩種語言的 judge runner 規劃與實作
-- timeout / memory / process limit 的第一版策略
+- Docker sandbox、timeout / memory / process limit 的第一版策略
 - 前端 polling / async 顯示對齊
-- fake judge 情境驗證
+- 真實 code execution 情境驗證
 - smoke test / integration test / demo 驗證流程
 - Docker Compose 與本地 demo 穩定性
 - 後續若要上雲，優先接 deployment 骨架
@@ -331,7 +331,7 @@
 建議主要檔案：
 
 - `apps/judge-worker/*`
-- `apps/api/src/infra/fake-judge-queue.ts`
+- `apps/api/src/infra/judge-queue.ts`
 - `apps/api/src/modules/submissions/*`
 - `apps/web/src/lib/api.ts`
 - `apps/web/src/views/CandidateWorkspace.tsx` 的 async 邏輯部分
@@ -351,9 +351,9 @@
 - 至少有 timeout 機制，避免 submission 無限卡住
 - 至少能明確重現 4 種 demo 情境：
   - 成功
-  - `compile_error`
-  - `runtime_error`
-  - `wrong_answer`
+  - compile error
+  - runtime / timeout error
+  - wrong answer
 - 至少有一份 smoke test checklist，其他人照著跑也能驗證自己的頁面與 judge 狀態
 - 至少驗過一次：
   - candidate flow
@@ -365,6 +365,7 @@
 涉及技術：
 
 - queue-based async processing
+- Docker-based sandboxing
 - async state management
 - polling / retry
 - judge runner design
@@ -388,10 +389,10 @@
 
 依賴與阻塞：
 
-- 現在就可以開始，因為 repo 已經有 `apps/judge-worker` placeholder
+- 現在就可以開始，因為 repo 已經有可跑的 `apps/judge-worker`
 - 最好和 A、D 同步進行
 - A 把 candidate 畫面整理好之後，E 會更容易抽 async 顯示邏輯
-- 若你之後把 in-memory 換掉，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
+- 若你之後把 database polling worker 換成 Redis queue / sandbox worker，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
 - E 做完會直接 cover spec 裡最容易漏掉的 async / scalability / deployment / test 幾塊
 
 ## Spec 對應檢查
