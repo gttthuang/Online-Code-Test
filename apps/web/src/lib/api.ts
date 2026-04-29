@@ -11,7 +11,9 @@ import type {
   LoginResponse,
   ProblemSummary,
   ProblemDetail,
-  SubmissionDetail
+  SubmissionDetail,
+  CreateCandidateRequest,
+  CreateCandidateResponse
 } from "@oct/contracts";
 
 interface HealthResponse {
@@ -201,4 +203,29 @@ export function createAssignment(token: string, payload: CreateAssignmentRequest
 
 export function getCandidateResults(token: string, candidateId: string) {
   return request<CandidateResultsResponse>(`/admin/candidates/${candidateId}/results`, undefined, token);
+}
+
+export function getCandidates(token: string) {
+  return request<AuthUser[]>("/admin/candidates", undefined, token);
+}
+
+export function createCandidate(token: string, payload: CreateCandidateRequest) {
+  return request<CreateCandidateResponse>(
+    "/admin/candidates",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function deleteCandidate(token: string, candidateId: string) {
+  return request<void>(
+    `/admin/candidates/${candidateId}`,
+    {
+      method: "DELETE",
+    },
+    token
+  );
 }
