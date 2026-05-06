@@ -336,11 +336,6 @@ textarea {
   cursor: pointer;
 }
 
-.code-editor {
-  min-height: 16rem;
-  resize: vertical;
-  font-family: "IBM Plex Mono", monospace;
-}
 
 .text-block {
   min-height: 7rem;
