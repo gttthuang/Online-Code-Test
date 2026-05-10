@@ -165,12 +165,14 @@ export function App() {
 
       {/* 3. 下方的內容就單純區分 LoginPanel 或是 Workspace */}
       {!session || sessionLoading ? (
-        <LoginPanel
-          health={health}
-          isLoading={loginLoading || sessionLoading}
-          error={loginError}
-          onLogin={handleLogin}
-        />
+        <div className="workspace-container">
+          <LoginPanel
+            health={health}
+            isLoading={loginLoading || sessionLoading}
+            error={loginError}
+            onLogin={handleLogin}
+          />
+        </div>
       ) : (
         <>
           {session.user.role === "candidate" ? <CandidateWorkspace token={session.token} user={session.user} /> : null}
