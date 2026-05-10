@@ -2,24 +2,13 @@ import { useEffect, useState } from "react";
 import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SupportedLanguage } from "@oct/contracts";
 
 import { createSubmission, getAssignments, getProblem, getSubmission } from "../lib/api";
+import "./candidate.css";
 
 const scenarioTemplates = [
-  {
-    label: "Accepted",
-    code: "print(42)"
-  },
-  {
-    label: "Wrong Answer",
-    code: "wrong_answer"
-  },
-  {
-    label: "Compile Error",
-    code: "compile_error"
-  },
-  {
-    label: "Runtime Error",
-    code: "runtime_error"
-  }
+  { label: "Accepted", code: "print(42)" },
+  { label: "Wrong Answer", code: "wrong_answer" },
+  { label: "Compile Error", code: "compile_error" },
+  { label: "Runtime Error", code: "runtime_error" }
 ];
 
 interface CandidateWorkspaceProps {
@@ -39,35 +28,31 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [submissionLoading, setSubmissionLoading] = useState(false);
 
+  const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
+  const [rightTab, setRightTab] = useState<"testcases" | "output">("testcases");
+
+  // UI 控制狀態
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(40);
+  const [topHeight, setTopHeight] = useState(60);
+
   useEffect(() => {
     let cancelled = false;
-
     setAssignmentsLoading(true);
     setWorkspaceError(null);
-
     getAssignments(token)
       .then((items) => {
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         setAssignments(items);
         setSelectedProblemId((current) => current ?? items[0]?.problemId ?? null);
       })
       .catch((error) => {
-        if (!cancelled) {
-          setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
-        }
+        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
       })
       .finally(() => {
-        if (!cancelled) {
-          setAssignmentsLoading(false);
-        }
+        if (!cancelled) setAssignmentsLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [token]);
 
   useEffect(() => {
@@ -75,69 +60,43 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
       setProblem(null);
       return;
     }
-
     let cancelled = false;
-
     setProblemLoading(true);
     setWorkspaceError(null);
-
     getProblem(token, selectedProblemId)
       .then((nextProblem) => {
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         setProblem(nextProblem);
         setLanguage((current) =>
           nextProblem.supportedLanguages.includes(current) ? current : nextProblem.supportedLanguages[0]
         );
       })
       .catch((error) => {
-        if (!cancelled) {
-          setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
-        }
+        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
       })
       .finally(() => {
-        if (!cancelled) {
-          setProblemLoading(false);
-        }
+        if (!cancelled) setProblemLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [selectedProblemId, token]);
 
   useEffect(() => {
-    if (!submission || !["queued", "running"].includes(submission.status)) {
-      return;
-    }
-
+    if (!submission || !["queued", "running"].includes(submission.status)) return;
     let cancelled = false;
     let timer = 0;
-
     const poll = async () => {
       try {
         const nextSubmission = await getSubmission(token, submission.id);
-
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         setSubmission(nextSubmission);
-
         if (["queued", "running"].includes(nextSubmission.status)) {
           timer = window.setTimeout(poll, 1000);
         }
       } catch (error) {
-        if (!cancelled) {
-          setWorkspaceError(error instanceof Error ? error.message : "Failed to poll submission");
-        }
+        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll submission");
       }
     };
-
     timer = window.setTimeout(poll, 600);
-
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -145,20 +104,16 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
   }, [submission, token]);
 
   async function handleSubmit() {
-    if (!problem) {
-      return;
-    }
-
+    if (!problem) return;
     setSubmissionLoading(true);
     setWorkspaceError(null);
-
+    setRightTab("output");
     try {
       const created = await createSubmission(token, {
         problemId: problem.id,
         language,
         sourceCode
       });
-
       setSubmission({
         id: created.submissionId,
         candidateId: user.id,
@@ -178,158 +133,286 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
     }
   }
 
+  const handleColDividerDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftWidth;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = startWidth + (deltaX / window.innerWidth) * 100;
+      setLeftWidth(Math.max(20, Math.min(newWidth, 80)));
+    };
+
+    const onPointerUp = () => {
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+    };
+
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+  };
+
+  const handleRowDividerDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = topHeight;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const newHeight = startHeight + (deltaY / window.innerHeight) * 100;
+      setTopHeight(Math.max(20, Math.min(newHeight, 80)));
+    };
+
+    const onPointerUp = () => {
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+    };
+
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+  };
+
   return (
-    <section className="workspace-grid workspace-grid-wide">
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Assignments</p>
-            <h2>{assignmentsLoading ? "Loading..." : `${assignments.length} problem(s)`}</h2>
-          </div>
+    <div className="fullscreen-wrapper">
+
+      {/* 固定在左側邊緣的開啟按鈕 (未開啟抽屜時顯示) */}
+      {!isSelectorOpen && (
+        <button
+          className="drawer-toggle-btn"
+          onClick={() => setIsSelectorOpen(true)}
+          title="Show Assignments"
+        >
+          &gt;
+        </button>
+      )}
+
+      {/* 側邊抽屜 Overlay */}
+      {isSelectorOpen && (
+        <div className="drawer-overlay" onClick={() => setIsSelectorOpen(false)} />
+      )}
+
+      {/* 側邊抽屜：題目選擇器 */}
+      <div className={`problem-drawer ${isSelectorOpen ? "open" : ""}`}>
+        <div className="panel-header" style={{ marginBottom: '1rem' }}>
+          <h2>Assignments</h2>
+          <button className="chip-button" onClick={() => setIsSelectorOpen(false)} title="Close">
+            ✕
+          </button>
         </div>
 
-        <div className="assignment-list">
-          {assignments.map((assignment) => (
-            <button
-              key={assignment.id}
-              className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
-              onClick={() => setSelectedProblemId(assignment.problemId)}
-              type="button"
-            >
-              <strong>{assignment.problemTitle}</strong>
-              <span>{assignment.difficulty}</span>
-              <small>
-                Latest status: {assignment.latestSubmissionStatus ? assignment.latestSubmissionStatus : "none"}
-              </small>
-            </button>
-          ))}
-
-          {!assignmentsLoading && assignments.length === 0 ? (
+        <div className="problem-stack assignment-list">
+          {assignmentsLoading ? (
+            <p className="empty-state">Loading assignments...</p>
+          ) : assignments.length === 0 ? (
             <div className="empty-state">No assignments yet.</div>
-          ) : null}
+          ) : (
+            assignments.map((assignment) => (
+              <button
+                key={assignment.id}
+                className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
+                onClick={() => {
+                  setSelectedProblemId(assignment.problemId);
+                  setIsSelectorOpen(false);
+                }}
+                type="button"
+              >
+                <strong>{assignment.problemTitle}</strong>
+                <span>{assignment.difficulty}</span>
+              </button>
+            ))
+          )}
         </div>
-      </article>
+      </div>
 
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Problem</p>
-            <h2>{problemLoading ? "Loading problem..." : problem?.title ?? "Select an assignment"}</h2>
-          </div>
-        </div>
+      {/* 主要雙欄工作區 */}
+      <section className="workspace-container">
 
-        {problem ? (
-          <div className="problem-stack">
-            <p className="panel-copy">{problem.description}</p>
-
-            <div className="meta-row">
-              <span>Difficulty: {problem.difficulty}</span>
-              <span>Time: {problem.timeLimitMs} ms</span>
-              <span>Memory: {problem.memoryLimitKb} KB</span>
-            </div>
-
-            <div className="sample-grid">
-              <div>
-                <p className="label-text">Sample Input</p>
-                <pre>{problem.sampleInput}</pre>
+        {/* ================= 左欄：題目敘述與紀錄 ================= */}
+        <div className="panel-flex-content" style={{ flex: leftWidth, minWidth: "300px" }}>
+          <article className="status-card panel-column" style={{ height: '100%' }}>
+            <div className="panel-header">
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <h2>{problemLoading ? "Loading..." : problem?.title ?? "Select an assignment"}</h2>
               </div>
-
-              <div>
-                <p className="label-text">Sample Output</p>
-                <pre>{problem.sampleOutput}</pre>
-              </div>
-            </div>
-
-            <div className="editor-toolbar">
-              <label className="field field-inline">
-                <span>Language</span>
-                <select value={language} onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}>
-                  {problem.supportedLanguages.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </label>
 
               <div className="scenario-row">
-                {scenarioTemplates.map((scenario) => (
-                  <button
-                    key={scenario.label}
-                    className="chip-button"
-                    onClick={() => setSourceCode(scenario.code)}
-                    type="button"
-                  >
-                    {scenario.label}
-                  </button>
-                ))}
+                <button
+                  className="chip-button"
+                  onClick={() => setLeftTab("description")}
+                  style={{ fontWeight: leftTab === "description" ? "bold" : "normal" }}
+                >
+                  Description
+                </button>
+                <button
+                  className="chip-button"
+                  onClick={() => setLeftTab("submissions")}
+                  style={{ fontWeight: leftTab === "submissions" ? "bold" : "normal" }}
+                >
+                  Submissions
+                </button>
               </div>
             </div>
 
-            <textarea
-              className="code-editor"
-              onChange={(event) => setSourceCode(event.target.value)}
-              spellCheck={false}
-              value={sourceCode}
-            />
+            <div className="problem-stack">
+              {leftTab === "description" ? (
+                problem ? (
+                  <>
+                    <div className="meta-row">
+                      <span>Difficulty: {problem.difficulty}</span>
+                      <span>Time: {problem.timeLimitMs} ms</span>
+                      <span>Memory: {problem.memoryLimitKb} KB</span>
+                    </div>
 
-            <button className="primary-button" disabled={submissionLoading} onClick={handleSubmit} type="button">
-              {submissionLoading ? "Submitting..." : "Submit Code"}
-            </button>
+                    <p className="panel-copy">{problem.description}</p>
 
-            {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
-          </div>
-        ) : (
-          <div className="empty-state">Choose an assignment to load the problem statement.</div>
-        )}
-      </article>
-
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Judge Result</p>
-            <h2>{submission ? submission.status : "No submission yet"}</h2>
-          </div>
+                    <div className="sample-grid">
+                      <div>
+                        <p className="label-text">Sample Input</p>
+                        <pre>{problem.sampleInput}</pre>
+                      </div>
+                      <div>
+                        <p className="label-text">Sample Output</p>
+                        <pre>{problem.sampleOutput}</pre>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="empty-state">Open the assignments menu on the left to select a problem.</div>
+                )
+              ) : (
+                submission ? (
+                  <div className="result-stack">
+                    <div className="result-summary">
+                      <strong>Latest Status</strong>
+                      <span>{submission.status}</span>
+                    </div>
+                    <div className="meta-row">
+                      <span>Language: {submission.language}</span>
+                      <span>Score: {submission.score ?? "--"}</span>
+                      <span>Submitted: {new Date(submission.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-state">No submissions yet.</div>
+                )
+              )}
+            </div>
+          </article>
         </div>
 
-        {submission ? (
-          <div className="result-stack">
-            <div className="meta-row">
-              <span>ID: {submission.id}</span>
-              <span>Language: {submission.language}</span>
-            </div>
+        {/* ================= 左右欄拖曳調整列 ================= */}
+        <div className="resizer-x" onPointerDown={handleColDividerDrag} title="Drag to resize columns" />
 
-            <div className="result-summary">
-              <strong>Score</strong>
-              <span>{submission.score ?? "--"}</span>
-            </div>
+        {/* ================= 右欄：上下分割 ================= */}
+        <div className="panel-flex-content" style={{ flex: 100 - leftWidth, minWidth: "300px" }}>
 
-            {submission.result?.errorMessage ? (
-              <p className="error-text">{submission.result.errorMessage}</p>
-            ) : null}
-
-            <div className="case-list">
-              {submission.result?.cases.map((testCase) => (
-                <div className="case-item" key={testCase.testCaseId}>
-                  <div>
-                    <strong>{testCase.testCaseId}</strong>
-                    <small>
-                      {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
-                    </small>
-                  </div>
-                  <span className={testCase.passed ? "case-pass" : "case-fail"}>
-                    {testCase.passed ? "PASS" : "FAIL"}
-                  </span>
+          {/* 右欄上半部：Editor (加入 minHeight: "150px") */}
+          <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
+            <article className="status-card panel-column" style={{ height: '100%' }}>
+              <div className="panel-header">
+                {/* 改為標準 h2 標籤 */}
+                <h2>Code Editor</h2>
+                <div className="editor-toolbar">
+                  {/* 使用 flex-row 與 align-items: center 讓文字與選擇器在同一行 */}
+                  <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{ whiteSpace: "nowrap" }}>Language:</span>
+                    <select
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
+                      style={{ width: "auto", minWidth: "120px" }} // 防止 select 變成 100% 寬度
+                    >
+                      {problem?.supportedLanguages.map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-              ))}
-            </div>
+              </div>
+
+              <div className="problem-stack" style={{ display: "flex", flexDirection: "column" }}>
+                <textarea
+                  className="code-editor"
+                  onChange={(event) => setSourceCode(event.target.value)}
+                  spellCheck={false}
+                  value={sourceCode}
+                />
+
+                {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
+
+                <button className="primary-button" style={{ marginTop: "0rem" }} disabled={submissionLoading} onClick={handleSubmit} type="button">
+                  {submissionLoading ? "Submitting..." : "Run & Submit Code"}
+                </button>
+              </div>
+            </article>
           </div>
-        ) : (
-          <div className="empty-state">
-            Submit something first. Use the scenario buttons to simulate different judge outcomes.
+
+          {/* 右欄上下拖曳調整列 */}
+          <div className="resizer-y" onPointerDown={handleRowDividerDrag} title="Drag to resize height" />
+
+          {/* 右欄下半部：Testcases & Output (加入 minHeight: "150px") */}
+          <div className="panel-flex-content" style={{ flex: 100 - topHeight, minHeight: "170px" }}>
+            <article className="status-card panel-column" style={{ height: '100%' }}>
+              <div className="panel-header">
+                <div>
+                  <div className="scenario-row">
+                    <button
+                      className="chip-button"
+                      onClick={() => setRightTab("testcases")}
+                      style={{ fontWeight: rightTab === "testcases" ? "bold" : "normal" }}
+                    >
+                      Testcases
+                    </button>
+                    <button
+                      className="chip-button"
+                      onClick={() => setRightTab("output")}
+                      style={{ fontWeight: rightTab === "output" ? "bold" : "normal" }}
+                    >
+                      Output
+                    </button>
+                  </div>
+                  <h2>{rightTab === "output" && submission ? submission.status : "Console"}</h2>
+                </div>
+              </div>
+
+              {rightTab === "testcases" ? (
+                <div className="problem-stack">
+                  <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
+                </div>
+              ) : (
+                submission ? (
+                  <div className="result-stack">
+                    {submission.result?.errorMessage ? (
+                      <p className="error-text">{submission.result.errorMessage}</p>
+                    ) : null}
+
+                    <div className="case-list">
+                      {submission.result?.cases.map((testCase) => (
+                        <div className="case-item" key={testCase.testCaseId}>
+                          <div>
+                            <strong>{testCase.testCaseId}</strong>
+                            <small>
+                              {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+                            </small>
+                          </div>
+                          <span className={testCase.passed ? "case-pass" : "case-fail"}>
+                            {testCase.passed ? "PASS" : "FAIL"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    Submit code to see judge output.
+                  </div>
+                )
+              )}
+            </article>
           </div>
-        )}
-      </article>
-    </section>
+
+        </div>
+      </section>
+    </div>
   );
 }

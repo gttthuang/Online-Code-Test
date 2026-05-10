@@ -129,24 +129,41 @@ export function App() {
 
   return (
     <main className="app-shell">
-      <section className="hero-panel">
-        <div className="hero-row">
-          <div>
-            <p className="eyebrow">Frontend MVP</p>
-            <h1>Online Code Test</h1>
-            <p className="hero-copy">
-              A role-aware frontend base that teammates can extend without debugging raw API calls
-              from scratch.
-            </p>
-          </div>
+      {/* 1. 新增一個 header-container 把 hero-panel 和 session-strip 包在一起 */}
+      <div className="header-container">
+        <section className="hero-panel">
+          <div className="hero-row">
+            <div>
+              <h1>Online Code Test</h1>
+            </div>
 
-          <div className={`health-indicator health-${health.status}`}>
-            <span className="health-dot" />
-            <span>{health.message}</span>
+            {/* <div className={`health-indicator health-${health.status}`}>
+              <span className="health-dot" />
+              <span>{health.message}</span>
+            </div> */}
           </div>
-        </div>
-      </section>
+        </section>
 
+        {/* 2. 把 session-strip 移到這裡，並加上登入狀態判斷 */}
+        {session && !sessionLoading && (
+          <section className="session-strip">
+            <div>
+              {/* <p className="eyebrow">Current Session</p> */}
+              <div className="session-heading">
+                <h2>{session.user.name}</h2>
+                <span className="role-badge">{session.user.role}</span>
+                {/* <p className="session-copy">{roleCopy[session.user.role]}</p> */}
+
+                <button className="secondary-button" onClick={handleLogout} type="button">
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* 3. 下方的內容就單純區分 LoginPanel 或是 Workspace */}
       {!session || sessionLoading ? (
         <LoginPanel
           health={health}
@@ -156,21 +173,6 @@ export function App() {
         />
       ) : (
         <>
-          <section className="session-strip">
-            <div>
-              <p className="eyebrow">Current Session</p>
-              <div className="session-heading">
-                <h2>{session.user.name}</h2>
-                <span className="role-badge">{session.user.role}</span>
-              </div>
-              <p className="session-copy">{roleCopy[session.user.role]}</p>
-            </div>
-
-            <button className="secondary-button" onClick={handleLogout} type="button">
-              Log Out
-            </button>
-          </section>
-
           {session.user.role === "candidate" ? <CandidateWorkspace token={session.token} user={session.user} /> : null}
           {session.user.role === "interviewer" ? <InterviewerWorkspace token={session.token} /> : null}
           {session.user.role === "problem_admin" ? <ProblemAdminWorkspace token={session.token} /> : null}
@@ -178,4 +180,5 @@ export function App() {
       )}
     </main>
   );
+
 }

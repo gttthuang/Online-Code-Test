@@ -1,0 +1,170 @@
+/* candidate.css */
+
+.fullscreen-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* 主要工作區容器，將 padding-top 補回 1rem */
+.workspace-container {
+    display: flex;
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    padding: 0.75rem;
+}
+
+/* === 側邊抽屜 (Drawer) 樣式 === */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    backdrop-filter: blur(2px);
+}
+
+.problem-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--panel-strong);
+    z-index: 50;
+    padding: 1.5rem;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.problem-drawer.open {
+    transform: translateX(0);
+}
+
+/* === 側邊抽屜觸發按鈕 (固定於左側中間) === */
+.drawer-toggle-btn {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 72px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+    z-index: 30;
+    color: var(--muted);
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 1.2rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+.drawer-toggle-btn:hover {
+    background: #f8c37d;
+    color: #1c1a18;
+}
+
+/* === 調整列 (Resizer) 樣式 === */
+.resizer-x {
+    width: 12px;
+    cursor: col-resize;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+}
+
+.resizer-x::after {
+    content: "";
+    width: 4px;
+    height: 30px;
+    background: var(--line);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.resizer-x:hover::after,
+.resizer-x:active::after {
+    background: #f8c37d;
+}
+
+.resizer-y {
+    height: 12px;
+    cursor: row-resize;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+}
+
+.resizer-y::after {
+    content: "";
+    height: 4px;
+    width: 30px;
+    background: var(--line);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.resizer-y:hover::after,
+.resizer-y:active::after {
+    background: #f8c37d;
+}
+
+/* 確保各欄內部的 Stack 可以獨立滾動 */
+.panel-flex-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.problem-stack,
+.result-stack,
+.case-list,
+.assignment-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.code-editor {
+    flex: 1;
+    resize: none;
+    min-height: 6rem;
+}
+
+::-webkit-scrollbar {
+    width: 16px;
+    background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 24px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+
+body {
+    overflow: overlay;
+}
+
+.panel-column {
+    min-height: 10rem;
+}
