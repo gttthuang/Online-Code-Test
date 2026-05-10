@@ -409,120 +409,120 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
   return (
     <>
-    <section className="workspace-grid">
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Problem Builder</p>
-            <h2>Create a new problem</h2>
-          </div>
-        </div>
-        <div className="tab-bar">
-          <button
-            className={`chip-button ${activeTab === "info" ? "active" : ""}`}
-            onClick={() => setActiveTab("info")}
-            type="button"
-          >
-            Info
-          </button>
-
-          <button
-            className={`chip-button ${activeTab === "description" ? "active" : ""}`}
-            onClick={() => setActiveTab("description")}
-            type="button"
-          >
-            Description
-          </button>
-
-          <button
-            className={`chip-button ${activeTab === "sample" ? "active" : ""}`}
-            onClick={() => setActiveTab("sample")}
-            type="button"
-          >
-            Sample IO
-          </button>
-
-          <button
-            className={`chip-button ${activeTab === "testcase" ? "active" : ""}`}
-            onClick={() => setActiveTab("testcase")}
-            type="button"
-          >
-            Testcase
-          </button>
-        </div>
-
-        {renderTabContent()}
-
-        <button className="primary-button" disabled={submitting} onClick={handleCreateProblem} type="button">
-          {submitting ? "Creating..." : "Create Problem"}
-        </button>
-
-        {error ? <p className="error-text">{error}</p> : null}
-      </article>
-
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Problem Inventory</p>
-            <h2>{problems.length} problem(s)</h2>
-          </div>
-        </div>
-
-        <div className="result-table">
-          {problems.map((problem) => (
-            <div className="problem-table-row" key={problem.id}>
+      <div className="workspace-container">
+        <section className="workspace-grid">
+          <article className="status-card panel-column">
+            <div className="panel-header">
               <div>
-                <strong>{problem.title}</strong>
-                <small>{problem.id}</small>
+                <p className="eyebrow">Problem Builder</p>
+                <h2>Create a new problem</h2>
               </div>
-
-              <span>{problem.difficulty}</span>
-              <span>{problem.supportedLanguages.join(", ")}</span>
-
+            </div>
+            <div className="tab-bar">
               <button
-                className="delete-button"
-                onClick={() => setConfirmId(problem.id)}
+                className={`chip-button ${activeTab === "info" ? "active" : ""}`}
+                onClick={() => setActiveTab("info")}
                 type="button"
               >
-                x
+                Info
+              </button>
+
+              <button
+                className={`chip-button ${activeTab === "description" ? "active" : ""}`}
+                onClick={() => setActiveTab("description")}
+                type="button"
+              >
+                Description
+              </button>
+
+              <button
+                className={`chip-button ${activeTab === "sample" ? "active" : ""}`}
+                onClick={() => setActiveTab("sample")}
+                type="button"
+              >
+                Sample IO
+              </button>
+
+              <button
+                className={`chip-button ${activeTab === "testcase" ? "active" : ""}`}
+                onClick={() => setActiveTab("testcase")}
+                type="button"
+              >
+                Testcase
               </button>
             </div>
-          ))}
-          
-        </div>
-        
-      </article>
-    </section>
-    {confirmId && (
-      <div className="modal-backdrop">
-        <div className="modal">
-          <p>請先確認此題未被用於任何測驗或提交中，確定刪除：</p>
-          <p style={{ marginTop: 8, fontWeight: 600 }}>
-            {confirmProblem?.title}
-          </p>
-          <p>這個題目嗎？</p>
-          <div className="modal-actions">
-            <button
-              className="chip-button"
-              onClick={cancelDelete}
-              type="button"
-            >
-              取消
+
+            {renderTabContent()}
+
+            <button className="primary-button" disabled={submitting} onClick={handleCreateProblem} type="button">
+              {submitting ? "Creating..." : "Create Problem"}
             </button>
 
-            <button
-              className="chip-button"
-              onClick={
-                confirmDelete
-              }
-              type="button"
-            >
-              確定刪除
-            </button>
+            {error ? <p className="error-text">{error}</p> : null}
+          </article>
+
+          <article className="status-card panel-column">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Problem Inventory</p>
+                <h2>{problems.length} problem(s)</h2>
+              </div>
+            </div>
+
+            <div className="result-table">
+              {problems.map((problem) => (
+                <div className="problem-table-row" key={problem.id}>
+                  <div>
+                    <strong>{problem.title}</strong>
+                    <small>{problem.id}</small>
+                  </div>
+
+                  <span>{problem.difficulty}</span>
+                  <span>{problem.supportedLanguages.join(", ")}</span>
+
+                  <button
+                    className="delete-button"
+                    onClick={() => setConfirmId(problem.id)}
+                    type="button"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      </div>
+      {confirmId && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <p>請先確認此題未被用於任何測驗或提交中，確定刪除：</p>
+            <p style={{ marginTop: 8, fontWeight: 600 }}>
+              {confirmProblem?.title}
+            </p>
+            <p>這個題目嗎？</p>
+            <div className="modal-actions">
+              <button
+                className="chip-button"
+                onClick={cancelDelete}
+                type="button"
+              >
+                取消
+              </button>
+
+              <button
+                className="chip-button"
+                onClick={
+                  confirmDelete
+                }
+                type="button"
+              >
+                確定刪除
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   );
 }

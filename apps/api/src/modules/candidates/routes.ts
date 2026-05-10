@@ -33,4 +33,27 @@ export async function registerCandidateRoutes(app: FastifyInstance, context: App
       candidate: await context.store.createCandidate(body)
     };
   });
+
+  app.delete("/admin/candidates/:candidateId", async (request, reply) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["interviewer"]);
+
+    const params = z.object({ candidateId: z.string() }).parse(request.params);
+
+    const inUse = 
+      await context.store.hasAnyAssignmentForCandidate(params.candidateId) ||
+      await context.store.hasAnySubmissionByCandidate(params.candidateId);
+
+    if (inUse) {
+      throw new AppError(400, "candidate_in_use", "Cannot delete candidate because they have assignments or submissions");
+    }
+
+    const deleted = await context.store.deleteCandidate(params.candidateId);
+
+    if (!deleted) {
+      throw new AppError(404, "candidate_not_found", "Candidate not found");
+    }
+
+    return reply.status(204).send();
+  });
 }

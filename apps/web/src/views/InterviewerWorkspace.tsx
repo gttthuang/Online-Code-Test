@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import type { CandidateResultsResponse, ProblemSummary } from "@oct/contracts";
+import type { ProblemSummary, AuthUser } from "@oct/contracts";
+import { getAdminProblems, getCandidates } from "../lib/api";
 
-import { createAssignment, getAdminProblems, getCandidateResults } from "../lib/api";
+import { CandidateManager } from "./interviewer/CandidateManager";
+import { AssignmentForm } from "./interviewer/AssignmentForm";
+import { CandidateResults } from "./interviewer/CandidateResults";
 
 interface InterviewerWorkspaceProps {
   token: string;
@@ -9,29 +12,26 @@ interface InterviewerWorkspaceProps {
 
 export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
-  const [selectedProblemId, setSelectedProblemId] = useState("");
-  const [candidateId, setCandidateId] = useState("candidate_alice");
-  const [candidateQuery, setCandidateQuery] = useState("candidate_alice");
-  const [results, setResults] = useState<CandidateResultsResponse | null>(null);
+  const [candidates, setCandidates] = useState<AuthUser[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState(false);
-  const [loadingResults, setLoadingResults] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    getAdminProblems(token)
-      .then((items) => {
-        if (cancelled) {
-          return;
+    // Fetch initial data needed across the workspace
+    Promise.all([
+      getAdminProblems(token),
+      getCandidates(token).catch(() => []) // It's okay if this fails initially, or we handle it gracefully
+    ])
+      .then(([problemsData, candidatesData]) => {
+        if (!cancelled) {
+          setProblems(problemsData);
+          setCandidates(candidatesData);
         }
-
-        setProblems(items);
-        setSelectedProblemId((current) => current || items[0]?.id || "");
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load problems");
+          setError(nextError instanceof Error ? nextError.message : "Failed to load workspace data");
         }
       });
 
@@ -40,109 +40,41 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
     };
   }, [token]);
 
-  async function handleAssign() {
-    if (!selectedProblemId) {
-      return;
-    }
-
-    setAssigning(true);
-    setError(null);
-
-    try {
-      await createAssignment(token, {
-        candidateId,
-        problemId: selectedProblemId
-      });
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to create assignment");
-    } finally {
-      setAssigning(false);
-    }
-  }
-
-  async function handleLoadResults() {
-    setLoadingResults(true);
-    setError(null);
-
-    try {
-      const nextResults = await getCandidateResults(token, candidateQuery);
-      setResults(nextResults);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to load candidate results");
-    } finally {
-      setLoadingResults(false);
-    }
-  }
-
   return (
-    <section className="workspace-grid">
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Assignment Console</p>
-            <h2>Assign a problem to a candidate</h2>
-          </div>
+    <div className="workspace-container">
+      <header className="workspace-header mb-lg">
+        <h1>Interviewer Dashboard</h1>
+        <p className="subtitle text-muted">Manage candidates, assign problems, and review performance.</p>
+      </header>
+
+      {error && (
+        <div className="toast toast-error mb-lg">
+          <strong>Workspace Error:</strong> {error}
         </div>
+      )}
 
-        <label className="field">
-          <span>Candidate ID</span>
-          <input onChange={(event) => setCandidateId(event.target.value)} value={candidateId} />
-        </label>
-
-        <label className="field">
-          <span>Problem</span>
-          <select onChange={(event) => setSelectedProblemId(event.target.value)} value={selectedProblemId}>
-            {problems.map((problem) => (
-              <option key={problem.id} value={problem.id}>
-                {problem.title} ({problem.difficulty})
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button className="primary-button" disabled={assigning || !selectedProblemId} onClick={handleAssign} type="button">
-          {assigning ? "Assigning..." : "Create Assignment"}
-        </button>
-
-        {error ? <p className="error-text">{error}</p> : null}
-      </article>
-
-      <article className="status-card panel-column">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Candidate Results</p>
-            <h2>Inspect submission status and score</h2>
+      <section className="workspace-grid interviewer-grid">
+        <div className="grid-col-main">
+          {/* Top section: Assignment and Management */}
+          <div className="grid-row-split mb-lg">
+            <CandidateManager 
+              token={token} 
+              onCandidatesUpdated={setCandidates} 
+            />
+            <AssignmentForm 
+              token={token} 
+              candidates={candidates} 
+              problems={problems} 
+            />
           </div>
+          
+          {/* Bottom section: Results */}
+          <CandidateResults 
+            token={token} 
+            candidates={candidates} 
+          />
         </div>
-
-        <div className="inline-form">
-          <label className="field">
-            <span>Candidate ID</span>
-            <input onChange={(event) => setCandidateQuery(event.target.value)} value={candidateQuery} />
-          </label>
-
-          <button className="secondary-button" disabled={loadingResults} onClick={handleLoadResults} type="button">
-            {loadingResults ? "Loading..." : "Load Results"}
-          </button>
-        </div>
-
-        {results ? (
-          <div className="result-table">
-            {results.submissions.map((submission) => (
-              <div className="table-row" key={submission.submissionId}>
-                <div>
-                  <strong>{submission.problemTitle}</strong>
-                  <small>{submission.submissionId}</small>
-                </div>
-                <span>{submission.status}</span>
-                <span>{submission.score ?? "--"}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">Load a candidate to see submission history.</div>
-        )}
-      </article>
-    </section>
+      </section>
+    </div>
   );
 }

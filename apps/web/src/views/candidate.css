@@ -13,7 +13,7 @@
 }
 
 /* 主要工作區容器，將 padding-top 補回 1rem */
-.workspace-container {
+.fullscreen-wrapper .workspace-container {
     display: flex;
     position: relative;
     flex: 1;
@@ -128,43 +128,39 @@
 }
 
 /* 確保各欄內部的 Stack 可以獨立滾動 */
-.panel-flex-content {
+.fullscreen-wrapper .panel-flex-content {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
 }
 
-.problem-stack,
-.result-stack,
-.case-list,
-.assignment-list {
+.fullscreen-wrapper .problem-stack,
+.fullscreen-wrapper .result-stack,
+.fullscreen-wrapper .case-list,
+.fullscreen-wrapper .assignment-list {
     flex: 1;
     overflow-y: auto;
 }
 
-.code-editor {
+.fullscreen-wrapper .code-editor {
     flex: 1;
     resize: none;
     min-height: 6rem;
 }
 
-::-webkit-scrollbar {
+.fullscreen-wrapper ::-webkit-scrollbar {
     width: 16px;
     background-color: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+.fullscreen-wrapper ::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 24px;
     border: 3px solid transparent;
     background-clip: content-box;
 }
 
-body {
-    overflow: overlay;
-}
-
-.panel-column {
+.fullscreen-wrapper .panel-column {
     min-height: 10rem;
 }

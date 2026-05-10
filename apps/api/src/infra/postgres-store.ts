@@ -281,6 +281,48 @@ export class PostgresStore implements AppStore {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async deleteCandidate(candidateId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+        delete from users
+        where id = $1 and role = 'candidate'
+      `,
+      [candidateId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async hasAnyAssignmentForCandidate(candidateId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from assignments
+          where candidate_id = $1
+        ) as exists
+      `,
+      [candidateId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
+  async hasAnySubmissionByCandidate(candidateId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1
+          from submissions
+          where candidate_id = $1
+        ) as exists
+      `,
+      [candidateId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
   async isProblemAssigned(candidateId: string, problemId: string): Promise<boolean> {
     const result = await this.pool.query<{ exists: boolean }>(
       `
