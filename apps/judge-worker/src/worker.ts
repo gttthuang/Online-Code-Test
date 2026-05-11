@@ -15,18 +15,26 @@ type ClaimedSubmission = SubmissionDetail & {
 
 export class JudgeWorker {
   private running = true;
+  private lastRecoveryAt = 0;
 
   constructor(
     private readonly pool: Pool,
     private readonly pollIntervalMs: number,
+    private readonly heartbeatIntervalMs: number,
+    private readonly staleThresholdMs: number,
     private readonly sandbox: typeof workerConfig.sandbox
   ) {}
 
   async start() {
+    await this.recoverStaleSubmissions();
+
     while (this.running) {
       let submission: ClaimedSubmission | null = null;
+      let stopHeartbeat = () => {};
 
       try {
+        await this.maybeRecoverStaleSubmissions();
+
         submission = await this.claimNextSubmission();
 
         if (!submission) {
@@ -35,6 +43,7 @@ export class JudgeWorker {
         }
 
         console.log(`claim submission ${submission.id} (${submission.language})`);
+        stopHeartbeat = this.startHeartbeat(submission.id);
 
         const result = await executeSubmission({
           submissionId: submission.id,
@@ -45,9 +54,11 @@ export class JudgeWorker {
           sandbox: this.sandbox
         });
 
+        stopHeartbeat();
         await this.completeSubmission(submission.id, result);
         console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
       } catch (error) {
+        stopHeartbeat();
         console.error("judge worker error", error);
 
         if (submission) {
@@ -167,6 +178,63 @@ export class JudgeWorker {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  private startHeartbeat(submissionId: string) {
+    const timer = setInterval(() => {
+      void this.touchRunningSubmission(submissionId).catch((error) => {
+        console.error(`failed to heartbeat submission ${submissionId}`, error);
+      });
+    }, this.heartbeatIntervalMs);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }
+
+  private async touchRunningSubmission(submissionId: string) {
+    await this.pool.query(
+      `
+        update submissions
+        set updated_at = now()
+        where id = $1 and status = 'running'
+      `,
+      [submissionId]
+    );
+  }
+
+  private async maybeRecoverStaleSubmissions() {
+    const now = Date.now();
+
+    if (now - this.lastRecoveryAt < this.staleThresholdMs) {
+      return;
+    }
+
+    await this.recoverStaleSubmissions();
+  }
+
+  private async recoverStaleSubmissions() {
+    this.lastRecoveryAt = Date.now();
+
+    const result = await this.pool.query<{ id: string }>(
+      `
+        update submissions
+        set
+          status = 'queued',
+          score = null,
+          error_message = null,
+          updated_at = now()
+        where
+          status = 'running'
+          and updated_at < now() - ($1::bigint * interval '1 millisecond')
+        returning id
+      `,
+      [this.staleThresholdMs]
+    );
+
+    if ((result.rowCount ?? 0) > 0) {
+      console.log(`recovered ${result.rowCount} stale running submission(s)`);
     }
   }
 

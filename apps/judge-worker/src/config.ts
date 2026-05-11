@@ -1,5 +1,7 @@
 export const config = {
   pollIntervalMs: Number(process.env.JUDGE_POLL_INTERVAL_MS || 800),
+  heartbeatIntervalMs: Number(process.env.JUDGE_HEARTBEAT_INTERVAL_MS || 2_000),
+  staleThresholdMs: Number(process.env.JUDGE_STALE_THRESHOLD_MS || 30_000),
   postgres: {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT || 5433),

@@ -5,7 +5,13 @@ import { config } from "./config.js";
 import { JudgeWorker } from "./worker.js";
 
 const pool = createPostgresPool(config.postgres);
-const worker = new JudgeWorker(pool, config.pollIntervalMs, config.sandbox);
+const worker = new JudgeWorker(
+  pool,
+  config.pollIntervalMs,
+  config.heartbeatIntervalMs,
+  config.staleThresholdMs,
+  config.sandbox
+);
 
 process.on("SIGINT", async () => {
   worker.stop();
@@ -21,6 +27,8 @@ process.on("SIGTERM", async () => {
 
 console.log("judge-worker started");
 console.log(`poll interval: ${config.pollIntervalMs}ms`);
+console.log(`heartbeat interval: ${config.heartbeatIntervalMs}ms`);
+console.log(`stale threshold: ${config.staleThresholdMs}ms`);
 console.log(
   `postgres: ${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`
 );
