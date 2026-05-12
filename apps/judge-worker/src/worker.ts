@@ -26,65 +26,81 @@ export class JudgeWorker {
   ) {}
 
   async start() {
-    await this.recoverStaleSubmissions();
+    await this.runRecoveryPass();
 
     while (this.running) {
-      let submission: ClaimedSubmission | null = null;
-      let stopHeartbeat = () => {};
-
       try {
-        await this.maybeRecoverStaleSubmissions();
+        const processed = await this.processNextSubmission();
 
-        submission = await this.claimNextSubmission();
-
-        if (!submission) {
+        if (!processed) {
           await delay(this.pollIntervalMs);
-          continue;
         }
-
-        console.log(`claim submission ${submission.id} (${submission.language})`);
-        stopHeartbeat = this.startHeartbeat(submission.id);
-
-        const result = await executeSubmission({
-          submissionId: submission.id,
-          language: submission.language,
-          sourceCode: submission.sourceCode,
-          timeLimitMs: submission.timeLimitMs,
-          hiddenTestCases: submission.hiddenTestCases,
-          sandbox: this.sandbox
-        });
-
-        stopHeartbeat();
-        await this.completeSubmission(submission.id, result);
-        console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
       } catch (error) {
-        stopHeartbeat();
         console.error("judge worker error", error);
-
-        if (submission) {
-          const failureResult: JudgeResult = {
-            submissionId: submission.id,
-            status: "failed",
-            score: 0,
-            cases: [],
-            errorMessage: toErrorMessage(error)
-          };
-
-          try {
-            await this.completeSubmission(submission.id, failureResult);
-            console.log(`complete submission ${submission.id} -> failed (0)`);
-          } catch (completionError) {
-            console.error("failed to persist submission failure", completionError);
-          }
-        }
-
         await delay(this.pollIntervalMs);
       }
     }
   }
 
+  async processNextSubmission() {
+    await this.maybeRecoverStaleSubmissions();
+
+    let submission: ClaimedSubmission | null = null;
+    let stopHeartbeat = () => {};
+
+    try {
+      submission = await this.claimNextSubmission();
+
+      if (!submission) {
+        return false;
+      }
+
+      console.log(`claim submission ${submission.id} (${submission.language})`);
+      stopHeartbeat = this.startHeartbeat(submission.id);
+
+      const result = await executeSubmission({
+        submissionId: submission.id,
+        language: submission.language,
+        sourceCode: submission.sourceCode,
+        timeLimitMs: submission.timeLimitMs,
+        hiddenTestCases: submission.hiddenTestCases,
+        sandbox: this.sandbox
+      });
+
+      stopHeartbeat();
+      await this.completeSubmission(submission.id, result);
+      console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
+      return true;
+    } catch (error) {
+      stopHeartbeat();
+
+      if (submission) {
+        const failureResult: JudgeResult = {
+          submissionId: submission.id,
+          status: "failed",
+          score: 0,
+          cases: [],
+          errorMessage: toErrorMessage(error)
+        };
+
+        try {
+          await this.completeSubmission(submission.id, failureResult);
+          console.log(`complete submission ${submission.id} -> failed (0)`);
+        } catch (completionError) {
+          console.error("failed to persist submission failure", completionError);
+        }
+      }
+
+      throw error;
+    }
+  }
+
   stop() {
     this.running = false;
+  }
+
+  async runRecoveryPass() {
+    await this.recoverStaleSubmissions();
   }
 
   private async claimNextSubmission(): Promise<ClaimedSubmission | null> {
