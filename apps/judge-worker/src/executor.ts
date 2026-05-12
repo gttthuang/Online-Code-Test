@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import type { JudgeCaseResult, JudgeResult, SupportedLanguage } from "@oct/contracts";
+import { ExecutionFailure } from "./execution-failure.js";
 
 type HiddenTestCase = {
   id: string;
@@ -61,6 +62,7 @@ export async function executeSubmission(
         status: "failed",
         score: 0,
         cases: [],
+        errorType: "compile_error",
         errorMessage: runnable.compileError
       };
     }
@@ -81,6 +83,7 @@ export async function executeSubmission(
           status: "failed",
           score: 0,
           cases: caseResults,
+          errorType: "time_limit_exceeded",
           errorMessage: `Time limit exceeded after ${submission.timeLimitMs}ms`
         };
       }
@@ -91,6 +94,7 @@ export async function executeSubmission(
           status: "failed",
           score: 0,
           cases: caseResults,
+          errorType: "runtime_error",
           errorMessage: formatRuntimeError(runResult.stderr)
         };
       }
@@ -128,6 +132,24 @@ async function prepareRunnable(
     await ensureDockerImage(sandbox.pythonImage);
     const sourcePath = join(workingDirectory, "main.py");
     await writeFile(sourcePath, sourceCode, "utf8");
+
+    const compileResult = await runCommand("python3", ["-m", "py_compile", "/workspace/main.py"], {
+      cwd: workingDirectory,
+      timeoutMs: COMPILE_TIMEOUT_MS,
+      sandbox
+    });
+
+    if (compileResult.timedOut) {
+      return {
+        compileError: `Compilation timed out after ${COMPILE_TIMEOUT_MS}ms`
+      };
+    }
+
+    if (compileResult.exitCode !== 0) {
+      return {
+        compileError: formatCompileError(compileResult.stderr)
+      };
+    }
 
     return {
       command: "python3",
@@ -270,14 +292,15 @@ async function ensureDockerImage(image: string) {
   const inspectResult = await runHostCommand("docker", ["image", "inspect", image], 15_000);
 
   if (inspectResult.exitCode !== 0) {
-      const pullResult = await runHostCommand("docker", ["pull", image], 180_000);
+    const pullResult = await runHostCommand("docker", ["pull", image], 180_000);
 
-      if (pullResult.exitCode !== 0) {
-        throw new Error(
-          `failed_to_pull_sandbox_image: ${image}${pullResult.stderr ? ` (${pullResult.stderr.trim()})` : ""}`
-        );
-      }
+    if (pullResult.exitCode !== 0) {
+      throw new ExecutionFailure(
+        "sandbox_error",
+        `failed_to_pull_sandbox_image: ${image}${pullResult.stderr ? ` (${pullResult.stderr.trim()})` : ""}`
+      );
     }
+  }
 
   ensuredImages.add(image);
 }

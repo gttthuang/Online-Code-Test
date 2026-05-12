@@ -8,6 +8,7 @@ import type {
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
+  JudgeFailureType,
   JudgeResult,
   ProblemDetail,
   ProblemSummary,
@@ -47,6 +48,7 @@ type SubmissionRow = {
   source_code: string;
   status: SubmissionStatus;
   score: number | null;
+  error_type: JudgeFailureType | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -391,11 +393,12 @@ export class PostgresStore implements AppStore {
           source_code,
           status,
           score,
+          error_type,
           error_message,
           created_at,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, 'queued', null, null, $6::timestamptz, $6::timestamptz)
+        values ($1, $2, $3, $4, $5, 'queued', null, null, null, $6::timestamptz, $6::timestamptz)
       `,
       [submissionId, candidateId, input.problemId, input.language, input.sourceCode, now]
     );
@@ -420,6 +423,7 @@ export class PostgresStore implements AppStore {
           source_code,
           status,
           score,
+          error_type,
           error_message,
           created_at,
           updated_at
@@ -457,6 +461,7 @@ export class PostgresStore implements AppStore {
               executionTimeMs: row.execution_time_ms,
               memoryKb: row.memory_kb
             })),
+            errorType: submission.error_type ?? undefined,
             errorMessage: submission.error_message ?? undefined
           }
         : null;
@@ -505,11 +510,18 @@ export class PostgresStore implements AppStore {
           set
             status = $2,
             score = $3,
-            error_message = $4,
+            error_type = $4,
+            error_message = $5,
             updated_at = now()
           where id = $1
         `,
-        [submissionId, result.status, result.score, result.errorMessage ?? null]
+        [
+          submissionId,
+          result.status,
+          result.score,
+          result.errorType ?? null,
+          result.errorMessage ?? null
+        ]
       );
 
       await this.pool.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);

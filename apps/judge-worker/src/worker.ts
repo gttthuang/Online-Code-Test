@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
-import type { JudgeResult, SubmissionDetail } from "@oct/contracts";
+import type { JudgeFailureType, JudgeResult, SubmissionDetail } from "@oct/contracts";
 
 import { executeSubmission } from "./executor.js";
+import { ExecutionFailure } from "./execution-failure.js";
 import type { config as workerConfig } from "./config.js";
 
 type ClaimedSubmission = SubmissionDetail & {
@@ -80,6 +81,7 @@ export class JudgeWorker {
           status: "failed",
           score: 0,
           cases: [],
+          errorType: toFailureType(error),
           errorMessage: toErrorMessage(error)
         };
 
@@ -239,6 +241,7 @@ export class JudgeWorker {
         set
           status = 'queued',
           score = null,
+          error_type = null,
           error_message = null,
           updated_at = now()
         where
@@ -269,11 +272,18 @@ export class JudgeWorker {
           set
             status = $2,
             score = $3,
-            error_message = $4,
+            error_type = $4,
+            error_message = $5,
             updated_at = now()
           where id = $1
         `,
-        [submissionId, result.status, result.score, result.errorMessage ?? null]
+        [
+          submissionId,
+          result.status,
+          result.score,
+          result.errorType ?? null,
+          result.errorMessage ?? null
+        ]
       );
 
       await client.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
@@ -322,4 +332,12 @@ function toErrorMessage(error: unknown) {
   }
 
   return "Judge worker failed unexpectedly";
+}
+
+function toFailureType(error: unknown): JudgeFailureType {
+  if (error instanceof ExecutionFailure) {
+    return error.type;
+  }
+
+  return "system_error";
 }

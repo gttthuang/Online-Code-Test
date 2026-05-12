@@ -270,6 +270,21 @@ Response:
 }
 ```
 
+失敗時會多回：
+
+```json
+{
+  "result": {
+    "submissionId": "submission_123",
+    "status": "failed",
+    "score": 0,
+    "cases": [],
+    "errorType": "compile_error",
+    "errorMessage": "SyntaxError: invalid syntax"
+  }
+}
+```
+
 ### `GET /admin/problems`
 
 用途：
@@ -324,14 +339,15 @@ Request:
 
 - interviewer 查某位 candidate 的 submission 結果
 
-## Fake Judge 行為
+## Judge 結果分類
 
-目前判題是假的，但行為固定，前端可以先照這個設計 UI：
+目前 worker 會回傳固定的失敗分類，前端可以直接照 `result.errorType` 顯示：
 
-- `sourceCode` 包含 `compile_error`：回 `failed`
-- `sourceCode` 包含 `runtime_error`：回 `failed`
-- `sourceCode` 包含 `wrong_answer`：回 `finished`，但 `score = 0`
-- 其他情況：回 `finished`，`score = 100`
+- `compile_error`
+- `runtime_error`
+- `time_limit_exceeded`
+- `sandbox_error`
+- `system_error`
 
 狀態大致會這樣變：
 
@@ -359,7 +375,6 @@ Request:
 
 ## 補充
 
-- server 重啟後，資料會回到 seed 狀態
-- 目前還沒有真正的資料庫
+- server 重啟後不會丟資料，因為目前已經是 PostgreSQL persistence
 - 目前 token 只是 demo token，不是真正 JWT
-- worker payload 的 canonical shape 仍以 `packages/contracts/src/index.ts` 為準
+- worker payload / result 的 canonical shape 以 `packages/contracts/src/index.ts` 為準

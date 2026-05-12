@@ -128,11 +128,21 @@ export interface JudgeCaseResult {
   memoryKb: number;
 }
 
+export const judgeFailureTypes = [
+  "compile_error",
+  "runtime_error",
+  "time_limit_exceeded",
+  "sandbox_error",
+  "system_error"
+] as const;
+export type JudgeFailureType = (typeof judgeFailureTypes)[number];
+
 export interface JudgeResult {
   submissionId: string;
   status: Extract<SubmissionStatus, "finished" | "failed">;
   score: number;
   cases: JudgeCaseResult[];
+  errorType?: JudgeFailureType;
   errorMessage?: string;
 }
 

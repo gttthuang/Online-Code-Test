@@ -72,6 +72,7 @@ test("invalid code fails submissions", async () => {
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "failed");
     assert.equal(detail.score, 0);
+    assert.equal(detail.result?.errorType, "compile_error");
     assert.match(detail.result?.errorMessage ?? "", /syntax|invalid/i);
   } finally {
     await destroyHarness(harness);
@@ -119,6 +120,7 @@ test("timeouts fail submissions", async () => {
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "failed");
     assert.equal(detail.score, 0);
+    assert.equal(detail.result?.errorType, "time_limit_exceeded");
     assert.match(detail.result?.errorMessage ?? "", /Time limit exceeded/i);
   } finally {
     await destroyHarness(harness);
