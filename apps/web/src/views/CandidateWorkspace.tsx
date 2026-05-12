@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SupportedLanguage } from "@oct/contracts";
 
-import { createSubmission, getAssignments, getProblem, getSubmission } from "../lib/api";
+import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission} from "../lib/api";
 import "./candidate.css";
 
 const scenarioTemplates = [
@@ -14,11 +14,14 @@ const scenarioTemplates = [
 interface CandidateWorkspaceProps {
   token: string;
   user: AuthUser;
+  initialProblemId?: string | null;
+  onClose?: () => void;
 }
 
-export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
+export function CandidateWorkspace({ token, user, initialProblemId, onClose }: CandidateWorkspaceProps) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
-  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
+  // const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(initialProblemId ?? null);
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [problemLoading, setProblemLoading] = useState(false);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
@@ -36,49 +39,116 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
   const [leftWidth, setLeftWidth] = useState(40);
   const [topHeight, setTopHeight] = useState(60);
 
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   setAssignmentsLoading(true);
+  //   setWorkspaceError(null);
+  //   getAssignments(token)
+  //     .then((items) => {
+  //       if (cancelled) return;
+  //       setAssignments(items);
+  //       setSelectedProblemId((current) => current ?? items[0]?.problemId ?? null);
+  //     })
+  //     .catch((error) => {
+  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
+  //     })
+  //     .finally(() => {
+  //       if (!cancelled) setAssignmentsLoading(false);
+  //     });
+  //   return () => { cancelled = true; };
+  // }, [token]);
   useEffect(() => {
+
     let cancelled = false;
+    
+    if (initialProblemId) {
+      setSelectedProblemId(initialProblemId);
+      setAssignments([]);
+      setAssignmentsLoading(false);
+      return;
+    }
+
     setAssignmentsLoading(true);
-    setWorkspaceError(null);
+
     getAssignments(token)
       .then((items) => {
         if (cancelled) return;
         setAssignments(items);
-        setSelectedProblemId((current) => current ?? items[0]?.problemId ?? null);
+        if (initialProblemId) {
+          setSelectedProblemId(initialProblemId);
+        } else {
+          setSelectedProblemId(items[0]?.problemId ?? null);
+        }
       })
       .catch((error) => {
-        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
+        if (!cancelled)
+          setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
       })
       .finally(() => {
         if (!cancelled) setAssignmentsLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [token]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [token, initialProblemId]);
+
+  // useEffect(() => {
+  //   if (!selectedProblemId) {
+  //     setProblem(null);
+  //     return;
+  //   }
+  //   let cancelled = false;
+  //   setProblemLoading(true);
+  //   setWorkspaceError(null);
+  //   getProblem(token, selectedProblemId)
+  //     .then((nextProblem) => {
+  //       if (cancelled) return;
+  //       setProblem(nextProblem);
+  //       setLanguage((current) =>
+  //         nextProblem.supportedLanguages.includes(current) ? current : nextProblem.supportedLanguages[0]
+  //       );
+  //     })
+  //     .catch((error) => {
+  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
+  //     })
+  //     .finally(() => {
+  //       if (!cancelled) setProblemLoading(false);
+  //     });
+  //   return () => { cancelled = true; };
+  // }, [selectedProblemId, token]);
   useEffect(() => {
     if (!selectedProblemId) {
       setProblem(null);
       return;
     }
+
     let cancelled = false;
+
     setProblemLoading(true);
-    setWorkspaceError(null);
-    getProblem(token, selectedProblemId)
-      .then((nextProblem) => {
+
+    const api =
+      user.role === "problem_admin" ? getAdminProblem : getProblem;
+
+    api(token, selectedProblemId)
+      .then((nextProblem: ProblemDetail) => {
         if (cancelled) return;
         setProblem(nextProblem);
-        setLanguage((current) =>
-          nextProblem.supportedLanguages.includes(current) ? current : nextProblem.supportedLanguages[0]
-        );
       })
       .catch((error) => {
-        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
+        if (!cancelled)
+          setWorkspaceError(
+            error instanceof Error ? error.message : "Failed to load problem"
+          );
       })
       .finally(() => {
         if (!cancelled) setProblemLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [selectedProblemId, token]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProblemId, token, user.role]);
 
   useEffect(() => {
     if (!submission || !["queued", "running"].includes(submission.status)) return;
@@ -86,7 +156,10 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
     let timer = 0;
     const poll = async () => {
       try {
-        const nextSubmission = await getSubmission(token, submission.id);
+        // const nextSubmission = await getSubmission(token, submission.id);
+        const api = user.role === "problem_admin" ? getPreviewSubmission : getSubmission;
+        const nextSubmission = await api(token, submission.id);
+
         if (cancelled) return;
         setSubmission(nextSubmission);
         if (["queued", "running"].includes(nextSubmission.status)) {
@@ -109,7 +182,10 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
     setWorkspaceError(null);
     setRightTab("output");
     try {
-      const created = await createSubmission(token, {
+      // const created = await createSubmission(token, {
+      const api = user.role === "problem_admin" ? createPreviewSubmission : createSubmission;
+
+      const created = await api(token, {
         problemId: problem.id,
         language,
         sourceCode
@@ -278,7 +354,10 @@ export function CandidateWorkspace({ token, user }: CandidateWorkspaceProps) {
                     </div>
                   </>
                 ) : (
-                  <div className="empty-state">Open the assignments menu on the left to select a problem.</div>
+                  // <div className="empty-state">Open the assignments menu on the left to select a problem.</div>
+                  <div className="empty-state">
+                    {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
+                  </div>
                 )
               ) : (
                 submission ? (

@@ -2,24 +2,44 @@ import { useEffect, useState } from "react";
 import type { ProblemDifficulty, ProblemSummary } from "@oct/contracts";
 
 import { createProblem, getAdminProblems, deleteProblem } from "../lib/api";
+import { CandidateWorkspace } from "../views/CandidateWorkspace";
 
 interface ProblemAdminWorkspaceProps {
   token: string;
+}
+
+// interface ProblemFormState {
+//   title: string;
+//   description: string;
+//   difficulty: ProblemDifficulty;
+//   sampleInput: string;
+//   sampleOutput: string;
+//   TestCaseState: TestCaseState;
+// }
+
+// interface TestCaseState {
+//   input: File | null;
+//   output: File | null;
+//   timeLimitMs: number;
+//   memoryLimitKb: number;
+// }
+interface TestCaseState {
+  input: File | null;
+  output: File | null;
 }
 
 interface ProblemFormState {
   title: string;
   description: string;
   difficulty: ProblemDifficulty;
+
   sampleInput: string;
   sampleOutput: string;
-  TestCaseState: TestCaseState;
-}
-interface TestCaseState {
-  input: File | null;
-  output: File | null;
+
   timeLimitMs: number;
   memoryLimitKb: number;
+
+  TestCaseState: TestCaseState[];
 }
 
 const initialFormState: ProblemFormState = {
@@ -28,12 +48,13 @@ const initialFormState: ProblemFormState = {
   difficulty: "easy",
   sampleInput: "5",
   sampleOutput: "1 2 fizz 4 buzz",
-  TestCaseState: {
+  timeLimitMs: 1000,
+  memoryLimitKb: 65536,
+  TestCaseState: [{
     input: null,
     output: null,
-    timeLimitMs: 1000,
-    memoryLimitKb: 65536
-  }
+    
+  }]
 
 };
 
@@ -50,7 +71,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     (p) => p.id === confirmId
   );
   const [testcases, setTestcases] = useState<TestCaseState[]>([
-    { input: null, output: null, timeLimitMs: 1000, memoryLimitKb: 65536 }
+    { input: null, output: null}
   ]);
   
   const canAddNewTestCase =
@@ -61,6 +82,8 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
   const fileToText = async (file: File) => {
     return await file.text();
   };
+
+  const [previewProblemId, setPreviewProblemId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,8 +142,8 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       formData.append("title", form.title);
       formData.append("description", form.description);
       formData.append("difficulty", form.difficulty);
-      formData.append("timeLimitMs", "1000");
-      formData.append("memoryLimitKb", "65536");
+      formData.append("timeLimitMs", String(form.timeLimitMs));
+      formData.append("memoryLimitKb", String(form.memoryLimitKb));
       formData.append("supportedLanguages", JSON.stringify(["python", "cpp"]));
       formData.append("sampleInput", form.sampleInput);
       formData.append("sampleOutput", form.sampleOutput);
@@ -131,8 +154,6 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
         .forEach((tc, idx) => {
           formData.append(`testcases[${idx}][input]`, tc.input!);
           formData.append(`testcases[${idx}][output]`, tc.output!);
-          formData.append(`testcases[${idx}][timeLimitMs]`, String(tc.timeLimitMs));
-          formData.append(`testcases[${idx}][memoryLimitKb]`, String(tc.memoryLimitKb));
         });
 
       const response = await createProblem(token, formData);
@@ -140,7 +161,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       setProblems((current) => [response.problem, ...current]);
       setForm(initialFormState);
       setTestcases([
-        { input: null, output: null, timeLimitMs: 1000, memoryLimitKb: 65536 }
+        { input: null, output: null}
       ]);
       
     } catch (nextError) {
@@ -149,20 +170,6 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       setSubmitting(false);
     }
   }
-  // async function handleDeleteProblem(problemId: string) {
-
-  //   try {
-  //     await deleteProblem(token, problemId);
-
-  //     setProblems((current) =>
-  //       current.filter((p) => p.id !== problemId)
-  //     );
-  //   } catch (err) {
-  //     setError(
-  //       err instanceof Error ? err.message : "Failed to delete problem"
-  //     );
-  //   }
-  // }
   async function confirmDelete() {
     if (!confirmId) return;
 
@@ -210,6 +217,44 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
               <option value="easy">easy</option>
               <option value="medium">medium</option>
               <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Time Limit (ms)</span>
+
+            <input
+              type="number"
+              min={100}
+              step={100}
+              value={form.timeLimitMs}
+              onChange={(e) =>
+                setForm((c) => ({
+                  ...c,
+                  timeLimitMs: Number(e.target.value)
+                }))
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>Memory Limit</span>
+
+            <select
+              value={form.memoryLimitKb}
+              onChange={(e) =>
+                setForm((c) => ({
+                  ...c,
+                  memoryLimitKb: Number(e.target.value)
+                }))
+              }
+            >
+              <option value={32768}>32 MB</option>
+              <option value={65536}>64 MB</option>
+              <option value={131072}>128 MB</option>
+              <option value={262144}>256 MB</option>
+              <option value={524288}>512 MB</option>
+              <option value={1048576}>1 GB</option>
             </select>
           </label>
         </>
@@ -329,42 +374,6 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
                     </small>
                   )}
                 </div>
-
-                {/* Time limit */}
-                <div style={{ marginTop: 10 }}>
-                  <label>Time Limit (ms)</label>
-                  <input
-                    type="number"
-                    value={tc.timeLimitMs}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-
-                      setTestcases((prev) =>
-                        prev.map((t, i) =>
-                          i === index ? { ...t, timeLimitMs: value } : t
-                        )
-                      );
-                    }}
-                  />
-                </div>
-
-                {/* Memory limit */}
-                <div>
-                  <label>Memory Limit (KB)</label>
-                  <input
-                    type="number"
-                    value={tc.memoryLimitKb}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-
-                      setTestcases((prev) =>
-                        prev.map((t, i) =>
-                          i === index ? { ...t, memoryLimitKb: value } : t
-                        )
-                      );
-                    }}
-                  />
-                </div>
               </div>
             );
           })}
@@ -383,9 +392,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
                 ...prev,
                 {
                   input: null,
-                  output: null,
-                  timeLimitMs: 1000,
-                  memoryLimitKb: 65536
+                  output: null
                 }
               ])
             }
@@ -407,7 +414,36 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     return null;
   }
 
-  return (
+  return previewProblemId ? (
+    <div className="candidate-workspace-container fullscreen-preview">
+      
+      {/* 🔙 Back Button */}
+      <button
+        className="chip-button"
+        onClick={() => setPreviewProblemId(null)}
+        style={{
+          position: "fixed",
+          top: 12,
+          left: 12,
+          zIndex: 10000
+        }}
+      >
+        ← Back
+      </button>
+
+      <CandidateWorkspace
+        token={token}
+        user={{
+          id: "admin-preview",
+          name: "Admin",
+          role: "problem_admin",
+          email: "admin-preview@example.com"
+        }}
+        initialProblemId={previewProblemId}
+        onClose={() => setPreviewProblemId(null)}
+      />
+    </div>
+  ) : (
     <>
       <div className="workspace-container">
         <section className="workspace-grid">
@@ -478,7 +514,14 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
                   </div>
 
                   <span>{problem.difficulty}</span>
-                  <span>{problem.supportedLanguages.join(", ")}</span>
+                  {/* <span>{problem.supportedLanguages.join(", ")}</span> */}
+                  <button
+                    className="chip-button"
+                    onClick={() => setPreviewProblemId(problem.id)}
+                    type="button"
+                  >
+                    Preview
+                  </button>
 
                   <button
                     className="delete-button"
