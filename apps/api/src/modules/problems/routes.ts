@@ -90,6 +90,21 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
 
     return reply.status(204).send();
   });
+
+  app.get("/admin/problems/:problemId", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin", "interviewer"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+
+    const problem = await context.store.getProblemDetail(params.problemId);
+
+    if (!problem) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
+
+    return problem;
+  });
 }
 
 async function parseCreateProblemRequest(request: FastifyRequest) {

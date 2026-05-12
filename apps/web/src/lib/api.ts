@@ -229,3 +229,36 @@ export function deleteCandidate(token: string, candidateId: string) {
     token
   );
 }
+
+export function getAdminProblem(token: string, problemId: string) {
+  return request<ProblemDetail>(
+    `/admin/problems/${problemId}`,
+    undefined,
+    token
+  );
+}
+
+export function createPreviewSubmission(
+  token: string,
+  payload: CreateSubmissionRequest
+) {
+  return request<CreateSubmissionResponse>(
+    "/admin/submissions/preview",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function getPreviewSubmission(
+  token: string,
+  submissionId: string
+) {
+  return request<SubmissionDetail>(
+    `/admin/submissions/${submissionId}`,
+    undefined,
+    token
+  );
+}
