@@ -3,6 +3,7 @@ import type { JudgeFailureType, JudgeResult, SubmissionDetail } from "@oct/contr
 
 import { executeSubmission } from "./executor.js";
 import { ExecutionFailure } from "./execution-failure.js";
+import { logError, logInfo } from "./logger.js";
 import type { config as workerConfig } from "./config.js";
 
 type ClaimedSubmission = SubmissionDetail & {
@@ -37,7 +38,10 @@ export class JudgeWorker {
           await delay(this.pollIntervalMs);
         }
       } catch (error) {
-        console.error("judge worker error", error);
+        logError("worker_loop_error", {
+          message: toErrorMessage(error),
+          errorType: toFailureType(error)
+        });
         await delay(this.pollIntervalMs);
       }
     }
@@ -56,8 +60,14 @@ export class JudgeWorker {
         return false;
       }
 
-      console.log(`claim submission ${submission.id} (${submission.language})`);
+      logInfo("submission_claimed", {
+        submissionId: submission.id,
+        candidateId: submission.candidateId,
+        problemId: submission.problemId,
+        language: submission.language
+      });
       stopHeartbeat = this.startHeartbeat(submission.id);
+      const startedAt = Date.now();
 
       const result = await executeSubmission({
         submissionId: submission.id,
@@ -70,7 +80,16 @@ export class JudgeWorker {
 
       stopHeartbeat();
       await this.completeSubmission(submission.id, result);
-      console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
+      logInfo("submission_completed", {
+        submissionId: submission.id,
+        candidateId: submission.candidateId,
+        problemId: submission.problemId,
+        language: submission.language,
+        status: result.status,
+        score: result.score,
+        errorType: result.errorType ?? null,
+        durationMs: Date.now() - startedAt
+      });
       return true;
     } catch (error) {
       stopHeartbeat();
@@ -87,9 +106,20 @@ export class JudgeWorker {
 
         try {
           await this.completeSubmission(submission.id, failureResult);
-          console.log(`complete submission ${submission.id} -> failed (0)`);
+          logError("submission_failed", {
+            submissionId: submission.id,
+            candidateId: submission.candidateId,
+            problemId: submission.problemId,
+            language: submission.language,
+            score: 0,
+            errorType: failureResult.errorType ?? null,
+            message: failureResult.errorMessage ?? null
+          });
         } catch (completionError) {
-          console.error("failed to persist submission failure", completionError);
+          logError("submission_failure_persist_error", {
+            submissionId: submission.id,
+            message: toErrorMessage(completionError)
+          });
         }
       }
 
@@ -202,7 +232,10 @@ export class JudgeWorker {
   private startHeartbeat(submissionId: string) {
     const timer = setInterval(() => {
       void this.touchRunningSubmission(submissionId).catch((error) => {
-        console.error(`failed to heartbeat submission ${submissionId}`, error);
+        logError("submission_heartbeat_error", {
+          submissionId,
+          message: toErrorMessage(error)
+        });
       });
     }, this.heartbeatIntervalMs);
 
@@ -253,7 +286,9 @@ export class JudgeWorker {
     );
 
     if ((result.rowCount ?? 0) > 0) {
-      console.log(`recovered ${result.rowCount} stale running submission(s)`);
+      logInfo("stale_submissions_recovered", {
+        count: result.rowCount
+      });
     }
   }
 

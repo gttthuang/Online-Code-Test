@@ -17,7 +17,7 @@ import type {
 } from "@oct/contracts";
 import type { Pool } from "pg";
 
-import type { AppStore, HiddenTestCaseRecord, ProblemRecord } from "./store.js";
+import type { AppStore, HiddenTestCaseRecord, InternalStats, ProblemRecord } from "./store.js";
 
 type ProblemRow = {
   id: string;
@@ -589,6 +589,91 @@ export class PostgresStore implements AppStore {
     return {
       candidate,
       submissions: submissions.rows
+    };
+  }
+
+  async getInternalStats(): Promise<InternalStats> {
+    const [totalsResult, statusesResult, failuresResult, judgeCasesResult] = await Promise.all([
+      this.pool.query<{
+        candidates: string;
+        problems: string;
+        assignments: string;
+        submissions: string;
+      }>(
+        `
+          select
+            (select count(*)::text from users where role = 'candidate') as candidates,
+            (select count(*)::text from problems) as problems,
+            (select count(*)::text from assignments) as assignments,
+            (select count(*)::text from submissions) as submissions
+        `
+      ),
+      this.pool.query<{ status: SubmissionStatus; count: string }>(
+        `
+          select status, count(*)::text as count
+          from submissions
+          group by status
+        `
+      ),
+      this.pool.query<{ error_type: JudgeFailureType; count: string }>(
+        `
+          select error_type, count(*)::text as count
+          from submissions
+          where error_type is not null
+          group by error_type
+        `
+      ),
+      this.pool.query<{ total: string; avg_execution_time_ms: string | null }>(
+        `
+          select
+            count(*)::text as total,
+            round(avg(execution_time_ms))::text as avg_execution_time_ms
+          from submission_case_results
+        `
+      )
+    ]);
+
+    const totalsRow = totalsResult.rows[0];
+    const submissionsByStatus: Record<SubmissionStatus, number> = {
+      queued: 0,
+      running: 0,
+      finished: 0,
+      failed: 0
+    };
+
+    for (const row of statusesResult.rows) {
+      submissionsByStatus[row.status] = Number(row.count);
+    }
+
+    const failuresByType: Record<JudgeFailureType, number> = {
+      compile_error: 0,
+      runtime_error: 0,
+      time_limit_exceeded: 0,
+      sandbox_error: 0,
+      system_error: 0
+    };
+
+    for (const row of failuresResult.rows) {
+      failuresByType[row.error_type] = Number(row.count);
+    }
+
+    const judgeCasesRow = judgeCasesResult.rows[0];
+
+    return {
+      totals: {
+        candidates: Number(totalsRow?.candidates ?? 0),
+        problems: Number(totalsRow?.problems ?? 0),
+        assignments: Number(totalsRow?.assignments ?? 0),
+        submissions: Number(totalsRow?.submissions ?? 0)
+      },
+      submissionsByStatus,
+      failuresByType,
+      judgeCases: {
+        total: Number(judgeCasesRow?.total ?? 0),
+        averageExecutionTimeMs: judgeCasesRow?.avg_execution_time_ms
+          ? Number(judgeCasesRow.avg_execution_time_ms)
+          : null
+      }
     };
   }
 

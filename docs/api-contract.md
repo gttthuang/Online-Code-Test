@@ -51,6 +51,7 @@ Authorization: Bearer <token>
 
 - `GET /`
 - `GET /healthz`
+- `GET /internal/stats`
 - `POST /auth/login`
 - `GET /auth/me`
 
@@ -166,6 +167,49 @@ Response:
   "name": "Alice Candidate",
   "email": "alice.candidate@example.com",
   "role": "candidate"
+}
+```
+
+### `GET /internal/stats`
+
+用途：
+
+- 本機 demo / debug 用的最小 observability endpoint
+- 看目前 submission 狀態分布、judge failure breakdown、基本資料量
+
+Response:
+
+```json
+{
+  "service": "api",
+  "generatedAt": "2026-05-15T12:00:00.000Z",
+  "queueMode": "database-polling",
+  "storageMode": "postgres",
+  "stats": {
+    "totals": {
+      "candidates": 2,
+      "problems": 2,
+      "assignments": 2,
+      "submissions": 5
+    },
+    "submissionsByStatus": {
+      "queued": 0,
+      "running": 0,
+      "finished": 3,
+      "failed": 2
+    },
+    "failuresByType": {
+      "compile_error": 1,
+      "runtime_error": 0,
+      "time_limit_exceeded": 1,
+      "sandbox_error": 0,
+      "system_error": 0
+    },
+    "judgeCases": {
+      "total": 6,
+      "averageExecutionTimeMs": 8
+    }
+  }
 }
 ```
 

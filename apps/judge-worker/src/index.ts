@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { createPostgresPool } from "./postgres.js";
 import { config } from "./config.js";
+import { logError, logInfo } from "./logger.js";
 import { JudgeWorker } from "./worker.js";
 
 const pool = createPostgresPool(config.postgres);
@@ -25,15 +26,26 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
-console.log("judge-worker started");
-console.log(`poll interval: ${config.pollIntervalMs}ms`);
-console.log(`heartbeat interval: ${config.heartbeatIntervalMs}ms`);
-console.log(`stale threshold: ${config.staleThresholdMs}ms`);
-console.log(
-  `postgres: ${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`
-);
-console.log(
-  `sandbox: python=${config.sandbox.pythonImage}, cpp=${config.sandbox.cppImage}, memory=${config.sandbox.memoryLimitMb}MB`
-);
+logInfo("worker_started", {
+  pollIntervalMs: config.pollIntervalMs,
+  heartbeatIntervalMs: config.heartbeatIntervalMs,
+  staleThresholdMs: config.staleThresholdMs,
+  postgres: `${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`,
+  sandbox: {
+    pythonImage: config.sandbox.pythonImage,
+    cppImage: config.sandbox.cppImage,
+    memoryLimitMb: config.sandbox.memoryLimitMb,
+    cpuLimit: config.sandbox.cpuLimit,
+    pidsLimit: config.sandbox.pidsLimit
+  }
+});
 
-await worker.start();
+try {
+  await worker.start();
+} catch (error) {
+  logError("worker_startup_error", {
+    message: error instanceof Error ? error.message : "judge worker failed to start"
+  });
+  await pool.end();
+  process.exit(1);
+}

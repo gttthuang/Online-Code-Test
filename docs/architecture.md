@@ -7,7 +7,7 @@
 ```text
 Browser
   -> apps/web (React + Vite, localhost:5173)
-  -> proxy /auth /me /admin /healthz
+  -> proxy /auth /me /admin /healthz /internal/stats
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
   -> apps/judge-worker (polling worker)
@@ -42,12 +42,14 @@ Browser
 - problem APIs
 - submission APIs
 - result APIs
+- local observability stats endpoint
 
 目前狀態：
 
 - 已有 MVP
 - route surface 已經固定到前端可以直接串
 - token 目前只是 demo token，不是真 JWT
+- `GET /internal/stats` 會回 PostgreSQL 聚合出的 submission / failure counters
 
 ### `packages/contracts`
 
@@ -104,6 +106,7 @@ Browser
 - 有 `--network none`
 - 有 CPU / memory / pids limit
 - 還沒有更嚴格的 seccomp / filesystem hardening
+- worker log 現在是 JSON 結構化格式，方便 demo 與本機 debug
 
 ## 下一階段目標架構
 

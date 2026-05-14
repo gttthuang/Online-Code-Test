@@ -17,6 +17,8 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 
 This means the app is ready for UI iteration and API integration work. PostgreSQL and a basic worker are connected; Redis is not in place yet, and sandboxing is currently Docker-based rather than a hardened production judge environment.
 
+Local observability is also available through `GET /internal/stats`, which returns current submission status counts and judge failure breakdowns.
+
 ## Quick Start
 
 Host prerequisites:

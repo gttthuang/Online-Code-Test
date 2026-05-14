@@ -53,6 +53,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     routes: [
       "POST /auth/login",
       "GET /auth/me",
+      "GET /internal/stats",
       "GET /me/assignments",
       "GET /me/problems/:problemId",
       "POST /me/submissions",
@@ -70,14 +71,22 @@ export async function buildApp(options: BuildAppOptions = {}) {
     status: "ok",
     service: "api",
     storageMode: "postgres",
-      queueMode: "database-polling",
-      postgres: {
+    queueMode: "database-polling",
+    postgres: {
       configuredHost: postgresConfig.host,
       configuredDatabase: postgresConfig.database,
       status: await pingPostgres(postgresPool)
         .then(() => "reachable")
         .catch(() => "unreachable")
     }
+  }));
+
+  app.get("/internal/stats", async () => ({
+    service: "api",
+    generatedAt: new Date().toISOString(),
+    queueMode: "database-polling",
+    storageMode: "postgres",
+    stats: await store.getInternalStats()
   }));
 
   app.setErrorHandler((error, _request, reply) => {

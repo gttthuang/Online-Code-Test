@@ -22,6 +22,7 @@
 - interviewer 建 assignment / 查 candidate results
 - problem admin 建題 / 看題目列表
 - worker 會在背景消化 queued submissions
+- API 可透過 `/internal/stats` 看目前 submission 狀態與 failure breakdown
 
 但目前還沒有：
 
