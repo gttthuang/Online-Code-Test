@@ -14,13 +14,19 @@ import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infr
 import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
 
-export async function buildApp() {
+type BuildAppOptions = {
+  postgres?: typeof config.postgres;
+  logger?: boolean;
+};
+
+export async function buildApp(options: BuildAppOptions = {}) {
+  const postgresConfig = options.postgres ?? config.postgres;
   const app = Fastify({
-    logger: true
+    logger: options.logger ?? true
   });
 
-  await ensurePostgresDatabase(config.postgres);
-  const postgresPool = createPostgresPool(config.postgres);
+  await ensurePostgresDatabase(postgresConfig);
+  const postgresPool = createPostgresPool(postgresConfig);
   await initializePostgres(postgresPool);
 
   const store = new PostgresStore(postgresPool);
@@ -47,6 +53,7 @@ export async function buildApp() {
     routes: [
       "POST /auth/login",
       "GET /auth/me",
+      "GET /internal/stats",
       "GET /me/assignments",
       "GET /me/problems/:problemId",
       "POST /me/submissions",
@@ -66,12 +73,20 @@ export async function buildApp() {
     storageMode: "postgres",
     queueMode: "database-polling",
     postgres: {
-      configuredHost: config.postgres.host,
-      configuredDatabase: config.postgres.database,
+      configuredHost: postgresConfig.host,
+      configuredDatabase: postgresConfig.database,
       status: await pingPostgres(postgresPool)
         .then(() => "reachable")
         .catch(() => "unreachable")
     }
+  }));
+
+  app.get("/internal/stats", async () => ({
+    service: "api",
+    generatedAt: new Date().toISOString(),
+    queueMode: "database-polling",
+    storageMode: "postgres",
+    stats: await store.getInternalStats()
   }));
 
   app.setErrorHandler((error, _request, reply) => {

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "migrate": "tsx src/scripts/migrate.ts",
+    "test": "node --import tsx --test src/tests/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

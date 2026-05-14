@@ -11,6 +11,7 @@
 - `apps/judge-worker`：TypeScript 判題 worker
 - `packages/contracts`：前後端共用 DTO / enum
 - 資料層：PostgreSQL
+- schema 管理：SQL migrations + seed data
 - 判題流程：PostgreSQL queue + 獨立 worker process
 - 執行方式：Docker 隔離的 `python` / `cpp` runner + timeout
 
@@ -21,6 +22,7 @@
 - interviewer 建 assignment / 查 candidate results
 - problem admin 建題 / 看題目列表
 - worker 會在背景消化 queued submissions
+- API 可透過 `/internal/stats` 看目前 submission 狀態與 failure breakdown
 
 但目前還沒有：
 
@@ -36,12 +38,14 @@
 ```bash
 npm ci
 docker compose -f infra/docker-compose.yml up -d postgres
+npm run migrate --workspace @oct/api
 npm run dev:api
 npm run dev:worker
 npm run dev:web
 ```
 
 第一次啟動 worker 時，可能會先花一些時間拉 sandbox images。
+`npm run dev:api` 也會在啟動時自動補跑 migration 與 seed，但建議第一次先手動跑一次 `migrate`，比較容易確認 schema 狀態。
 
 - 前端：`http://localhost:5173`
 - 後端：`http://localhost:3000`

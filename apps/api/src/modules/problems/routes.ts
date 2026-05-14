@@ -5,28 +5,47 @@ import { languages, problemDifficulties } from "@oct/contracts";
 import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
+import { problemValidation } from "../../core/validation.js";
 
 const problemIdParamsSchema = z.object({
   problemId: z.string().min(1)
 });
 
+const hiddenTestCaseSchema = z.object({
+  input: z.string().max(problemValidation.testCaseTextMaxChars),
+  expectedOutput: z.string().max(problemValidation.testCaseTextMaxChars)
+});
+
 const createProblemSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().min(1),
+  title: z.string().trim()
+    .min(problemValidation.title.min)
+    .max(problemValidation.title.max),
+  description: z.string().trim()
+    .min(problemValidation.description.min)
+    .max(problemValidation.description.max),
   difficulty: z.enum(problemDifficulties),
-  timeLimitMs: z.number().int().positive(),
-  memoryLimitKb: z.number().int().positive(),
-  supportedLanguages: z.array(z.enum(languages)).min(1),
-  sampleInput: z.string(),
-  sampleOutput: z.string(),
-  hiddenTestCases: z
-    .array(
-      z.object({
-        input: z.string(),
-        expectedOutput: z.string()
-      })
-    )
-    .optional()
+  timeLimitMs: z.number().int()
+    .min(problemValidation.timeLimitMs.min)
+    .max(problemValidation.timeLimitMs.max),
+  memoryLimitKb: z.number().int()
+    .min(problemValidation.memoryLimitKb.min)
+    .max(problemValidation.memoryLimitKb.max),
+  supportedLanguages: z.array(z.enum(languages))
+    .min(1)
+    .max(languages.length),
+  sampleInput: z.string().max(problemValidation.sampleTextMaxChars),
+  sampleOutput: z.string().max(problemValidation.sampleTextMaxChars),
+  hiddenTestCases: z.array(hiddenTestCaseSchema)
+    .min(problemValidation.hiddenTestCaseCount.min)
+    .max(problemValidation.hiddenTestCaseCount.max)
+}).superRefine((value, ctx) => {
+  if (new Set(value.supportedLanguages).size !== value.supportedLanguages.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "supportedLanguages must not contain duplicates",
+      path: ["supportedLanguages"]
+    });
+  }
 });
 
 export async function registerProblemRoutes(app: FastifyInstance, context: AppContext) {
@@ -124,6 +143,14 @@ async function parseCreateProblemRequest(request: FastifyRequest) {
     fields.set(part.fieldname, content);
   }
 
+  let supportedLanguages: unknown;
+
+  try {
+    supportedLanguages = JSON.parse(fields.get("supportedLanguages") ?? "[]");
+  } catch {
+    throw new AppError(400, "invalid_supported_languages", "supportedLanguages must be valid JSON");
+  }
+
   const hiddenTestCases: Array<{ input: string; expectedOutput: string }> = [];
 
   for (let index = 0; ; index += 1) {
@@ -150,7 +177,7 @@ async function parseCreateProblemRequest(request: FastifyRequest) {
     difficulty: fields.get("difficulty"),
     timeLimitMs: Number(fields.get("timeLimitMs")),
     memoryLimitKb: Number(fields.get("memoryLimitKb")),
-    supportedLanguages: JSON.parse(fields.get("supportedLanguages") ?? "[]"),
+    supportedLanguages,
     sampleInput: fields.get("sampleInput"),
     sampleOutput: fields.get("sampleOutput"),
     hiddenTestCases

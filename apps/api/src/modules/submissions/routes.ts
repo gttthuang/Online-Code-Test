@@ -5,11 +5,22 @@ import { languages } from "@oct/contracts";
 import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
+import { submissionValidation } from "../../core/validation.js";
 
 const createSubmissionSchema = z.object({
   problemId: z.string().min(1),
   language: z.enum(languages),
-  sourceCode: z.string().min(1)
+  sourceCode: z.string()
+    .min(1)
+    .max(submissionValidation.sourceCodeMax)
+}).superRefine((value, ctx) => {
+  if (value.sourceCode.trim().length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "sourceCode must not be blank",
+      path: ["sourceCode"]
+    });
+  }
 });
 
 const submissionIdParamsSchema = z.object({

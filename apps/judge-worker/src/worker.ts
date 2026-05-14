@@ -1,7 +1,9 @@
 import type { Pool } from "pg";
-import type { JudgeResult, SubmissionDetail } from "@oct/contracts";
+import type { JudgeFailureType, JudgeResult, SubmissionDetail } from "@oct/contracts";
 
 import { executeSubmission } from "./executor.js";
+import { ExecutionFailure } from "./execution-failure.js";
+import { logError, logInfo } from "./logger.js";
 import type { config as workerConfig } from "./config.js";
 
 type ClaimedSubmission = SubmissionDetail & {
@@ -15,65 +17,122 @@ type ClaimedSubmission = SubmissionDetail & {
 
 export class JudgeWorker {
   private running = true;
+  private lastRecoveryAt = 0;
 
   constructor(
     private readonly pool: Pool,
     private readonly pollIntervalMs: number,
+    private readonly heartbeatIntervalMs: number,
+    private readonly staleThresholdMs: number,
     private readonly sandbox: typeof workerConfig.sandbox
   ) {}
 
   async start() {
+    await this.runRecoveryPass();
+
     while (this.running) {
-      let submission: ClaimedSubmission | null = null;
-
       try {
-        submission = await this.claimNextSubmission();
+        const processed = await this.processNextSubmission();
 
-        if (!submission) {
+        if (!processed) {
           await delay(this.pollIntervalMs);
-          continue;
         }
-
-        console.log(`claim submission ${submission.id} (${submission.language})`);
-
-        const result = await executeSubmission({
-          submissionId: submission.id,
-          language: submission.language,
-          sourceCode: submission.sourceCode,
-          timeLimitMs: submission.timeLimitMs,
-          hiddenTestCases: submission.hiddenTestCases,
-          sandbox: this.sandbox
-        });
-
-        await this.completeSubmission(submission.id, result);
-        console.log(`complete submission ${submission.id} -> ${result.status} (${result.score})`);
       } catch (error) {
-        console.error("judge worker error", error);
-
-        if (submission) {
-          const failureResult: JudgeResult = {
-            submissionId: submission.id,
-            status: "failed",
-            score: 0,
-            cases: [],
-            errorMessage: toErrorMessage(error)
-          };
-
-          try {
-            await this.completeSubmission(submission.id, failureResult);
-            console.log(`complete submission ${submission.id} -> failed (0)`);
-          } catch (completionError) {
-            console.error("failed to persist submission failure", completionError);
-          }
-        }
-
+        logError("worker_loop_error", {
+          message: toErrorMessage(error),
+          errorType: toFailureType(error)
+        });
         await delay(this.pollIntervalMs);
       }
     }
   }
 
+  async processNextSubmission() {
+    await this.maybeRecoverStaleSubmissions();
+
+    let submission: ClaimedSubmission | null = null;
+    let stopHeartbeat = () => {};
+
+    try {
+      submission = await this.claimNextSubmission();
+
+      if (!submission) {
+        return false;
+      }
+
+      logInfo("submission_claimed", {
+        submissionId: submission.id,
+        candidateId: submission.candidateId,
+        problemId: submission.problemId,
+        language: submission.language
+      });
+      stopHeartbeat = this.startHeartbeat(submission.id);
+      const startedAt = Date.now();
+
+      const result = await executeSubmission({
+        submissionId: submission.id,
+        language: submission.language,
+        sourceCode: submission.sourceCode,
+        timeLimitMs: submission.timeLimitMs,
+        hiddenTestCases: submission.hiddenTestCases,
+        sandbox: this.sandbox
+      });
+
+      stopHeartbeat();
+      await this.completeSubmission(submission.id, result);
+      logInfo("submission_completed", {
+        submissionId: submission.id,
+        candidateId: submission.candidateId,
+        problemId: submission.problemId,
+        language: submission.language,
+        status: result.status,
+        score: result.score,
+        errorType: result.errorType ?? null,
+        durationMs: Date.now() - startedAt
+      });
+      return true;
+    } catch (error) {
+      stopHeartbeat();
+
+      if (submission) {
+        const failureResult: JudgeResult = {
+          submissionId: submission.id,
+          status: "failed",
+          score: 0,
+          cases: [],
+          errorType: toFailureType(error),
+          errorMessage: toErrorMessage(error)
+        };
+
+        try {
+          await this.completeSubmission(submission.id, failureResult);
+          logError("submission_failed", {
+            submissionId: submission.id,
+            candidateId: submission.candidateId,
+            problemId: submission.problemId,
+            language: submission.language,
+            score: 0,
+            errorType: failureResult.errorType ?? null,
+            message: failureResult.errorMessage ?? null
+          });
+        } catch (completionError) {
+          logError("submission_failure_persist_error", {
+            submissionId: submission.id,
+            message: toErrorMessage(completionError)
+          });
+        }
+      }
+
+      throw error;
+    }
+  }
+
   stop() {
     this.running = false;
+  }
+
+  async runRecoveryPass() {
+    await this.recoverStaleSubmissions();
   }
 
   private async claimNextSubmission(): Promise<ClaimedSubmission | null> {
@@ -170,6 +229,69 @@ export class JudgeWorker {
     }
   }
 
+  private startHeartbeat(submissionId: string) {
+    const timer = setInterval(() => {
+      void this.touchRunningSubmission(submissionId).catch((error) => {
+        logError("submission_heartbeat_error", {
+          submissionId,
+          message: toErrorMessage(error)
+        });
+      });
+    }, this.heartbeatIntervalMs);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }
+
+  private async touchRunningSubmission(submissionId: string) {
+    await this.pool.query(
+      `
+        update submissions
+        set updated_at = now()
+        where id = $1 and status = 'running'
+      `,
+      [submissionId]
+    );
+  }
+
+  private async maybeRecoverStaleSubmissions() {
+    const now = Date.now();
+
+    if (now - this.lastRecoveryAt < this.staleThresholdMs) {
+      return;
+    }
+
+    await this.recoverStaleSubmissions();
+  }
+
+  private async recoverStaleSubmissions() {
+    this.lastRecoveryAt = Date.now();
+
+    const result = await this.pool.query<{ id: string }>(
+      `
+        update submissions
+        set
+          status = 'queued',
+          score = null,
+          error_type = null,
+          error_message = null,
+          updated_at = now()
+        where
+          status = 'running'
+          and updated_at < now() - ($1::bigint * interval '1 millisecond')
+        returning id
+      `,
+      [this.staleThresholdMs]
+    );
+
+    if ((result.rowCount ?? 0) > 0) {
+      logInfo("stale_submissions_recovered", {
+        count: result.rowCount
+      });
+    }
+  }
+
   private async completeSubmission(
     submissionId: string,
     result: JudgeResult
@@ -185,11 +307,18 @@ export class JudgeWorker {
           set
             status = $2,
             score = $3,
-            error_message = $4,
+            error_type = $4,
+            error_message = $5,
             updated_at = now()
           where id = $1
         `,
-        [submissionId, result.status, result.score, result.errorMessage ?? null]
+        [
+          submissionId,
+          result.status,
+          result.score,
+          result.errorType ?? null,
+          result.errorMessage ?? null
+        ]
       );
 
       await client.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
@@ -238,4 +367,12 @@ function toErrorMessage(error: unknown) {
   }
 
   return "Judge worker failed unexpectedly";
+}
+
+function toFailureType(error: unknown): JudgeFailureType {
+  if (error instanceof ExecutionFailure) {
+    return error.type;
+  }
+
+  return "system_error";
 }

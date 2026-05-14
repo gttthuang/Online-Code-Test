@@ -5,6 +5,7 @@ import type {
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
+  JudgeFailureType,
   JudgeResult,
   ProblemDetail,
   ProblemSummary,
@@ -21,6 +22,21 @@ export interface HiddenTestCaseRecord {
 export interface ProblemRecord extends ProblemDetail {
   hiddenTestCases: HiddenTestCaseRecord[];
   createdBy: string;
+}
+
+export interface InternalStats {
+  totals: {
+    candidates: number;
+    problems: number;
+    assignments: number;
+    submissions: number;
+  };
+  submissionsByStatus: Record<SubmissionStatus, number>;
+  failuresByType: Record<JudgeFailureType, number>;
+  judgeCases: {
+    total: number;
+    averageExecutionTimeMs: number | null;
+  };
 }
 
 export interface AppStore {
@@ -48,4 +64,5 @@ export interface AppStore {
   updateSubmissionStatus(submissionId: string, status: SubmissionStatus): Promise<SubmissionDetail | null>;
   completeSubmission(submissionId: string, result: JudgeResult): Promise<SubmissionDetail | null>;
   listCandidateResults(candidateId: string): Promise<CandidateResultsResponse | null>;
+  getInternalStats(): Promise<InternalStats>;
 }

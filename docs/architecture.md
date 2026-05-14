@@ -7,7 +7,7 @@
 ```text
 Browser
   -> apps/web (React + Vite, localhost:5173)
-  -> proxy /auth /me /admin /healthz
+  -> proxy /auth /me /admin /healthz /internal/stats
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
   -> apps/judge-worker (polling worker)
@@ -42,12 +42,14 @@ Browser
 - problem APIs
 - submission APIs
 - result APIs
+- local observability stats endpoint
 
 目前狀態：
 
 - 已有 MVP
 - route surface 已經固定到前端可以直接串
 - token 目前只是 demo token，不是真 JWT
+- `GET /internal/stats` 會回 PostgreSQL 聚合出的 submission / failure counters
 
 ### `packages/contracts`
 
@@ -72,7 +74,10 @@ Browser
 目前資料已經改成 PostgreSQL 持久化：
 
 - 連線與 DB helper：`apps/api/src/infra/postgres.ts`
-- schema/init/seed：`apps/api/src/infra/postgres-init.ts`
+- migration runner：`apps/api/src/infra/postgres-migrate.ts`
+- migration files：`apps/api/migrations/*.sql`
+- seed：`apps/api/src/infra/postgres-seed.ts`
+- app bootstrap：`apps/api/src/infra/postgres-init.ts`
 - repository：`apps/api/src/infra/postgres-store.ts`
 - seed data 來源：`apps/api/src/infra/seed.ts`
 
@@ -89,7 +94,7 @@ Browser
 - API 只負責建立 `queued` submission
 - worker 會 claim queued job
 - worker 會把 submission 更新成 `running`
-- worker 會用本機 `python3` / `g++` 執行 submission
+- worker 會在短生命週期 Docker sandbox 內編譯 / 執行 submission
 - worker 會讀 hidden test cases，逐筆比對輸出
 - worker 會回寫 `finished` 或 `failed`
 
@@ -101,6 +106,7 @@ Browser
 - 有 `--network none`
 - 有 CPU / memory / pids limit
 - 還沒有更嚴格的 seccomp / filesystem hardening
+- worker log 現在是 JSON 結構化格式，方便 demo 與本機 debug
 
 ## 下一階段目標架構
 
