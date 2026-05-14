@@ -225,6 +225,11 @@ Request:
 }
 ```
 
+Validation:
+
+- `sourceCode` 不可為空白
+- `sourceCode` 最多 `100000` 字元
+
 Response:
 
 ```json
@@ -317,6 +322,17 @@ Request:
   ]
 }
 ```
+
+Validation:
+
+- `title`: 1 到 120 字元
+- `description`: 1 到 20000 字元
+- `timeLimitMs`: 1 到 10000
+- `memoryLimitKb`: 1 到 1048576
+- `supportedLanguages`: 至少 1 種，且不可重複
+- `sampleInput` / `sampleOutput`: 各最多 8000 字元
+- `hiddenTestCases`: 1 到 50 筆
+- 每筆 hidden testcase 的 `input` / `expectedOutput`: 各最多 16000 字元
 
 ### `POST /admin/assignments`
 
