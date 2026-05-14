@@ -10,8 +10,10 @@
     "dev:api": "npm run dev --workspace @oct/api",
     "dev:web": "npm run dev --workspace @oct/web",
     "dev:worker": "npm run dev --workspace @oct/judge-worker",
+    "build:web": "npm run build --workspace @oct/web",
     "test:api": "npm run test --workspace @oct/api",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "ci:verify": "npm run typecheck && npm run test:api && npm run build:web"
   },
   "devDependencies": {
     "@types/node": "^22",

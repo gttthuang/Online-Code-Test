@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -47,6 +47,7 @@ export async function executeSubmission(
   await mkdir(workRoot, { recursive: true });
 
   const workingDirectory = await mkdtemp(join(workRoot, "oct-judge-"));
+  await chmod(workingDirectory, 0o777);
 
   try {
     const runnable = await prepareRunnable(
@@ -132,12 +133,21 @@ async function prepareRunnable(
     await ensureDockerImage(sandbox.pythonImage);
     const sourcePath = join(workingDirectory, "main.py");
     await writeFile(sourcePath, sourceCode, "utf8");
+    await chmod(sourcePath, 0o666);
 
-    const compileResult = await runCommand("python3", ["-m", "py_compile", "/workspace/main.py"], {
-      cwd: workingDirectory,
-      timeoutMs: COMPILE_TIMEOUT_MS,
-      sandbox
-    });
+    const compileResult = await runCommand(
+      "python3",
+      [
+        "-B",
+        "-c",
+        "import pathlib; compile(pathlib.Path('/workspace/main.py').read_text(), '/workspace/main.py', 'exec')"
+      ],
+      {
+        cwd: workingDirectory,
+        timeoutMs: COMPILE_TIMEOUT_MS,
+        sandbox
+      }
+    );
 
     if (compileResult.timedOut) {
       return {
@@ -153,13 +163,14 @@ async function prepareRunnable(
 
     return {
       command: "python3",
-      args: ["/workspace/main.py"]
+      args: ["-B", "/workspace/main.py"]
     };
   }
 
   await ensureDockerImage(sandbox.cppImage);
   const sourcePath = join(workingDirectory, "main.cpp");
   await writeFile(sourcePath, sourceCode, "utf8");
+  await chmod(sourcePath, 0o666);
 
   const compileResult = await runCommand(
     "g++",
