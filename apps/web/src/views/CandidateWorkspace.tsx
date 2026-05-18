@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SupportedLanguage } from "@oct/contracts";
 
 import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission } from "../lib/api";
 import "./candidate.css";
 
-// 引入 Monaco Editor
+// 引入 Monaco Editor 與 Vim 模式
 import Editor from "@monaco-editor/react";
+import { initVimMode } from "monaco-vim";
 
 const scenarioTemplates = [
   { label: "Accepted", code: "print(42)" },
@@ -41,13 +42,60 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [leftWidth, setLeftWidth] = useState(40);
   const [topHeight, setTopHeight] = useState(60);
 
-  // 輔助函式：將你的語言格式轉換為 Monaco 支援的格式 (例如 C++ 對應 cpp)
+  // === 編輯器偏好設定狀態 ===
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [fontSize, setFontSize] = useState<number>(14);
+  const [tabSize, setTabSize] = useState<number>(4);
+  const [keybinding, setKeybinding] = useState<string>("standard");
+
+  // === 編輯器與 Vim 實體參考 ===
+  const editorRef = useRef<any>(null);
+  const vimModeRef = useRef<any>(null);
+
+  // 輔助函式：將你的語言格式轉換為 Monaco 支援的格式
   const getMonacoLanguage = (lang: string) => {
     const l = lang.toLowerCase();
     if (l === "c++") return "cpp";
     return l;
   };
 
+  // 當 Monaco 編輯器掛載完成時觸發
+  const handleEditorMount = (editor: any) => {
+    editorRef.current = editor;
+    applyKeybinding(keybinding); // 初始化時套用按鍵綁定設定
+  };
+
+  // 套用按鍵綁定邏輯
+  const applyKeybinding = (mode: string) => {
+    // 每次切換前，先卸載既有的 Vim 模式以避免記憶體流失或重複綁定
+    if (vimModeRef.current) {
+      vimModeRef.current.dispose();
+      vimModeRef.current = null;
+    }
+
+    if (mode === "vim" && editorRef.current) {
+      const statusNode = document.getElementById("vim-status-bar");
+      if (statusNode) {
+        // 清空先前的狀態文字 (避免殘留)
+        statusNode.innerHTML = "";
+        vimModeRef.current = initVimMode(editorRef.current, statusNode);
+      }
+    }
+  };
+
+  // 監聽 keybinding 狀態變化，動態切換模式
+  useEffect(() => {
+    applyKeybinding(keybinding);
+
+    // 元件卸載時的清理工作
+    return () => {
+      if (vimModeRef.current) {
+        vimModeRef.current.dispose();
+      }
+    };
+  }, [keybinding]);
+
+  // --- API 相關邏輯保留不變 ---
   useEffect(() => {
     let cancelled = false;
 
@@ -216,6 +264,51 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   return (
     <div className="fullscreen-wrapper">
 
+      {/* 偏好設定 Modal */}
+      {isSettingsOpen && (
+        <div className="settings-overlay" onClick={() => setIsSettingsOpen(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Editor Settings</h3>
+
+            <label className="field">
+              <span>Font Size (px)</span>
+              {/* 改為下拉選單 */}
+              <select value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))}>
+                <option value={10}>10</option>
+                <option value={12}>12</option>
+                <option value={14}>14</option>
+                <option value={16}>16</option>
+                <option value={18}>18</option>
+                <option value={20}>20</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Tab Size</span>
+              <select value={tabSize} onChange={(e) => setTabSize(Number(e.target.value))}>
+                <option value={2}>2 Spaces</option>
+                <option value={4}>4 Spaces</option>
+                <option value={8}>8 Spaces</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Key Binding</span>
+              <select value={keybinding} onChange={(e) => setKeybinding(e.target.value)}>
+                <option value="standard">Standard</option>
+                <option value="vim">Vim</option>
+              </select>
+            </label>
+
+            <div className="settings-modal-actions">
+              <button className="primary-button" onClick={() => setIsSettingsOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 固定在左側邊緣的開啟按鈕 (未開啟抽屜時顯示) */}
       {!isSelectorOpen && (
         <button
@@ -349,45 +442,59 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
         {/* ================= 右欄：上下分割 ================= */}
         <div className="panel-flex-content" style={{ flex: 100 - leftWidth, minWidth: "300px" }}>
 
-          {/* 右欄上半部：Editor (加入 minHeight: "300px") */}
+          {/* 右欄上半部：Editor */}
           <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
                 <h2>Code Editor</h2>
                 <div className="editor-toolbar">
-                  <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
-                    <span style={{ whiteSpace: "nowrap" }}>Language:</span>
-                    <select
-                      value={language}
-                      onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
-                      style={{ width: "auto", minWidth: "120px" }}
+                  <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                    <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem", margin: 0 }}>
+                      <span style={{ whiteSpace: "nowrap" }}>Language:</span>
+                      <select
+                        value={language}
+                        onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
+                        style={{ width: "auto", minWidth: "120px" }}
+                      >
+                        {problem?.supportedLanguages.map((item) => (
+                          <option key={item} value={item}>{item}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="chip-button"
+                      onClick={() => setIsSettingsOpen(true)}
+                      title="Editor Settings"
                     >
-                      {problem?.supportedLanguages.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
-                    </select>
-                  </label>
+                      ⚙️ Settings
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div className="problem-stack" style={{ display: "flex", flexDirection: "column" }}>
 
-                {/* 將原來的 textarea 替換成 Monaco Editor */}
-                <div style={{ flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden", padding: "8px 0" }}>
+                {/* Monaco Editor 與 Vim 狀態列外框 */}
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden" }}>
                   <Editor
                     height="100%"
                     language={getMonacoLanguage(language)}
                     value={sourceCode}
-                    theme="light" // 若喜歡深色主題可改為 "vs-dark"
+                    theme="light"
                     onChange={(value) => setSourceCode(value || "")}
+                    onMount={handleEditorMount}
                     options={{
                       minimap: { enabled: false },
-                      fontSize: 14,
+                      fontSize: fontSize,
+                      tabSize: tabSize,
+                      detectIndentation: false, // 關閉自動偵測，強制使用自訂的 tabSize
                       scrollBeyondLastLine: false,
                       wordWrap: "on",
                       padding: { top: 8 }
                     }}
                   />
+                  {/* Vim 專用狀態列 */}
+                  <div id="vim-status-bar" className="vim-status-bar" />
                 </div>
 
                 {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
@@ -402,7 +509,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
           {/* 右欄上下拖曳調整列 */}
           <div className="resizer-y" onPointerDown={handleRowDividerDrag} title="Drag to resize height" />
 
-          {/* 右欄下半部：Testcases & Output (加入 minHeight: "170px") */}
+          {/* 右欄下半部：Testcases & Output */}
           <div className="panel-flex-content" style={{ flex: 100 - topHeight, minHeight: "170px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
