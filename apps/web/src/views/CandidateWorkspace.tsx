@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SupportedLanguage } from "@oct/contracts";
 
-import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission} from "../lib/api";
+import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission } from "../lib/api";
 import "./candidate.css";
+
+// 引入 Monaco Editor
+import Editor from "@monaco-editor/react";
 
 const scenarioTemplates = [
   { label: "Accepted", code: "print(42)" },
@@ -20,7 +23,6 @@ interface CandidateWorkspaceProps {
 
 export function CandidateWorkspace({ token, user, initialProblemId, onClose }: CandidateWorkspaceProps) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
-  // const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(initialProblemId ?? null);
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [problemLoading, setProblemLoading] = useState(false);
@@ -39,28 +41,16 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [leftWidth, setLeftWidth] = useState(40);
   const [topHeight, setTopHeight] = useState(60);
 
-  // useEffect(() => {
-  //   let cancelled = false;
-  //   setAssignmentsLoading(true);
-  //   setWorkspaceError(null);
-  //   getAssignments(token)
-  //     .then((items) => {
-  //       if (cancelled) return;
-  //       setAssignments(items);
-  //       setSelectedProblemId((current) => current ?? items[0]?.problemId ?? null);
-  //     })
-  //     .catch((error) => {
-  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load assignments");
-  //     })
-  //     .finally(() => {
-  //       if (!cancelled) setAssignmentsLoading(false);
-  //     });
-  //   return () => { cancelled = true; };
-  // }, [token]);
-  useEffect(() => {
+  // 輔助函式：將你的語言格式轉換為 Monaco 支援的格式 (例如 C++ 對應 cpp)
+  const getMonacoLanguage = (lang: string) => {
+    const l = lang.toLowerCase();
+    if (l === "c++") return "cpp";
+    return l;
+  };
 
+  useEffect(() => {
     let cancelled = false;
-    
+
     if (initialProblemId) {
       setSelectedProblemId(initialProblemId);
       setAssignments([]);
@@ -93,30 +83,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     };
   }, [token, initialProblemId]);
 
-  // useEffect(() => {
-  //   if (!selectedProblemId) {
-  //     setProblem(null);
-  //     return;
-  //   }
-  //   let cancelled = false;
-  //   setProblemLoading(true);
-  //   setWorkspaceError(null);
-  //   getProblem(token, selectedProblemId)
-  //     .then((nextProblem) => {
-  //       if (cancelled) return;
-  //       setProblem(nextProblem);
-  //       setLanguage((current) =>
-  //         nextProblem.supportedLanguages.includes(current) ? current : nextProblem.supportedLanguages[0]
-  //       );
-  //     })
-  //     .catch((error) => {
-  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
-  //     })
-  //     .finally(() => {
-  //       if (!cancelled) setProblemLoading(false);
-  //     });
-  //   return () => { cancelled = true; };
-  // }, [selectedProblemId, token]);
   useEffect(() => {
     if (!selectedProblemId) {
       setProblem(null);
@@ -156,7 +122,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     let timer = 0;
     const poll = async () => {
       try {
-        // const nextSubmission = await getSubmission(token, submission.id);
         const api = user.role === "problem_admin" ? getPreviewSubmission : getSubmission;
         const nextSubmission = await api(token, submission.id);
 
@@ -182,7 +147,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     setWorkspaceError(null);
     setRightTab("output");
     try {
-      // const created = await createSubmission(token, {
       const api = user.role === "problem_admin" ? createPreviewSubmission : createSubmission;
 
       const created = await api(token, {
@@ -354,7 +318,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                     </div>
                   </>
                 ) : (
-                  // <div className="empty-state">Open the assignments menu on the left to select a problem.</div>
                   <div className="empty-state">
                     {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
                   </div>
@@ -386,20 +349,18 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
         {/* ================= 右欄：上下分割 ================= */}
         <div className="panel-flex-content" style={{ flex: 100 - leftWidth, minWidth: "300px" }}>
 
-          {/* 右欄上半部：Editor (加入 minHeight: "150px") */}
+          {/* 右欄上半部：Editor (加入 minHeight: "300px") */}
           <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
-                {/* 改為標準 h2 標籤 */}
                 <h2>Code Editor</h2>
                 <div className="editor-toolbar">
-                  {/* 使用 flex-row 與 align-items: center 讓文字與選擇器在同一行 */}
                   <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
                     <span style={{ whiteSpace: "nowrap" }}>Language:</span>
                     <select
                       value={language}
                       onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
-                      style={{ width: "auto", minWidth: "120px" }} // 防止 select 變成 100% 寬度
+                      style={{ width: "auto", minWidth: "120px" }}
                     >
                       {problem?.supportedLanguages.map((item) => (
                         <option key={item} value={item}>{item}</option>
@@ -410,12 +371,24 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
               </div>
 
               <div className="problem-stack" style={{ display: "flex", flexDirection: "column" }}>
-                <textarea
-                  className="code-editor"
-                  onChange={(event) => setSourceCode(event.target.value)}
-                  spellCheck={false}
-                  value={sourceCode}
-                />
+
+                {/* 將原來的 textarea 替換成 Monaco Editor */}
+                <div style={{ flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden", padding: "8px 0" }}>
+                  <Editor
+                    height="100%"
+                    language={getMonacoLanguage(language)}
+                    value={sourceCode}
+                    theme="light" // 若喜歡深色主題可改為 "vs-dark"
+                    onChange={(value) => setSourceCode(value || "")}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      scrollBeyondLastLine: false,
+                      wordWrap: "on",
+                      padding: { top: 8 }
+                    }}
+                  />
+                </div>
 
                 {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
 
@@ -429,7 +402,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
           {/* 右欄上下拖曳調整列 */}
           <div className="resizer-y" onPointerDown={handleRowDividerDrag} title="Drag to resize height" />
 
-          {/* 右欄下半部：Testcases & Output (加入 minHeight: "150px") */}
+          {/* 右欄下半部：Testcases & Output (加入 minHeight: "170px") */}
           <div className="panel-flex-content" style={{ flex: 100 - topHeight, minHeight: "170px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
