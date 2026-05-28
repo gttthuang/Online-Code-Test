@@ -1,23 +1,5 @@
 import { useState } from "react";
 
-const demoAccounts = [
-  {
-    label: "Candidate",
-    email: "alice.candidate@example.com",
-    note: "Best for testing assignment, code submission, and result polling."
-  },
-  {
-    label: "Interviewer",
-    email: "bob.interviewer@example.com",
-    note: "Will be used in the next admin-facing frontend commit."
-  },
-  {
-    label: "Problem Admin",
-    email: "cindy.problem_admin@example.com",
-    note: "Will be used in the next admin-facing frontend commit."
-  }
-];
-
 interface LoginPanelProps {
   health: {
     status: "idle" | "ready" | "error";
@@ -29,53 +11,49 @@ interface LoginPanelProps {
 }
 
 export function LoginPanel({ health, isLoading, error, onLogin }: LoginPanelProps) {
-  const [email, setEmail] = useState("alice.candidate@example.com");
+  const [email, setEmail] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await onLogin(email);
+    await onLogin(email.trim());
   }
 
   return (
-    <section className="workspace-grid">
-      <article className="status-card">
-        <p className="eyebrow">Demo Access</p>
-        <h2>Pick an account and get a token-backed session.</h2>
-        <p className="panel-copy">
-          The current backend uses demo login by email. After login, the frontend stores the token
-          locally and uses it for all protected API calls.
+    <section className="login-panel">
+      <article className="login-copy">
+        <div className="brand-lockup brand-lockup-large">
+          <div className="brand-mark">OCT</div>
+          <div>
+            <strong>Online Code Test</strong>
+            <span>Interview coding workspace</span>
+          </div>
+        </div>
+        <h1>Sign in to your assigned workspace.</h1>
+        <p>
+          Your role determines whether you enter the candidate exam, interviewer console, or problem authoring dashboard.
         </p>
-
-        <div className="demo-list">
-          {demoAccounts.map((account) => (
-            <button
-              key={account.email}
-              className={`demo-account ${email === account.email ? "demo-account-active" : ""}`}
-              onClick={() => setEmail(account.email)}
-              type="button"
-            >
-              <strong>{account.label}</strong>
-              <span>{account.email}</span>
-              <small>{account.note}</small>
-            </button>
-          ))}
+        <div className={`health-indicator health-${health.status}`}>
+          <span className="health-dot" />
+          <span>{health.message}</span>
         </div>
       </article>
 
-      <article className="status-card">
+      <article className="login-card">
         <p className="eyebrow">Login</p>
         <form className="stack-form" onSubmit={handleSubmit}>
           <label className="field">
             <span>Email</span>
             <input
               autoComplete="email"
+              autoFocus
               onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@example.com"
               type="email"
               value={email}
             />
           </label>
 
-          <button className="primary-button" disabled={isLoading || health.status === "error"} type="submit">
+          <button className="primary-button" disabled={isLoading || health.status === "error" || !email.trim()} type="submit">
             {isLoading ? "Signing In..." : "Sign In"}
           </button>
 

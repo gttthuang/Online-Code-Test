@@ -23,7 +23,7 @@ Browser
 負責：
 
 - login
-- 角色切換後的前端 workspace
+- 依角色導向不同 workspace route
 - candidate submission flow
 - interviewer / problem admin 的最小操作面
 - 輪詢 submission 結果
@@ -31,8 +31,23 @@ Browser
 目前狀態：
 
 - 已有 MVP
-- 還不是正式多頁 routing 架構
-- 目前是單一 app 內依角色切換 view
+- 已有正式前端 route 分流
+- `/login` 不再直接顯示 demo account selector
+- candidate / interviewer / problem admin 進入各自 route
+
+目前前端主要 route：
+
+- `/login`
+- `/candidate`
+- `/candidate/assignments`
+- `/candidate/problems/:problemId`
+- `/interviewer`
+- `/interviewer/candidates`
+- `/interviewer/results`
+- `/problem-admin`
+- `/problem-admin/new`
+- `/problem-admin/problems`
+- `/problem-admin/problems/:problemId/preview`
 
 ### `apps/api`
 

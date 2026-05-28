@@ -14,6 +14,7 @@
 - schema 管理：SQL migrations + seed data
 - 判題流程：Redis queue + 獨立 worker process
 - 執行方式：Docker 隔離的 `python` / `cpp` runner + timeout
+- 前端路由：依角色分成 candidate、interviewer、problem admin workspace
 
 也就是說，目前已經可以：
 
@@ -49,10 +50,31 @@ npm run dev:web
 - 前端：`http://localhost:5173`
 - 後端：`http://localhost:3000`
 
+登入後會依角色自動導向：
+
+- Candidate：`/candidate`
+- Interviewer：`/interviewer`
+- Problem Admin：`/problem-admin`
+
+Demo 帳號、路由、CI 與常見問題請看 [本機執行與驗證](./docs/local-development.md)。
+
+## 驗證
+
+```bash
+npm run ci:verify
+```
+
+如果本機有安裝 `act`，也可以用 Docker 模擬 GitHub Actions：
+
+```bash
+act push -j verify --bind
+```
+
 ## 文件入口
 
 - [API 呼叫文件](./docs/api-contract.md)
 - [系統架構說明](./docs/architecture.md)
+- [本機執行與驗證](./docs/local-development.md)
 - [目前頁面進度與前端分工](./docs/team-handoff-zh.md)
 
 ## Repo 結構

@@ -261,8 +261,10 @@ export class PostgresStore implements AppStore {
       `
         select exists(
           select 1
-          from submissions
-          where problem_id = $1
+          from submissions s
+          join users u on u.id = s.candidate_id
+          where s.problem_id = $1
+            and u.role = 'candidate'
         ) as exists
       `,
       [problemId]
@@ -272,15 +274,37 @@ export class PostgresStore implements AppStore {
   }
 
   async deleteProblem(problemId: string): Promise<boolean> {
-    const result = await this.pool.query(
-      `
-        delete from problems
-        where id = $1
-      `,
-      [problemId]
-    );
+    const client = await this.pool.connect();
 
-    return (result.rowCount ?? 0) > 0;
+    try {
+      await client.query("begin");
+      await client.query(
+        `
+          delete from submissions s
+          using users u
+          where s.candidate_id = u.id
+            and s.problem_id = $1
+            and u.role <> 'candidate'
+        `,
+        [problemId]
+      );
+
+      const result = await client.query(
+        `
+          delete from problems
+          where id = $1
+        `,
+        [problemId]
+      );
+
+      await client.query("commit");
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteCandidate(candidateId: string): Promise<boolean> {

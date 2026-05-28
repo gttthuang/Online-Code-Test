@@ -47,6 +47,8 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [fontSize, setFontSize] = useState<number>(14);
   const [tabSize, setTabSize] = useState<number>(4);
   const [keybinding, setKeybinding] = useState<string>("standard");
+  const showAssignmentDrawer = user.role === "candidate" && !initialProblemId;
+  const isAdminPreview = user.role === "problem_admin";
 
   // === 編輯器與 Vim 實體參考 ===
   const editorRef = useRef<any>(null);
@@ -187,7 +189,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [submission, token]);
+  }, [submission, token, user.role]);
 
   async function handleSubmit() {
     if (!problem) return;
@@ -310,7 +312,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       )}
 
       {/* 固定在左側邊緣的開啟按鈕 (未開啟抽屜時顯示) */}
-      {!isSelectorOpen && (
+      {showAssignmentDrawer && !isSelectorOpen && (
         <button
           className="drawer-toggle-btn"
           onClick={() => setIsSelectorOpen(true)}
@@ -321,42 +323,44 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       )}
 
       {/* 側邊抽屜 Overlay */}
-      {isSelectorOpen && (
+      {showAssignmentDrawer && isSelectorOpen && (
         <div className="drawer-overlay" onClick={() => setIsSelectorOpen(false)} />
       )}
 
       {/* 側邊抽屜：題目選擇器 */}
-      <div className={`problem-drawer ${isSelectorOpen ? "open" : ""}`}>
-        <div className="panel-header" style={{ marginBottom: '1rem' }}>
-          <h2>Assignments</h2>
-          <button className="chip-button" onClick={() => setIsSelectorOpen(false)} title="Close">
-            ✕
-          </button>
-        </div>
+      {showAssignmentDrawer ? (
+        <div className={`problem-drawer ${isSelectorOpen ? "open" : ""}`}>
+          <div className="panel-header" style={{ marginBottom: '1rem' }}>
+            <h2>Assignments</h2>
+            <button className="chip-button" onClick={() => setIsSelectorOpen(false)} title="Close">
+              ✕
+            </button>
+          </div>
 
-        <div className="problem-stack assignment-list">
-          {assignmentsLoading ? (
-            <p className="empty-state">Loading assignments...</p>
-          ) : assignments.length === 0 ? (
-            <div className="empty-state">No assignments yet.</div>
-          ) : (
-            assignments.map((assignment) => (
-              <button
-                key={assignment.id}
-                className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
-                onClick={() => {
-                  setSelectedProblemId(assignment.problemId);
-                  setIsSelectorOpen(false);
-                }}
-                type="button"
-              >
-                <strong>{assignment.problemTitle}</strong>
-                <span>{assignment.difficulty}</span>
-              </button>
-            ))
-          )}
+          <div className="problem-stack assignment-list">
+            {assignmentsLoading ? (
+              <p className="empty-state">Loading assignments...</p>
+            ) : assignments.length === 0 ? (
+              <div className="empty-state">No assignments yet.</div>
+            ) : (
+              assignments.map((assignment) => (
+                <button
+                  key={assignment.id}
+                  className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
+                  onClick={() => {
+                    setSelectedProblemId(assignment.problemId);
+                    setIsSelectorOpen(false);
+                  }}
+                  type="button"
+                >
+                  <strong>{assignment.problemTitle}</strong>
+                  <span>{assignment.difficulty}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* 主要雙欄工作區 */}
       <section className="workspace-container">
@@ -382,7 +386,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                   onClick={() => setLeftTab("submissions")}
                   style={{ fontWeight: leftTab === "submissions" ? "bold" : "normal" }}
                 >
-                  Submissions
+                  {isAdminPreview ? "Latest Run" : "Submissions"}
                 </button>
               </div>
             </div>
@@ -429,7 +433,9 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                     </div>
                   </div>
                 ) : (
-                  <div className="empty-state">No submissions yet.</div>
+                  <div className="empty-state">
+                    {isAdminPreview ? "Run preview code to see the latest result." : "No submissions yet."}
+                  </div>
                 )
               )}
             </div>
@@ -499,7 +505,14 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
 
                 {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
 
-                <button className="primary-button" style={{ marginTop: "0rem" }} disabled={submissionLoading} onClick={handleSubmit} type="button">
+                <button
+                  className="primary-button"
+                  disabled={submissionLoading || !problem}
+                  onClick={handleSubmit}
+                  style={{ marginTop: "0rem" }}
+                  title={problem ? "Submit this solution to the judge" : "Select an assignment before submitting"}
+                  type="button"
+                >
                   {submissionLoading ? "Submitting..." : "Run & Submit Code"}
                 </button>
               </div>

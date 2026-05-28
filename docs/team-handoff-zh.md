@@ -16,7 +16,7 @@
 
 ## 目前已完成的頁面 / View
 
-注意：目前還不是正式多頁 router 架構，而是單一 app 根據登入角色切不同 workspace。
+注意：目前已經有正式 route 分流。登入後會依使用者 role 自動導向對應 workspace。
 
 ### 1. Login View
 
@@ -27,6 +27,8 @@
 - 登入後 session 會存到 browser
 - 頁面上會顯示 API health 狀態
 - 重新整理後若 session 還在，會直接回到登入後狀態
+- 登入頁不再顯示三種角色選項
+- 登入成功後會依角色導向 `/candidate`、`/interviewer` 或 `/problem-admin`
 
 目前檔案：
 
@@ -79,6 +81,8 @@
 目前已完成到：
 
 - 單一 app 可依角色切換 workspace
+- 已有正式 route 分流與 role guard
+- candidate / interviewer / problem admin 不會看到彼此 workspace
 - 有共用 API client
 - 有基本全域樣式
 - 可直接透過 Vite proxy 打 API
@@ -91,15 +95,12 @@
 
 ## 目前還沒完成的東西
 
-- 正式 routing
 - 更細的頁面拆分
-- 共用 layout / navigation
 - 表單驗證體驗優化
 - loading / empty / error state 統一
 - 更完整的 async 狀態處理
 - smoke test / E2E test
 - prettier 的資訊呈現
-- 真正 DB / worker 接上後的狀態同步調整
 
 ## 五人建議分工
 
@@ -268,12 +269,13 @@
 
 主要負責內容：
 
+- route / role guard
 - app layout / navigation
-- `App.tsx` 的瘦身與整理
+- `App.tsx` 的 route shell 整理
 - 共用元件抽離
 - styles 結構整理
 - 共用 loading / empty / error 元件
-- 規劃後續 routing 或至少 workspace navigation
+- workspace navigation
 
 建議主要檔案：
 
@@ -286,6 +288,8 @@
 
 - A / B / C 不需要一直改 `App.tsx` 才能做自己的頁面
 - 至少有一層清楚的 app shell，讓使用者知道自己目前在哪個 workspace
+- `/login` 不直接露出三種角色入口
+- 不同 role route 會做 redirect / guard
 - 共用按鈕 / 表單區塊 / 卡片樣式有抽出來，不是三個頁面各寫一套
 - 至少把 loading、empty、error 的樣式做成共用模式
 - 若要新增一個新頁面，不需要先大改整個 app 結構
