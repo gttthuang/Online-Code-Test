@@ -392,7 +392,7 @@
 - 現在就可以開始，因為 repo 已經有可跑的 `apps/judge-worker`
 - 最好和 A、D 同步進行
 - A 把 candidate 畫面整理好之後，E 會更容易抽 async 顯示邏輯
-- 若你之後把 database polling worker 換成 Redis queue / sandbox worker，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
+- 若你之後調整 Redis queue retry 策略或 sandbox worker 行為，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
 - E 做完會直接 cover spec 裡最容易漏掉的 async / scalability / deployment / test 幾塊
 
 ## Spec 對應檢查

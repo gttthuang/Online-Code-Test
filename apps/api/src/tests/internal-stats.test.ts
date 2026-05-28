@@ -28,8 +28,8 @@ test("internal stats report submission statuses and failure breakdown", async ()
     });
 
     const worker = createWorker(harness.workerPool);
-    assert.equal(await worker.processNextSubmission(), true);
-    assert.equal(await worker.processNextSubmission(), true);
+    assert.equal(await worker.processSubmissionById(successSubmission.submissionId), true);
+    assert.equal(await worker.processSubmissionById(failedSubmission.submissionId), true);
 
     const successDetail = await fetchSubmission(harness.app, candidate.token, successSubmission.submissionId);
     const failedDetail = await fetchSubmission(harness.app, candidate.token, failedSubmission.submissionId);

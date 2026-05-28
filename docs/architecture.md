@@ -10,7 +10,9 @@ Browser
   -> proxy /auth /me /admin /healthz /internal/stats
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
-  -> apps/judge-worker (polling worker)
+      -> Redis
+  -> apps/judge-worker (BullMQ worker)
+      -> Redis
       -> PostgreSQL
 ```
 
@@ -89,10 +91,11 @@ Browser
 
 ## 目前的判題流程
 
-目前 submission 會先寫進 PostgreSQL，接著由獨立的 `apps/judge-worker` 輪詢並處理：
+目前 submission 會先寫進 PostgreSQL，接著由 API enqueue 到 Redis，再由獨立的 `apps/judge-worker` 消費並處理：
 
 - API 只負責建立 `queued` submission
-- worker 會 claim queued job
+- API 會 enqueue Redis job
+- worker 會 consume Redis job 並 claim queued submission
 - worker 會把 submission 更新成 `running`
 - worker 會在短生命週期 Docker sandbox 內編譯 / 執行 submission
 - worker 會讀 hidden test cases，逐筆比對輸出
@@ -124,6 +127,6 @@ Browser
 
 ## 建議替換順序
 
-1. 先把 database polling 換成 Redis queue
-2. 再補更嚴格的 sandbox / filesystem / seccomp 策略
-3. 再做 deployment / observability / scaling
+1. 再補更嚴格的 sandbox / filesystem / seccomp 策略
+2. 再做 deployment / observability / scaling
+3. 視需要把 Redis queue 擴成更完整的 retry / dead-letter / queue dashboard
