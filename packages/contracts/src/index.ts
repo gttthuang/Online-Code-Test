@@ -15,6 +15,8 @@ export type SupportedLanguage = (typeof languages)[number];
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
 export type ProblemDifficulty = (typeof problemDifficulties)[number];
 
+export const judgeQueueName = "judge-submissions";
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -116,9 +118,6 @@ export interface CreateSubmissionResponse {
 
 export interface JudgeJob {
   submissionId: string;
-  candidateId: string;
-  problemId: string;
-  language: SupportedLanguage;
 }
 
 export interface JudgeCaseResult {

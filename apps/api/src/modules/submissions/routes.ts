@@ -50,10 +50,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     const submission = await context.store.createSubmission(user.id, body);
 
     await context.judgeQueue.enqueue({
-      submissionId: submission.id,
-      candidateId: user.id,
-      problemId: submission.problemId,
-      language: submission.language
+      submissionId: submission.id
     });
 
     return {
@@ -115,10 +112,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     );
 
     await context.judgeQueue.enqueue({
-      submissionId: submission.id,
-      candidateId: user.id,
-      problemId: submission.problemId,
-      language: submission.language
+      submissionId: submission.id
     });
 
     return {

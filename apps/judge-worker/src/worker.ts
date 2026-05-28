@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { JudgeFailureType, JudgeResult, SubmissionDetail } from "@oct/contracts";
 
 import { executeSubmission } from "./executor.js";
@@ -21,45 +21,51 @@ export class JudgeWorker {
 
   constructor(
     private readonly pool: Pool,
-    private readonly pollIntervalMs: number,
     private readonly heartbeatIntervalMs: number,
     private readonly staleThresholdMs: number,
     private readonly sandbox: typeof workerConfig.sandbox
   ) {}
 
-  async start() {
-    await this.runRecoveryPass();
-
-    while (this.running) {
-      try {
-        const processed = await this.processNextSubmission();
-
-        if (!processed) {
-          await delay(this.pollIntervalMs);
-        }
-      } catch (error) {
-        logError("worker_loop_error", {
-          message: toErrorMessage(error),
-          errorType: toFailureType(error)
-        });
-        await delay(this.pollIntervalMs);
-      }
-    }
-  }
-
-  async processNextSubmission() {
+  async processSubmissionById(submissionId: string) {
     await this.maybeRecoverStaleSubmissions();
 
-    let submission: ClaimedSubmission | null = null;
+    const submission = await this.claimSubmissionById(submissionId);
+
+    if (!submission) {
+      return false;
+    }
+
+    await this.processClaimedSubmission(submission);
+    return true;
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  async runRecoveryPass() {
+    return this.recoverStaleSubmissions();
+  }
+
+  async listQueuedSubmissionIds(limit = 100) {
+    const result = await this.pool.query<{ id: string }>(
+      `
+        select id
+        from submissions
+        where status = 'queued'
+        order by created_at asc
+        limit $1
+      `,
+      [limit]
+    );
+
+    return result.rows.map((row) => row.id);
+  }
+
+  private async processClaimedSubmission(submission: ClaimedSubmission) {
     let stopHeartbeat = () => {};
 
     try {
-      submission = await this.claimNextSubmission();
-
-      if (!submission) {
-        return false;
-      }
-
       logInfo("submission_claimed", {
         submissionId: submission.id,
         candidateId: submission.candidateId,
@@ -90,52 +96,41 @@ export class JudgeWorker {
         errorType: result.errorType ?? null,
         durationMs: Date.now() - startedAt
       });
-      return true;
     } catch (error) {
       stopHeartbeat();
 
-      if (submission) {
-        const failureResult: JudgeResult = {
-          submissionId: submission.id,
-          status: "failed",
-          score: 0,
-          cases: [],
-          errorType: toFailureType(error),
-          errorMessage: toErrorMessage(error)
-        };
+      const failureResult: JudgeResult = {
+        submissionId: submission.id,
+        status: "failed",
+        score: 0,
+        cases: [],
+        errorType: toFailureType(error),
+        errorMessage: toErrorMessage(error)
+      };
 
-        try {
-          await this.completeSubmission(submission.id, failureResult);
-          logError("submission_failed", {
-            submissionId: submission.id,
-            candidateId: submission.candidateId,
-            problemId: submission.problemId,
-            language: submission.language,
-            score: 0,
-            errorType: failureResult.errorType ?? null,
-            message: failureResult.errorMessage ?? null
-          });
-        } catch (completionError) {
-          logError("submission_failure_persist_error", {
-            submissionId: submission.id,
-            message: toErrorMessage(completionError)
-          });
-        }
+      try {
+        await this.completeSubmission(submission.id, failureResult);
+        logError("submission_failed", {
+          submissionId: submission.id,
+          candidateId: submission.candidateId,
+          problemId: submission.problemId,
+          language: submission.language,
+          score: 0,
+          errorType: failureResult.errorType ?? null,
+          message: failureResult.errorMessage ?? null
+        });
+      } catch (completionError) {
+        logError("submission_failure_persist_error", {
+          submissionId: submission.id,
+          message: toErrorMessage(completionError)
+        });
       }
 
       throw error;
     }
   }
 
-  stop() {
-    this.running = false;
-  }
-
-  async runRecoveryPass() {
-    await this.recoverStaleSubmissions();
-  }
-
-  private async claimNextSubmission(): Promise<ClaimedSubmission | null> {
+  private async claimSubmissionById(submissionId: string): Promise<ClaimedSubmission | null> {
     const client = await this.pool.connect();
 
     try {
@@ -154,18 +149,10 @@ export class JudgeWorker {
         updated_at: string;
       }>(
         `
-          with next_submission as (
-            select s.id
-            from submissions s
-            where s.status = 'queued'
-            order by s.created_at asc
-            for update skip locked
-            limit 1
-          )
           update submissions s
           set status = 'running', updated_at = now()
-          from next_submission n, problems p
-          where s.id = n.id and p.id = s.problem_id
+          from problems p
+          where s.id = $1 and s.status = 'queued' and p.id = s.problem_id
           returning
             s.id,
             s.candidate_id,
@@ -177,7 +164,8 @@ export class JudgeWorker {
             p.time_limit_ms,
             s.created_at,
             s.updated_at
-        `
+        `,
+        [submissionId]
       );
 
       if (claimed.rowCount === 0) {
@@ -186,20 +174,7 @@ export class JudgeWorker {
       }
 
       const submission = claimed.rows[0];
-
-      const testCases = await client.query<{
-        id: string;
-        input: string;
-        expected_output: string;
-      }>(
-        `
-          select id, input, expected_output
-          from test_cases
-          where problem_id = $1 and is_hidden = true
-          order by id asc
-        `,
-        [submission.problem_id]
-      );
+      const testCases = await this.fetchHiddenTestCases(client, submission.problem_id);
 
       await client.query("commit");
 
@@ -215,11 +190,7 @@ export class JudgeWorker {
         createdAt: submission.created_at,
         updatedAt: submission.updated_at,
         result: null,
-        hiddenTestCases: testCases.rows.map((row) => ({
-          id: row.id,
-          input: row.input,
-          expectedOutput: row.expected_output
-        }))
+        hiddenTestCases: testCases
       };
     } catch (error) {
       await client.query("rollback");
@@ -227,6 +198,28 @@ export class JudgeWorker {
     } finally {
       client.release();
     }
+  }
+
+  private async fetchHiddenTestCases(client: PoolClient, problemId: string) {
+    const testCases = await client.query<{
+      id: string;
+      input: string;
+      expected_output: string;
+    }>(
+      `
+        select id, input, expected_output
+        from test_cases
+        where problem_id = $1 and is_hidden = true
+        order by id asc
+      `,
+      [problemId]
+    );
+
+    return testCases.rows.map((row) => ({
+      id: row.id,
+      input: row.input,
+      expectedOutput: row.expected_output
+    }));
   }
 
   private startHeartbeat(submissionId: string) {
@@ -259,10 +252,10 @@ export class JudgeWorker {
     const now = Date.now();
 
     if (now - this.lastRecoveryAt < this.staleThresholdMs) {
-      return;
+      return [];
     }
 
-    await this.recoverStaleSubmissions();
+    return this.recoverStaleSubmissions();
   }
 
   private async recoverStaleSubmissions() {
@@ -290,6 +283,8 @@ export class JudgeWorker {
         count: result.rowCount
       });
     }
+
+    return result.rows.map((row) => row.id);
   }
 
   private async completeSubmission(
@@ -353,12 +348,6 @@ export class JudgeWorker {
       client.release();
     }
   }
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 function toErrorMessage(error: unknown) {

@@ -12,10 +12,10 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 - `packages/contracts`: shared DTOs and enums
 - data layer: PostgreSQL
 - schema management: SQL migrations + seed data
-- judge flow: PostgreSQL-backed queue + separate worker process
+- judge flow: Redis queue + separate worker process
 - execution: Docker-isolated `python` / `cpp` runners with timeout
 
-This means the app is ready for UI iteration and API integration work. PostgreSQL and a basic worker are connected; Redis is not in place yet, and sandboxing is currently Docker-based rather than a hardened production judge environment.
+This means the app is ready for UI iteration and API integration work. PostgreSQL, Redis, and the worker are connected; sandboxing is currently Docker-based rather than a hardened production judge environment.
 
 Local observability is also available through `GET /internal/stats`, which returns current submission status counts and judge failure breakdowns.
 
@@ -27,7 +27,7 @@ Host prerequisites:
 
 ```bash
 npm ci
-docker compose -f infra/docker-compose.yml up -d postgres
+docker compose -f infra/docker-compose.yml up -d postgres redis
 npm run migrate --workspace @oct/api
 npm run dev:api
 npm run dev:worker

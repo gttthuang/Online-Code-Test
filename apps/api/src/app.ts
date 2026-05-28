@@ -9,14 +9,17 @@ import { registerResultRoutes } from "./modules/results/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { toErrorResponse } from "./core/errors.js";
 import { config } from "./config.js";
-import { DatabaseJudgeQueue } from "./infra/judge-queue.js";
+import { createRedisJudgeQueue } from "./infra/judge-queue.js";
 import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
 import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
+import { createJudgeQueue } from "./infra/redis.js";
+import type { JudgeQueue } from "./infra/judge-queue.js";
 
 type BuildAppOptions = {
   postgres?: typeof config.postgres;
   logger?: boolean;
+  judgeQueue?: JudgeQueue;
 };
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -30,10 +33,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await initializePostgres(postgresPool);
 
   const store = new PostgresStore(postgresPool);
-  const judgeQueue = new DatabaseJudgeQueue();
+  const judgeQueue =
+    options.judgeQueue ??
+    createRedisJudgeQueue(createJudgeQueue(config.redis));
   const context = { store, judgeQueue };
 
   app.addHook("onClose", async () => {
+    if (judgeQueue.close) {
+      await judgeQueue.close();
+    }
     await postgresPool.end();
   });
 
@@ -63,7 +71,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "POST /admin/problems",
       "GET /admin/problems",
       "POST /admin/assignments",
-      "GET /admin/candidates/:candidateId/results"
+      "GET /admin/candidates/:candidateId/results",
+      "POST /admin/submissions/preview",
+      "GET /admin/submissions/:submissionId"
     ]
   }));
 
@@ -71,20 +81,24 @@ export async function buildApp(options: BuildAppOptions = {}) {
     status: "ok",
     service: "api",
     storageMode: "postgres",
-    queueMode: "database-polling",
+    queueMode: "redis-bullmq",
     postgres: {
       configuredHost: postgresConfig.host,
       configuredDatabase: postgresConfig.database,
       status: await pingPostgres(postgresPool)
         .then(() => "reachable")
         .catch(() => "unreachable")
+    },
+    redis: {
+      configuredHost: config.redis.host,
+      configuredDb: config.redis.db
     }
   }));
 
   app.get("/internal/stats", async () => ({
     service: "api",
     generatedAt: new Date().toISOString(),
-    queueMode: "database-polling",
+    queueMode: "redis-bullmq",
     storageMode: "postgres",
     stats: await store.getInternalStats()
   }));

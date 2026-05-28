@@ -12,7 +12,7 @@
 - `packages/contracts`：前後端共用 DTO / enum
 - 資料層：PostgreSQL
 - schema 管理：SQL migrations + seed data
-- 判題流程：PostgreSQL queue + 獨立 worker process
+- 判題流程：Redis queue + 獨立 worker process
 - 執行方式：Docker 隔離的 `python` / `cpp` runner + timeout
 
 也就是說，目前已經可以：
@@ -26,7 +26,6 @@
 
 但目前還沒有：
 
-- 真正的 Redis queue
 - 更完整的 production-grade sandbox 隔離
 
 ## 本機啟動
@@ -37,7 +36,7 @@
 
 ```bash
 npm ci
-docker compose -f infra/docker-compose.yml up -d postgres
+docker compose -f infra/docker-compose.yml up -d postgres redis
 npm run migrate --workspace @oct/api
 npm run dev:api
 npm run dev:worker

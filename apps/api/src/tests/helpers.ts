@@ -14,6 +14,7 @@ import type { FastifyInstance } from "fastify";
 import { Pool } from "pg";
 
 import { buildApp } from "../app.js";
+import type { JudgeQueue } from "../infra/judge-queue.js";
 import { createPostgresPool } from "../infra/postgres.js";
 import { JudgeWorker } from "../../../judge-worker/src/worker.js";
 import { createPostgresPool as createWorkerPostgresPool } from "../../../judge-worker/src/postgres.js";
@@ -43,6 +44,10 @@ const basePostgresConfig = {
   ssl: process.env.POSTGRES_SSL === "true"
 };
 
+const testJudgeQueue: JudgeQueue = {
+  async enqueue() {}
+};
+
 export async function createHarness(): Promise<TestHarness> {
   const dbName = `oct_test_${randomUUID().replaceAll("-", "_")}`;
   await createDatabase(dbName);
@@ -54,7 +59,8 @@ export async function createHarness(): Promise<TestHarness> {
 
   const app = await buildApp({
     postgres,
-    logger: false
+    logger: false,
+    judgeQueue: testJudgeQueue
   });
   await app.ready();
 
@@ -93,7 +99,6 @@ export function authHeader(token: string) {
 export function createWorker(pool: Pool, options?: { staleThresholdMs?: number }) {
   return new JudgeWorker(
     pool,
-    25,
     250,
     options?.staleThresholdMs ?? 30_000,
     workerConfig.sandbox

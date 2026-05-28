@@ -1,7 +1,13 @@
 export const config = {
-  pollIntervalMs: Number(process.env.JUDGE_POLL_INTERVAL_MS || 800),
   heartbeatIntervalMs: Number(process.env.JUDGE_HEARTBEAT_INTERVAL_MS || 2_000),
   staleThresholdMs: Number(process.env.JUDGE_STALE_THRESHOLD_MS || 30_000),
+  redis: {
+    host: process.env.REDIS_HOST || "localhost",
+    port: Number(process.env.REDIS_PORT || 6379),
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: Number(process.env.REDIS_DB || 0)
+  },
+  queueConcurrency: Number(process.env.JUDGE_QUEUE_CONCURRENCY || 2),
   postgres: {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT || 5433),
