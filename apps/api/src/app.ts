@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
-
+import cors from '@fastify/cors';
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
 import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
@@ -26,6 +26,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const postgresConfig = options.postgres ?? config.postgres;
   const app = Fastify({
     logger: options.logger ?? true
+  });
+  await app.register(cors, {
+    origin: true, // 允許所有來源
   });
 
   await ensurePostgresDatabase(postgresConfig);

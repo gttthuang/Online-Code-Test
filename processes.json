@@ -1,0 +1,16 @@
+{
+  "apps": [
+    {
+      "name": "api",
+      "script": "dist/apps/api/main.js",
+      "instances": 1,
+      "autorestart": true
+    },
+    {
+      "name": "worker",
+      "script": "dist/apps/judge-worker/main.js",
+      "instances": 1,
+      "autorestart": true
+    }
+  ]
+}
