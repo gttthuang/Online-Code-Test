@@ -5,6 +5,7 @@ type RedisConfig = {
   port: number;
   password?: string;
   db: number;
+  tls?: boolean;
 };
 
 export function createRedisConnection(config: RedisConfig) {
@@ -13,6 +14,11 @@ export function createRedisConnection(config: RedisConfig) {
     port: config.port,
     password: config.password,
     db: config.db,
-    maxRetriesPerRequest: null
+    tls: config.tls ? {
+      rejectUnauthorized: false,
+      servername: config.host
+    } : undefined,
+    maxRetriesPerRequest: null,
+    connectTimeout: 10000
   });
 }

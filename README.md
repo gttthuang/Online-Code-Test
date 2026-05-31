@@ -61,11 +61,43 @@ For a local Docker-based GitHub Actions check, use:
 act push -j verify --bind
 ```
 
+## AWS Quick Deploy
+
+Prepare config:
+
+```bash
+cp infra/aws/deploy.env.example infra/aws/deploy.env
+```
+
+At minimum, confirm:
+
+```bash
+APP_NAME=online-code-test
+STAGE=dev
+AWS_REGION=ap-northeast-1
+```
+
+You do not need to manually set `DB_PASSWORD` by default. The scripts will:
+
+- reuse an existing Secrets Manager secret if it exists
+- otherwise generate one automatically
+- store it at `${APP_NAME}/${STAGE}/postgres/master-password`
+
+Deploy:
+
+```bash
+bash infra/aws/bootstrap.sh
+bash infra/aws/deploy.sh
+```
+
+Full details: [AWS Deployment](./docs/aws-deployment.md)
+
 ## Docs
 
 - [API Contract](./docs/api-contract.md)
 - [Architecture Notes](./docs/architecture.md)
 - [Local Development](./docs/local-development.md)
+- [AWS Deployment](./docs/aws-deployment.md)
 - [Team Handoff (Chinese)](./docs/team-handoff-zh.md)
 
 ## Repo Layout

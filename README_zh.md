@@ -70,11 +70,48 @@ npm run ci:verify
 act push -j verify --bind
 ```
 
+## AWS 快速部署
+
+先準備：
+
+```bash
+cp infra/aws/deploy.env.example infra/aws/deploy.env
+```
+
+最少只要確認：
+
+```bash
+APP_NAME=online-code-test
+STAGE=dev
+AWS_REGION=ap-northeast-1
+```
+
+現在預設不需要手動填 `DB_PASSWORD`。腳本會自動：
+
+- 先找 Secrets Manager 既有 secret
+- 找不到就自動產生
+- 存到 `${APP_NAME}/${STAGE}/postgres/master-password`
+
+部署指令：
+
+```bash
+bash infra/aws/bootstrap.sh
+bash infra/aws/deploy.sh
+```
+
+部署完成後可用：
+
+- frontend: CloudFront URL
+- api health: `http://<beanstalk-cname>/healthz`
+
+完整說明見 [AWS 部署說明](./docs/aws-deployment.md)。
+
 ## 文件入口
 
 - [API 呼叫文件](./docs/api-contract.md)
 - [系統架構說明](./docs/architecture.md)
 - [本機執行與驗證](./docs/local-development.md)
+- [AWS 部署說明](./docs/aws-deployment.md)
 - [目前頁面進度與前端分工](./docs/team-handoff-zh.md)
 
 ## Repo 結構

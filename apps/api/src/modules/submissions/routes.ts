@@ -102,10 +102,6 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
       );
     }
 
-    // TODO:
-    // 可以之後加：
-    // 檢查這個 problem_admin 是否為題目 owner
-
     const submission = await context.store.createSubmission(
       user.id,
       body

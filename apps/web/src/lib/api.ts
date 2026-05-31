@@ -27,6 +27,8 @@ interface ApiErrorPayload {
   };
 }
 
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
 function safeJsonParse<T>(text: string): T | string {
   try {
     return JSON.parse(text) as T;
@@ -64,7 +66,7 @@ async function request<T>(path: string, init?: RequestInit, token?: string): Pro
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers
   });
