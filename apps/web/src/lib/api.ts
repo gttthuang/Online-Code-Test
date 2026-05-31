@@ -7,6 +7,8 @@ import type {
   CreateProblemResponse,
   CreateSubmissionRequest,
   CreateSubmissionResponse,
+  CreateUserRequest,
+  CreateUserResponse,
   LoginResponse,
   ProblemSummary,
   ProblemDetail,
@@ -24,6 +26,7 @@ interface ApiErrorPayload {
   error?: {
     code?: string;
     message?: string;
+    details?: unknown;
   };
 }
 
@@ -46,11 +49,56 @@ function getErrorMessage(payload: unknown, status: number) {
     const error = (payload as ApiErrorPayload).error;
 
     if (error?.message) {
-      return error.message;
+      const details = formatErrorDetails(error.details);
+      return details ? `${error.message}: ${details}` : error.message;
     }
   }
 
   return `Request failed with status ${status}`;
+}
+
+function formatErrorDetails(details: unknown): string | null {
+  if (!details) {
+    return null;
+  }
+
+  if (typeof details === "string") {
+    return details;
+  }
+
+  if (Array.isArray(details)) {
+    return details.map(String).join("; ");
+  }
+
+  if (typeof details !== "object") {
+    return String(details);
+  }
+
+  const detailObject = details as {
+    formErrors?: unknown;
+    fieldErrors?: Record<string, unknown>;
+  };
+  const messages: string[] = [];
+
+  if (Array.isArray(detailObject.formErrors)) {
+    messages.push(...detailObject.formErrors.map(String));
+  }
+
+  if (detailObject.fieldErrors) {
+    for (const [field, value] of Object.entries(detailObject.fieldErrors)) {
+      if (Array.isArray(value) && value.length > 0) {
+        messages.push(`${field}: ${value.map(String).join(", ")}`);
+      }
+    }
+  }
+
+  if (messages.length > 0) {
+    return messages.join("; ");
+  }
+
+  return Object.entries(details)
+    .map(([key, value]) => `${key}: ${String(value)}`)
+    .join("; ");
 }
 
 async function request<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
@@ -179,6 +227,31 @@ export function deleteCandidate(token: string, candidateId: string) {
     `/admin/candidates/${candidateId}`,
     {
       method: "DELETE",
+    },
+    token
+  );
+}
+
+export function getUsers(token: string) {
+  return request<AuthUser[]>("/admin/users", undefined, token);
+}
+
+export function createUser(token: string, payload: CreateUserRequest) {
+  return request<CreateUserResponse>(
+    "/admin/users",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function deleteUser(token: string, userId: string) {
+  return request<void>(
+    `/admin/users/${userId}`,
+    {
+      method: "DELETE"
     },
     token
   );

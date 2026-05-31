@@ -7,6 +7,7 @@ import type {
   CreateProblemRequest,
   CreateProblemResponse,
   CreateSubmissionResponse,
+  CreateUserResponse,
   LoginResponse,
   SubmissionDetail
 } from "@oct/contracts";
@@ -121,6 +122,26 @@ export async function createCandidate(app: FastifyInstance, interviewerToken: st
 
   assert.equal(response.statusCode, 200);
   return response.json<CreateCandidateResponse>().candidate;
+}
+
+export async function createUser(app: FastifyInstance, problemAdminToken: string, input?: {
+  name?: string;
+  email?: string;
+  role?: "candidate" | "interviewer" | "problem_admin";
+}) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/admin/users",
+    headers: authHeader(problemAdminToken),
+    payload: {
+      name: input?.name ?? "Test User",
+      email: input?.email ?? `user.${randomUUID()}@example.com`,
+      role: input?.role ?? "candidate"
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  return response.json<CreateUserResponse>().user;
 }
 
 export async function createProblem(

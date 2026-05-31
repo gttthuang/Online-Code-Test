@@ -40,10 +40,15 @@ Authorization: Bearer <token>
 {
   "error": {
     "code": "problem_not_found",
-    "message": "Problem does not exist"
+    "message": "Problem does not exist",
+    "details": {
+      "optional": "不同錯誤會帶不同細節"
+    }
   }
 }
 ```
+
+Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應該把這些細節顯示給使用者，而不是只顯示 `Request validation failed`。
 
 ## Endpoint 一覽
 
@@ -69,11 +74,18 @@ Authorization: Bearer <token>
 ### Problem Admin
 
 - `POST /admin/problems`
+- `DELETE /admin/problems/:problemId`
+- `GET /admin/users`
+- `POST /admin/users`
+- `DELETE /admin/users/:userId`
+- `POST /admin/submissions/preview`
+- `GET /admin/submissions/:submissionId`
 
 ### Interviewer
 
 - `GET /admin/candidates`
 - `POST /admin/candidates`
+- `DELETE /admin/candidates/:candidateId`
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
 
@@ -86,6 +98,20 @@ Request:
 ```json
 {
   "email": "alice.candidate@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "candidate_alice",
+  "user": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  }
 }
 ```
 
@@ -137,19 +163,67 @@ Response:
 }
 ```
 
+### `GET /admin/users`
+
+用途：
+
+- problem admin 查看所有帳號與角色
+- UI 用這個列表確認目前有哪些 candidate / interviewer / problem admin
+
+Response:
+
+```json
+[
+  {
+    "id": "interviewer_bob",
+    "name": "Bob Interviewer",
+    "email": "bob.interviewer@example.com",
+    "role": "interviewer"
+  }
+]
+```
+
+### `POST /admin/users`
+
+用途：
+
+- problem admin 建立任意角色帳號
+- role 只能是 `candidate`、`interviewer`、`problem_admin`
+
+Request:
+
+```json
+{
+  "name": "Dana Interviewer",
+  "email": "dana.interviewer@example.com",
+  "role": "interviewer"
+}
+```
+
 Response:
 
 ```json
 {
-  "token": "candidate_alice",
   "user": {
-    "id": "candidate_alice",
-    "name": "Alice Candidate",
-    "email": "alice.candidate@example.com",
-    "role": "candidate"
+    "id": "interviewer_xxx",
+    "name": "Dana Interviewer",
+    "email": "dana.interviewer@example.com",
+    "role": "interviewer"
   }
 }
 ```
+
+### `DELETE /admin/users/:userId`
+
+用途：
+
+- problem admin 刪除還沒有被題目、assignment、submission 引用的帳號
+- 不能刪除目前登入中的自己
+
+常見失敗：
+
+- `user_self_delete_forbidden`: 不能刪自己
+- `user_in_use`: 該 user 已被 assignment / problem / submission 引用，不能直接刪
 
 ### `GET /auth/me`
 
@@ -378,6 +452,29 @@ Validation:
 - `hiddenTestCases`: 1 到 50 筆
 - 每筆 hidden testcase 的 `input` / `expectedOutput`: 各最多 16000 字元
 
+### `DELETE /admin/problems/:problemId`
+
+用途：
+
+- problem admin 刪除未被使用的題目
+- 如果題目已被 assignment 指派，或已有 candidate submission，會被拒絕
+- problem admin 自己在 preview 產生的 submission 不會阻止刪除
+
+常見失敗：
+
+```json
+{
+  "error": {
+    "code": "problem_in_use",
+    "message": "Cannot delete problem because it is assigned or has candidate submissions",
+    "details": {
+      "hasAssignments": true,
+      "hasCandidateSubmissions": false
+    }
+  }
+}
+```
+
 ### `POST /admin/assignments`
 
 用途：
@@ -430,8 +527,10 @@ Request:
 1. `POST /auth/login`
 2. `GET /admin/problems`
 3. `POST /admin/problems`
-4. `POST /admin/assignments`
-5. `GET /admin/candidates/:candidateId/results`
+4. `GET /admin/users`
+5. `POST /admin/users`
+6. `POST /admin/assignments`
+7. `GET /admin/candidates/:candidateId/results`
 
 ## 補充
 

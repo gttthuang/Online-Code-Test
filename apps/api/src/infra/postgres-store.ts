@@ -8,6 +8,7 @@ import type {
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
+  CreateUserRequest,
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
@@ -82,6 +83,62 @@ export class PostgresStore implements AppStore {
     return result.rows[0] ?? null;
   }
 
+  async listUsers(): Promise<AuthUser[]> {
+    const result = await this.pool.query<AuthUser>(
+      `
+        select id, name, email, role
+        from users
+        order by role asc, name asc, email asc
+      `
+    );
+
+    return result.rows;
+  }
+
+  async createUser(input: CreateUserRequest): Promise<AuthUser> {
+    const userId = `${input.role}_${randomUUID()}`;
+
+    const result = await this.pool.query<AuthUser>(
+      `
+        insert into users (id, name, email, role)
+        values ($1, $2, $3, $4)
+        returning id, name, email, role
+      `,
+      [userId, input.name, input.email, input.role]
+    );
+
+    return result.rows[0];
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+        delete from users
+        where id = $1
+      `,
+      [userId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async hasUserReferences(userId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `
+        select exists(
+          select 1 from problems where created_by = $1
+          union all
+          select 1 from assignments where candidate_id = $1 or assigned_by = $1
+          union all
+          select 1 from submissions where candidate_id = $1
+        ) as exists
+      `,
+      [userId]
+    );
+
+    return result.rows[0]?.exists ?? false;
+  }
+
   async listCandidates(): Promise<AuthUser[]> {
     const result = await this.pool.query<AuthUser>(
       `
@@ -96,18 +153,7 @@ export class PostgresStore implements AppStore {
   }
 
   async createCandidate(input: CreateCandidateRequest): Promise<AuthUser> {
-    const candidateId = `candidate_${randomUUID()}`;
-
-    const result = await this.pool.query<AuthUser>(
-      `
-        insert into users (id, name, email, role)
-        values ($1, $2, $3, 'candidate')
-        returning id, name, email, role
-      `,
-      [candidateId, input.name, input.email]
-    );
-
-    return result.rows[0];
+    return this.createUser({ ...input, role: "candidate" });
   }
 
   async listProblems(): Promise<ProblemSummary[]> {
@@ -192,45 +238,56 @@ export class PostgresStore implements AppStore {
 
   async createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary> {
     const problemId = `problem_${randomUUID()}`;
+    const client = await this.pool.connect();
 
-    await this.pool.query(
-      `
-        insert into problems (
-          id,
-          title,
-          description,
-          difficulty,
-          time_limit_ms,
-          memory_limit_kb,
-          supported_languages,
-          sample_input,
-          sample_output,
-          created_by
-        )
-        values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10)
-      `,
-      [
-        problemId,
-        input.title,
-        input.description,
-        input.difficulty,
-        input.timeLimitMs,
-        input.memoryLimitKb,
-        input.supportedLanguages,
-        input.sampleInput,
-        input.sampleOutput,
-        createdBy
-      ]
-    );
-
-    for (const testCase of input.hiddenTestCases ?? []) {
-      await this.pool.query(
+    try {
+      await client.query("begin");
+      await client.query(
         `
-          insert into test_cases (id, problem_id, input, expected_output, is_hidden)
-          values ($1, $2, $3, $4, true)
+          insert into problems (
+            id,
+            title,
+            description,
+            difficulty,
+            time_limit_ms,
+            memory_limit_kb,
+            supported_languages,
+            sample_input,
+            sample_output,
+            created_by
+          )
+          values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10)
         `,
-        [`case_${randomUUID()}`, problemId, testCase.input, testCase.expectedOutput]
+        [
+          problemId,
+          input.title,
+          input.description,
+          input.difficulty,
+          input.timeLimitMs,
+          input.memoryLimitKb,
+          input.supportedLanguages,
+          input.sampleInput,
+          input.sampleOutput,
+          createdBy
+        ]
       );
+
+      for (const testCase of input.hiddenTestCases ?? []) {
+        await client.query(
+          `
+            insert into test_cases (id, problem_id, input, expected_output, is_hidden)
+            values ($1, $2, $3, $4, true)
+          `,
+          [`case_${randomUUID()}`, problemId, testCase.input, testCase.expectedOutput]
+        );
+      }
+
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
     }
 
     const problem = await this.getProblem(problemId);
@@ -525,10 +582,11 @@ export class PostgresStore implements AppStore {
   }
 
   async completeSubmission(submissionId: string, result: JudgeResult): Promise<SubmissionDetail | null> {
-    await this.pool.query("begin");
+    const client = await this.pool.connect();
 
     try {
-      await this.pool.query(
+      await client.query("begin");
+      await client.query(
         `
           update submissions
           set
@@ -548,10 +606,10 @@ export class PostgresStore implements AppStore {
         ]
       );
 
-      await this.pool.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
+      await client.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
 
       for (const judgeCase of result.cases) {
-        await this.pool.query(
+        await client.query(
           `
             insert into submission_case_results (
               submission_id,
@@ -572,10 +630,12 @@ export class PostgresStore implements AppStore {
         );
       }
 
-      await this.pool.query("commit");
+      await client.query("commit");
     } catch (error) {
-      await this.pool.query("rollback");
+      await client.query("rollback");
       throw error;
+    } finally {
+      client.release();
     }
 
     return this.getSubmissionById(submissionId);

@@ -5,6 +5,7 @@ import type {
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
+  CreateUserRequest,
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
@@ -42,6 +43,10 @@ export interface InternalStats {
 export interface AppStore {
   getUserById(userId: string): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<AuthUser | null>;
+  listUsers(): Promise<AuthUser[]>;
+  createUser(input: CreateUserRequest): Promise<AuthUser>;
+  deleteUser(userId: string): Promise<boolean>;
+  hasUserReferences(userId: string): Promise<boolean>;
   listCandidates(): Promise<AuthUser[]>;
   createCandidate(input: CreateCandidateRequest): Promise<AuthUser>;
   listProblems(): Promise<ProblemSummary[]>;

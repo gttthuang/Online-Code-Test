@@ -7,6 +7,7 @@ import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
+import { registerUserRoutes } from "./modules/users/routes.js";
 import { toErrorResponse } from "./core/errors.js";
 import { config } from "./config.js";
 import { createRedisJudgeQueue } from "./infra/judge-queue.js";
@@ -68,8 +69,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "GET /me/submissions/:submissionId",
       "GET /admin/candidates",
       "POST /admin/candidates",
+      "DELETE /admin/candidates/:candidateId",
+      "GET /admin/users",
+      "POST /admin/users",
+      "DELETE /admin/users/:userId",
       "POST /admin/problems",
       "GET /admin/problems",
+      "DELETE /admin/problems/:problemId",
       "POST /admin/assignments",
       "GET /admin/candidates/:candidateId/results",
       "POST /admin/submissions/preview",
@@ -115,6 +121,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);
   registerResultRoutes(app, context);
+  registerUserRoutes(app, context);
 
   return app;
 }

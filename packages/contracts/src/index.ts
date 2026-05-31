@@ -50,6 +50,16 @@ export interface CreateCandidateResponse {
   candidate: AuthUser;
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface CreateUserResponse {
+  user: AuthUser;
+}
+
 export interface ProblemSummary {
   id: string;
   title: string;

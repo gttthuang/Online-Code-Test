@@ -39,6 +39,7 @@ test("in-use problems cannot be deleted", async () => {
 
     assert.equal(response.statusCode, 400);
     assert.equal(response.json().error.code, "problem_in_use");
+    assert.equal(response.json().error.details.hasAssignments, true);
   } finally {
     await destroyHarness(harness);
   }

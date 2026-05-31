@@ -1,0 +1,115 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  authHeader,
+  createAssignment,
+  createHarness,
+  createProblem,
+  createUser,
+  destroyHarness,
+  login
+} from "./helpers.js";
+
+test("problem admin can create, list, and delete users", async () => {
+  const harness = await createHarness();
+
+  try {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const user = await createUser(harness.app, problemAdmin.token, {
+      name: "Dana Interviewer",
+      email: "dana.interviewer@example.com",
+      role: "interviewer"
+    });
+
+    const listResponse = await harness.app.inject({
+      method: "GET",
+      url: "/admin/users",
+      headers: authHeader(problemAdmin.token)
+    });
+
+    assert.equal(listResponse.statusCode, 200);
+    assert.ok(listResponse.json().some((item: { id: string; role: string }) => item.id === user.id && item.role === "interviewer"));
+
+    const deleteResponse = await harness.app.inject({
+      method: "DELETE",
+      url: `/admin/users/${user.id}`,
+      headers: authHeader(problemAdmin.token)
+    });
+
+    assert.equal(deleteResponse.statusCode, 204);
+  } finally {
+    await destroyHarness(harness);
+  }
+});
+
+test("non problem admins cannot manage users", async () => {
+  const harness = await createHarness();
+
+  try {
+    const interviewer = await login(harness.app, "bob.interviewer@example.com");
+
+    const response = await harness.app.inject({
+      method: "POST",
+      url: "/admin/users",
+      headers: authHeader(interviewer.token),
+      payload: {
+        name: "Forbidden User",
+        email: "forbidden@example.com",
+        role: "candidate"
+      }
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.json().error.code, "forbidden");
+  } finally {
+    await destroyHarness(harness);
+  }
+});
+
+test("problem admin cannot delete self", async () => {
+  const harness = await createHarness();
+
+  try {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+
+    const response = await harness.app.inject({
+      method: "DELETE",
+      url: `/admin/users/${problemAdmin.user.id}`,
+      headers: authHeader(problemAdmin.token)
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().error.code, "user_self_delete_forbidden");
+  } finally {
+    await destroyHarness(harness);
+  }
+});
+
+test("referenced users cannot be deleted", async () => {
+  const harness = await createHarness();
+
+  try {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const interviewer = await login(harness.app, "bob.interviewer@example.com");
+    const candidate = await createUser(harness.app, problemAdmin.token, {
+      name: "Assigned Candidate",
+      role: "candidate"
+    });
+    const problem = await createProblem(harness.app, problemAdmin.token, {
+      title: "Assigned Problem"
+    });
+    await createAssignment(harness.app, interviewer.token, candidate.id, problem.id);
+
+    const response = await harness.app.inject({
+      method: "DELETE",
+      url: `/admin/users/${candidate.id}`,
+      headers: authHeader(problemAdmin.token)
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().error.code, "user_in_use");
+  } finally {
+    await destroyHarness(harness);
+  }
+});

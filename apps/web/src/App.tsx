@@ -46,7 +46,8 @@ const workspaceNav = {
   problem_admin: [
     { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },
     { label: "New Problem", path: "/problem-admin/new", icon: PlusCircle },
-    { label: "Problems", path: "/problem-admin/problems", icon: Database }
+    { label: "Problems", path: "/problem-admin/problems", icon: Database },
+    { label: "Users", path: "/problem-admin/users", icon: UserRoundCog }
   ]
 } satisfies Record<AuthUser["role"], Array<{ label: string; path: string; icon: typeof LayoutDashboard }>>;
 
@@ -140,7 +141,7 @@ function AppRoutes() {
         if (!cancelled) {
           setHealth({
             status: "ready",
-            message: "API is reachable on localhost:3000"
+            message: "API connection ready"
           });
         }
       })
@@ -148,7 +149,7 @@ function AppRoutes() {
         if (!cancelled) {
           setHealth({
             status: "error",
-            message: "Cannot reach API. Start backend with npm run dev:api"
+            message: "Cannot reach API"
           });
         }
       });

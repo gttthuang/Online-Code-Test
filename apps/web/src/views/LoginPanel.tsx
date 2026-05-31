@@ -32,10 +32,12 @@ export function LoginPanel({ health, isLoading, error, onLogin }: LoginPanelProp
         <p>
           Your role determines whether you enter the candidate exam, interviewer console, or problem authoring dashboard.
         </p>
-        <div className={`health-indicator health-${health.status}`}>
-          <span className="health-dot" />
-          <span>{health.message}</span>
-        </div>
+        {health.status === "error" ? (
+          <div className={`health-indicator health-${health.status}`}>
+            <span className="health-dot" />
+            <span>{health.message}</span>
+          </div>
+        ) : null}
       </article>
 
       <article className="login-card">

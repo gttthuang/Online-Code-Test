@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import type { ProblemDifficulty, ProblemSummary } from "@oct/contracts";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { roles } from "@oct/contracts";
+import type { AuthUser, ProblemDifficulty, ProblemSummary, UserRole } from "@oct/contracts";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { createProblem, deleteProblem, getAdminProblems } from "../lib/api";
+import { createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getUsers } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 
 interface ProblemAdminWorkspaceProps {
@@ -10,6 +12,7 @@ interface ProblemAdminWorkspaceProps {
 }
 
 interface TestCaseState {
+  id: string;
   input: File | null;
   output: File | null;
 }
@@ -24,6 +27,12 @@ interface ProblemFormState {
   memoryLimitKb: number;
 }
 
+interface NoticeState {
+  type: "error" | "success";
+  title: string;
+  message: string;
+}
+
 const initialFormState: ProblemFormState = {
   title: "FizzBuzz",
   description: "Return the fizz buzz sequence for numbers from 1 to n.",
@@ -34,18 +43,36 @@ const initialFormState: ProblemFormState = {
   memoryLimitKb: 65536
 };
 
+const roleLabels = {
+  candidate: "Candidate",
+  interviewer: "Interviewer",
+  problem_admin: "Problem Admin"
+} satisfies Record<UserRole, string>;
+
+function createEmptyTestcase(): TestCaseState {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `testcase_${Date.now()}_${Math.random()}`,
+    input: null,
+    output: null
+  };
+}
+
 export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
-  const [testcases, setTestcases] = useState<TestCaseState[]>([{ input: null, output: null }]);
+  const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "description" | "sample" | "testcase">("info");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const previewProblemId = location.pathname.match(/^\/problem-admin\/problems\/([^/]+)\/preview$/)?.[1] ?? null;
-  const activeSection = location.pathname.includes("/new")
+  const activeSection = location.pathname.includes("/users")
+    ? "users"
+    : location.pathname.includes("/new")
     ? "new"
     : location.pathname.includes("/problems")
       ? "problems"
@@ -75,7 +102,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load problems");
+          setInventoryError(nextError instanceof Error ? nextError.message : "Failed to load problems");
         }
       });
 
@@ -84,11 +111,27 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     };
   }, [token]);
 
+  const showNotice = useCallback((nextNotice: NoticeState) => {
+    setNotice(nextNotice);
+  }, []);
+
   async function handleCreateProblem() {
     setSubmitting(true);
-    setError(null);
+    setFormError(null);
 
     try {
+      const incompleteIndex = testcases.findIndex((testcase) => Boolean(testcase.input) !== Boolean(testcase.output));
+
+      if (incompleteIndex >= 0) {
+        throw new Error(`Testcase ${incompleteIndex + 1} must include both input and output files.`);
+      }
+
+      const completeTestcases = testcases.filter((testcase) => testcase.input && testcase.output);
+
+      if (completeTestcases.length === 0) {
+        throw new Error("At least one hidden testcase is required.");
+      }
+
       const formData = new FormData();
 
       formData.append("title", form.title);
@@ -100,8 +143,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       formData.append("sampleInput", form.sampleInput);
       formData.append("sampleOutput", form.sampleOutput);
 
-      testcases
-        .filter((testcase) => testcase.input && testcase.output)
+      completeTestcases
         .forEach((testcase, index) => {
           formData.append(`testcases[${index}][input]`, testcase.input!);
           formData.append(`testcases[${index}][output]`, testcase.output!);
@@ -111,9 +153,20 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
       setProblems((current) => [response.problem, ...current]);
       setForm(initialFormState);
-      setTestcases([{ input: null, output: null }]);
+      setTestcases([createEmptyTestcase()]);
+      showNotice({
+        type: "success",
+        title: "Problem created",
+        message: `${response.problem.title} is ready for preview and assignment.`
+      });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to create problem");
+      const message = nextError instanceof Error ? nextError.message : "Failed to create problem";
+      setFormError(message);
+      showNotice({
+        type: "error",
+        title: "Problem validation failed",
+        message
+      });
     } finally {
       setSubmitting(false);
     }
@@ -125,10 +178,22 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     }
 
     try {
+      setInventoryError(null);
       await deleteProblem(token, confirmId);
       setProblems((current) => current.filter((problem) => problem.id !== confirmId));
+      showNotice({
+        type: "success",
+        title: "Problem deleted",
+        message: `${confirmProblem?.title ?? "Problem"} was removed.`
+      });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to delete problem");
+      const message = nextError instanceof Error ? nextError.message : "Failed to delete problem";
+      setInventoryError(message);
+      showNotice({
+        type: "error",
+        title: "Problem not deleted",
+        message
+      });
     } finally {
       setConfirmId(null);
     }
@@ -138,6 +203,16 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     setTestcases((current) =>
       current.map((testcase, currentIndex) => (currentIndex === index ? { ...testcase, ...patch } : testcase))
     );
+  }
+
+  function removeTestcase(index: number) {
+    setTestcases((current) => {
+      if (current.length <= 1) {
+        return [createEmptyTestcase()];
+      }
+
+      return current.filter((_, currentIndex) => currentIndex !== index);
+    });
   }
 
   function renderTabContent() {
@@ -169,9 +244,9 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
           <label className="field">
             <span>Time Limit (ms)</span>
             <input
-              min={100}
+              min={1}
               onChange={(event) => setForm((current) => ({ ...current, timeLimitMs: Number(event.target.value) }))}
-              step={100}
+              step={1}
               type="number"
               value={form.timeLimitMs}
             />
@@ -229,8 +304,13 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
         <span>Testcase Upload</span>
 
         {testcases.map((testcase, index) => (
-          <div className="testcase-row" key={index}>
-            <div className="testcase-row-title">Testcase {index + 1}</div>
+          <div className="testcase-row" key={testcase.id}>
+            <div className="testcase-row-header">
+              <div className="testcase-row-title">Testcase {index + 1}</div>
+              <button className="delete-button testcase-delete-button" onClick={() => removeTestcase(index)} type="button">
+                x
+              </button>
+            </div>
 
             <label>
               Input (.in)
@@ -249,7 +329,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
         <button
           className="chip-button"
           disabled={!canAddNewTestCase}
-          onClick={() => setTestcases((current) => [...current, { input: null, output: null }])}
+          onClick={() => setTestcases((current) => [...current, createEmptyTestcase()])}
           type="button"
         >
           Add Testcase
@@ -284,7 +364,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
           {submitting ? "Creating..." : "Create Problem"}
         </button>
 
-        {error ? <p className="error-text">{error}</p> : null}
+        {formError ? <p className="error-text">{formError}</p> : null}
       </article>
     );
   }
@@ -299,7 +379,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
           </div>
         </div>
 
-        {error ? <p className="error-text">{error}</p> : null}
+        {inventoryError ? <p className="error-text">{inventoryError}</p> : null}
 
         <div className="result-table">
           {problems.length === 0 ? (
@@ -387,7 +467,23 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
         {activeSection === "new" ? <section className="workspace-grid single-column-grid">{renderBuilderCard()}</section> : null}
 
         {activeSection === "problems" ? <section className="workspace-grid single-column-grid">{renderInventoryCard()}</section> : null}
+
+        {activeSection === "users" ? (
+          <section className="workspace-grid single-column-grid">
+            <UserManager currentUserId={token} onNotice={showNotice} token={token} />
+          </section>
+        ) : null}
       </div>
+
+      {notice ? (
+        <div className={`toast floating-toast toast-${notice.type}`} role="status">
+          <strong>{notice.title}</strong>
+          <span>{notice.message}</span>
+          <button className="toast-close-button" onClick={() => setNotice(null)} type="button">
+            x
+          </button>
+        </div>
+      ) : null}
 
       {confirmId ? (
         <div className="modal-backdrop">
@@ -408,4 +504,198 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       ) : null}
     </>
   );
+}
+
+function UserManager({
+  currentUserId,
+  onNotice,
+  token
+}: {
+  currentUserId: string;
+  onNotice: (notice: NoticeState) => void;
+  token: string;
+}) {
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<UserRole>("candidate");
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    setError(null);
+
+    getUsers(token)
+      .then((items) => {
+        if (!cancelled) {
+          setUsers(items);
+        }
+      })
+      .catch((nextError) => {
+        if (!cancelled) {
+          const message = nextError instanceof Error ? nextError.message : "Failed to load users";
+          setError(message);
+          onNotice({
+            type: "error",
+            title: "Users not loaded",
+            message
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onNotice, token]);
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
+    setError(null);
+
+    try {
+      const response = await createUser(token, {
+        name: name.trim(),
+        email: email.trim(),
+        role
+      });
+
+      setUsers((current) => [...current, response.user].sort(compareUsers));
+      setName("");
+      setEmail("");
+      setRole("candidate");
+      onNotice({
+        type: "success",
+        title: "User created",
+        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}.`
+      });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to create user";
+      setError(message);
+      onNotice({
+        type: "error",
+        title: "User not created",
+        message
+      });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDeleteUser(user: AuthUser) {
+    setDeletingId(user.id);
+    setError(null);
+
+    try {
+      await deleteUser(token, user.id);
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      onNotice({
+        type: "success",
+        title: "User deleted",
+        message: `${user.name} was removed.`
+      });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to delete user";
+      setError(message);
+      onNotice({
+        type: "error",
+        title: "User not deleted",
+        message
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <article className="status-card panel-column">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">User Management</p>
+          <h2>Accounts and roles</h2>
+        </div>
+      </div>
+
+      <div className="user-management-grid">
+        <form className="stack-form admin-user-form" onSubmit={handleCreateUser}>
+          <label className="field">
+            <span>Name</span>
+            <input onChange={(event) => setName(event.target.value)} placeholder="New teammate" value={name} />
+          </label>
+
+          <label className="field">
+            <span>Email</span>
+            <input
+              autoComplete="email"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@example.com"
+              type="email"
+              value={email}
+            />
+          </label>
+
+          <label className="field">
+            <span>Role</span>
+            <select onChange={(event) => setRole(event.target.value as UserRole)} value={role}>
+              {roles.map((item) => (
+                <option key={item} value={item}>
+                  {roleLabels[item]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button className="primary-button" disabled={creating || !name.trim() || !email.trim()} type="submit">
+            {creating ? "Creating..." : "Create User"}
+          </button>
+
+          {error ? <p className="error-text">{error}</p> : null}
+        </form>
+
+        <div className="result-table user-table">
+          {loading ? (
+            <div className="empty-state">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="empty-state">No users yet.</div>
+          ) : (
+            users.map((user) => (
+              <div className="user-table-row" key={user.id}>
+                <div className="candidate-info">
+                  <strong className="candidate-name">{user.name}</strong>
+                  <span className="candidate-email">{user.email}</span>
+                  <small>{user.id}</small>
+                </div>
+
+                <span className="badge badge-outline">{roleLabels[user.role]}</span>
+
+                <button
+                  className="delete-button"
+                  disabled={user.id === currentUserId || deletingId === user.id}
+                  onClick={() => handleDeleteUser(user)}
+                  title={user.id === currentUserId ? "You cannot delete the account currently signed in." : "Delete user"}
+                  type="button"
+                >
+                  {deletingId === user.id ? "..." : "x"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function compareUsers(left: AuthUser, right: AuthUser) {
+  return `${left.role}:${left.name}:${left.email}`.localeCompare(`${right.role}:${right.name}:${right.email}`);
 }

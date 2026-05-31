@@ -98,7 +98,15 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
     ]);
 
     if (hasAssignment || hasSubmission) {
-      throw new AppError(400, "problem_in_use", "Cannot delete problem in use");
+      throw new AppError(
+        400,
+        "problem_in_use",
+        "Cannot delete problem because it is assigned or has candidate submissions",
+        {
+          hasAssignments: hasAssignment,
+          hasCandidateSubmissions: hasSubmission
+        }
+      );
     }
 
     const deleted = await context.store.deleteProblem(params.problemId);
@@ -162,7 +170,11 @@ async function parseCreateProblemRequest(request: FastifyRequest) {
     }
 
     if (!input || !output) {
-      throw new AppError(400, "invalid_testcase_upload", "Each testcase must include both input and output");
+      throw new AppError(400, "invalid_testcase_upload", "Each testcase must include both input and output", {
+        index,
+        missingInput: !input,
+        missingOutput: !output
+      });
     }
 
     hiddenTestCases.push({

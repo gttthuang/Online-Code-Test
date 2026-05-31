@@ -40,12 +40,16 @@ export async function registerCandidateRoutes(app: FastifyInstance, context: App
 
     const params = z.object({ candidateId: z.string() }).parse(request.params);
 
-    const inUse = 
-      await context.store.hasAnyAssignmentForCandidate(params.candidateId) ||
-      await context.store.hasAnySubmissionByCandidate(params.candidateId);
+    const [hasAssignments, hasSubmissions] = await Promise.all([
+      context.store.hasAnyAssignmentForCandidate(params.candidateId),
+      context.store.hasAnySubmissionByCandidate(params.candidateId)
+    ]);
 
-    if (inUse) {
-      throw new AppError(400, "candidate_in_use", "Cannot delete candidate because they have assignments or submissions");
+    if (hasAssignments || hasSubmissions) {
+      throw new AppError(400, "candidate_in_use", "Cannot delete candidate because they have assignments or submissions", {
+        hasAssignments,
+        hasSubmissions
+      });
     }
 
     const deleted = await context.store.deleteCandidate(params.candidateId);
