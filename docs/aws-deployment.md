@@ -84,7 +84,7 @@ cp infra/aws/deploy.env.example infra/aws/deploy.env
 
 ```bash
 APP_NAME=online-code-test
-STAGE=prod
+STAGE=dev
 AWS_REGION=ap-northeast-1
 ```
 

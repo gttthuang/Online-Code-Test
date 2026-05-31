@@ -30,6 +30,21 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Validate deploy configuration
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          test -n "$AWS_ACCESS_KEY_ID" || { echo "Missing GitHub secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo "Missing GitHub secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "$APP_NAME" || { echo "Missing deploy variable: APP_NAME"; exit 1; }
+          test -n "$STAGE" || { echo "Missing deploy variable: STAGE"; exit 1; }
+          test -n "$AWS_REGION" || { echo "Missing deploy variable: AWS_REGION"; exit 1; }
+          echo "Deploy target: app=$APP_NAME stage=$STAGE region=$AWS_REGION"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -61,7 +76,7 @@ jobs:
       - name: Deploy to AWS
         env:
           APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
-          STAGE: ${{ vars.STAGE || 'prod' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
           AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
           DB_NAME: ${{ vars.DB_NAME || 'online_code_test' }}
           DB_USERNAME: ${{ vars.DB_USERNAME || 'oct_admin' }}
