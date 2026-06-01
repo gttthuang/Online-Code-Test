@@ -15,6 +15,15 @@ export type SupportedLanguage = (typeof languages)[number];
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
 export type ProblemDifficulty = (typeof problemDifficulties)[number];
 
+export const reviewRecommendations = [
+  "strong_hire",
+  "hire",
+  "lean_hire",
+  "lean_no_hire",
+  "no_hire"
+] as const;
+export type ReviewRecommendation = (typeof reviewRecommendations)[number];
+
 export const judgeQueueName = "judge-submissions";
 
 export interface AuthUser {
@@ -190,4 +199,37 @@ export interface CandidateResultItem {
 export interface CandidateResultsResponse {
   candidate: AuthUser;
   submissions: CandidateResultItem[];
+}
+
+export interface InterviewRubric {
+  problemSolving: number;
+  codeQuality: number;
+  communication: number;
+  testingDebugging: number;
+}
+
+export interface InterviewReview {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  problemTitle: string;
+  interviewerId: string;
+  interviewerName: string;
+  notes: string;
+  rubric: InterviewRubric;
+  recommendation: ReviewRecommendation;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertInterviewReviewRequest {
+  notes: string;
+  rubric: InterviewRubric;
+  recommendation: ReviewRecommendation;
+}
+
+export interface CandidateReviewContextResponse {
+  candidate: AuthUser;
+  assignments: AssignmentSummary[];
+  reviews: InterviewReview[];
 }

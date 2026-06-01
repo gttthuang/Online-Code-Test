@@ -2,10 +2,12 @@ import type {
   AssignmentSummary,
   AuthUser,
   CandidateResultsResponse,
+  CandidateReviewContextResponse,
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   CreateUserRequest,
+  InterviewReview,
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
@@ -76,5 +78,18 @@ export interface AppStore {
   updateSubmissionStatus(submissionId: string, status: SubmissionStatus): Promise<SubmissionDetail | null>;
   completeSubmission(submissionId: string, result: JudgeResult): Promise<SubmissionDetail | null>;
   listCandidateResults(candidateId: string): Promise<CandidateResultsResponse | null>;
+  getCandidateReviewContext(candidateId: string, interviewerId: string): Promise<CandidateReviewContextResponse | null>;
+  upsertInterviewReview(input: {
+    candidateId: string;
+    problemId: string;
+    interviewerId: string;
+    notes: string;
+    problemSolving: number;
+    codeQuality: number;
+    communication: number;
+    testingDebugging: number;
+    recommendation: InterviewReview["recommendation"];
+  }): Promise<InterviewReview | null>;
+  deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean>;
   getInternalStats(): Promise<InternalStats>;
 }

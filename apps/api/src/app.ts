@@ -6,6 +6,7 @@ import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
+import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { registerUserRoutes } from "./modules/users/routes.js";
 import { toErrorResponse } from "./core/errors.js";
@@ -80,6 +81,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "POST /admin/assignments",
       "GET /admin/candidates/:candidateId/results",
       "GET /admin/candidates/:candidateId/submissions",
+      "GET /admin/candidates/:candidateId/reviews",
+      "PUT /admin/candidates/:candidateId/reviews/:problemId",
+      "DELETE /admin/candidates/:candidateId/reviews/:problemId",
       "GET /admin/submissions",
       "POST /admin/submissions/preview",
       "GET /admin/submissions/:submissionId"
@@ -124,6 +128,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);
   registerResultRoutes(app, context);
+  registerReviewRoutes(app, context);
   registerUserRoutes(app, context);
 
   return app;

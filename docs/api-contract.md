@@ -90,6 +90,9 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
 - `GET /admin/candidates/:candidateId/submissions`
+- `GET /admin/candidates/:candidateId/reviews`
+- `PUT /admin/candidates/:candidateId/reviews/:problemId`
+- `DELETE /admin/candidates/:candidateId/reviews/:problemId`
 
 ### Admin Submission Review
 
@@ -568,6 +571,85 @@ Response:
   "submissions": []
 }
 ```
+
+### `GET /admin/candidates/:candidateId/reviews`
+
+用途：
+
+- interviewer 查看自己對某位 candidate 的 private notes / rubric
+- response 會同時回傳該 candidate 的 assignments，讓前端可以針對每題填 review
+- candidate 和 admin 都不能讀 interviewer private review
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  },
+  "assignments": [],
+  "reviews": [
+    {
+      "id": "review_xxx",
+      "candidateId": "candidate_alice",
+      "problemId": "problem_reverse_string",
+      "problemTitle": "Reverse String",
+      "interviewerId": "interviewer_bob",
+      "interviewerName": "Bob Interviewer",
+      "notes": "Solved with clear communication.",
+      "rubric": {
+        "problemSolving": 5,
+        "codeQuality": 4,
+        "communication": 5,
+        "testingDebugging": 4
+      },
+      "recommendation": "hire",
+      "createdAt": "2026-04-14T12:00:00.000Z",
+      "updatedAt": "2026-04-14T12:05:00.000Z"
+    }
+  ]
+}
+```
+
+### `PUT /admin/candidates/:candidateId/reviews/:problemId`
+
+用途：
+
+- interviewer 建立或更新自己對 candidate / problem 的 private review
+- `problemId` 必須是 candidate 已被指派的題目
+- rubric 每項為 1 到 5 分
+
+Request:
+
+```json
+{
+  "notes": "Solved with clear communication.",
+  "rubric": {
+    "problemSolving": 5,
+    "codeQuality": 4,
+    "communication": 5,
+    "testingDebugging": 4
+  },
+  "recommendation": "hire"
+}
+```
+
+`recommendation` 可用值：
+
+- `strong_hire`
+- `hire`
+- `lean_hire`
+- `lean_no_hire`
+- `no_hire`
+
+### `DELETE /admin/candidates/:candidateId/reviews/:problemId`
+
+用途：
+
+- interviewer 刪除自己寫過的 private review
 
 ### `GET /admin/submissions`
 

@@ -1257,6 +1257,48 @@ textarea {
   white-space: pre-wrap;
 }
 
+.review-results-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.review-editor {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 1rem;
+}
+
+.review-editor h3 {
+  margin: 0;
+}
+
+.rubric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.rubric-slider {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(120px, 1.2fr) 2rem;
+  gap: 0.6rem;
+  align-items: center;
+  color: var(--muted);
+}
+
+.rubric-slider strong {
+  color: var(--text);
+  text-align: right;
+}
+
+.success-text {
+  color: var(--success);
+  margin: 0;
+}
+
 .stat-row {
   display: flex;
   justify-content: space-between;
@@ -1404,7 +1446,9 @@ textarea {
   .user-management-grid,
   .user-table-row,
   .submission-history-row,
-  .submission-detail-grid {
+  .submission-detail-grid,
+  .rubric-grid,
+  .rubric-slider {
     grid-template-columns: 1fr;
   }
 

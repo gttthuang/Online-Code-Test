@@ -5,10 +5,12 @@ import type {
   AuthUser,
   CandidateResultItem,
   CandidateResultsResponse,
+  CandidateReviewContextResponse,
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   CreateUserRequest,
+  InterviewReview,
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
@@ -61,6 +63,23 @@ type SubmissionHistoryRow = SubmissionRow & {
   candidate_email: string;
   candidate_role: AuthUser["role"];
   problem_title: string;
+};
+
+type InterviewReviewRow = {
+  id: string;
+  candidate_id: string;
+  problem_id: string;
+  problem_title: string;
+  interviewer_id: string;
+  interviewer_name: string;
+  notes: string;
+  problem_solving: number;
+  code_quality: number;
+  communication: number;
+  testing_debugging: number;
+  recommendation: InterviewReview["recommendation"];
+  created_at: string;
+  updated_at: string;
 };
 
 type SubmissionCaseRow = {
@@ -715,6 +734,97 @@ export class PostgresStore implements AppStore {
     };
   }
 
+  async getCandidateReviewContext(candidateId: string, interviewerId: string): Promise<CandidateReviewContextResponse | null> {
+    const candidate = await this.getUserById(candidateId);
+
+    if (!candidate || candidate.role !== "candidate") {
+      return null;
+    }
+
+    const [assignments, reviews] = await Promise.all([
+      this.listAssignmentsForCandidate(candidateId),
+      this.queryInterviewReviews(candidateId, interviewerId)
+    ]);
+
+    return {
+      candidate,
+      assignments,
+      reviews
+    };
+  }
+
+  async upsertInterviewReview(input: {
+    candidateId: string;
+    problemId: string;
+    interviewerId: string;
+    notes: string;
+    problemSolving: number;
+    codeQuality: number;
+    communication: number;
+    testingDebugging: number;
+    recommendation: InterviewReview["recommendation"];
+  }): Promise<InterviewReview | null> {
+    const reviewId = `review_${randomUUID()}`;
+    const now = new Date().toISOString();
+
+    const result = await this.pool.query<{ id: string }>(
+      `
+        insert into interview_reviews (
+          id,
+          candidate_id,
+          problem_id,
+          interviewer_id,
+          notes,
+          problem_solving,
+          code_quality,
+          communication,
+          testing_debugging,
+          recommendation,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $11::timestamptz)
+        on conflict (candidate_id, problem_id, interviewer_id)
+        do update set
+          notes = excluded.notes,
+          problem_solving = excluded.problem_solving,
+          code_quality = excluded.code_quality,
+          communication = excluded.communication,
+          testing_debugging = excluded.testing_debugging,
+          recommendation = excluded.recommendation,
+          updated_at = excluded.updated_at
+        returning id
+      `,
+      [
+        reviewId,
+        input.candidateId,
+        input.problemId,
+        input.interviewerId,
+        input.notes,
+        input.problemSolving,
+        input.codeQuality,
+        input.communication,
+        input.testingDebugging,
+        input.recommendation,
+        now
+      ]
+    );
+
+    return this.getInterviewReviewById(result.rows[0].id);
+  }
+
+  async deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+        delete from interview_reviews
+        where candidate_id = $1 and problem_id = $2 and interviewer_id = $3
+      `,
+      [candidateId, problemId, interviewerId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async getInternalStats(): Promise<InternalStats> {
     const [totalsResult, statusesResult, failuresResult, judgeCasesResult] = await Promise.all([
       this.pool.query<{
@@ -850,6 +960,72 @@ export class PostgresStore implements AppStore {
       problemTitle: row.problem_title,
       passedCases,
       totalCases
+    };
+  }
+
+  private async getInterviewReviewById(reviewId: string): Promise<InterviewReview | null> {
+    const reviews = await this.queryInterviewReviewRows([`r.id = $1`], [reviewId]);
+    return reviews[0] ? this.toInterviewReview(reviews[0]) : null;
+  }
+
+  private async queryInterviewReviews(candidateId: string, interviewerId: string): Promise<InterviewReview[]> {
+    const rows = await this.queryInterviewReviewRows(
+      [`r.candidate_id = $1`, `r.interviewer_id = $2`],
+      [candidateId, interviewerId]
+    );
+
+    return rows.map((row) => this.toInterviewReview(row));
+  }
+
+  private async queryInterviewReviewRows(conditions: string[], values: unknown[]): Promise<InterviewReviewRow[]> {
+    const whereClause = conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
+    const result = await this.pool.query<InterviewReviewRow>(
+      `
+        select
+          r.id,
+          r.candidate_id,
+          r.problem_id,
+          p.title as problem_title,
+          r.interviewer_id,
+          u.name as interviewer_name,
+          r.notes,
+          r.problem_solving,
+          r.code_quality,
+          r.communication,
+          r.testing_debugging,
+          r.recommendation,
+          r.created_at,
+          r.updated_at
+        from interview_reviews r
+        join problems p on p.id = r.problem_id
+        join users u on u.id = r.interviewer_id
+        ${whereClause}
+        order by r.updated_at desc
+      `,
+      values
+    );
+
+    return result.rows;
+  }
+
+  private toInterviewReview(row: InterviewReviewRow): InterviewReview {
+    return {
+      id: row.id,
+      candidateId: row.candidate_id,
+      problemId: row.problem_id,
+      problemTitle: row.problem_title,
+      interviewerId: row.interviewer_id,
+      interviewerName: row.interviewer_name,
+      notes: row.notes,
+      rubric: {
+        problemSolving: row.problem_solving,
+        codeQuality: row.code_quality,
+        communication: row.communication,
+        testingDebugging: row.testing_debugging
+      },
+      recommendation: row.recommendation,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
   }
 

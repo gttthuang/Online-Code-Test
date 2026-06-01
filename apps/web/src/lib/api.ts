@@ -9,6 +9,8 @@ import type {
   CreateSubmissionResponse,
   CreateUserRequest,
   CreateUserResponse,
+  CandidateReviewContextResponse,
+  InterviewReview,
   LoginResponse,
   ProblemSummary,
   ProblemDetail,
@@ -216,6 +218,45 @@ export function getCandidateSubmissionHistory(token: string, candidateId: string
   return request<{ candidate: AuthUser; submissions: SubmissionHistoryItem[] }>(
     `/admin/candidates/${candidateId}/submissions`,
     undefined,
+    token
+  );
+}
+
+export function getCandidateReviewContext(token: string, candidateId: string) {
+  return request<CandidateReviewContextResponse>(`/admin/candidates/${candidateId}/reviews`, undefined, token);
+}
+
+export function saveCandidateReview(
+  token: string,
+  candidateId: string,
+  problemId: string,
+  payload: {
+    notes: string;
+    rubric: {
+      problemSolving: number;
+      codeQuality: number;
+      communication: number;
+      testingDebugging: number;
+    };
+    recommendation: InterviewReview["recommendation"];
+  }
+) {
+  return request<{ review: InterviewReview }>(
+    `/admin/candidates/${candidateId}/reviews/${problemId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function deleteCandidateReview(token: string, candidateId: string, problemId: string) {
+  return request<void>(
+    `/admin/candidates/${candidateId}/reviews/${problemId}`,
+    {
+      method: "DELETE"
+    },
     token
   );
 }
