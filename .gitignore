@@ -9,3 +9,4 @@ apps/web/dist
 *.env.production
 infra/aws/deploy.env
 deploy-*.zip
+sonar-project.properties

@@ -5,25 +5,228 @@ import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSub
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
 
-// 引入 Monaco Editor 與 Vim 模式
+// Import Monaco Editor and Vim mode
 import Editor from "@monaco-editor/react";
 import { initVimMode } from "monaco-vim";
 
-const scenarioTemplates = [
-  { label: "Accepted", code: "print(42)" },
-  { label: "Wrong Answer", code: "wrong_answer" },
-  { label: "Compile Error", code: "compile_error" },
-  { label: "Runtime Error", code: "runtime_error" }
-];
-
 interface CandidateWorkspaceProps {
-  token: string;
-  user: AuthUser;
-  initialProblemId?: string | null;
-  onClose?: () => void;
+  readonly token: string;
+  readonly user: AuthUser;
+  readonly initialProblemId?: string | null;
 }
 
-export function CandidateWorkspace({ token, user, initialProblemId, onClose }: CandidateWorkspaceProps) {
+// --- ExamGateCard ---
+
+interface ExamGateCardProps {
+  readonly assignmentsLoading: boolean;
+  readonly exam: CandidateExamSummary | null;
+  readonly examStarting: boolean;
+  readonly workspaceError: string | null;
+  readonly onStartExam: () => void;
+}
+
+function ExamGateCard({ assignmentsLoading, exam, examStarting, workspaceError, onStartExam }: ExamGateCardProps) {
+  let content: JSX.Element;
+
+  if (assignmentsLoading) {
+    content = (
+      <>
+        <p className="eyebrow">Candidate Exam</p>
+        <h1>Loading exam...</h1>
+      </>
+    );
+  } else if (!exam || exam.assignmentCount === 0) {
+    content = (
+      <>
+        <p className="eyebrow">Candidate Exam</p>
+        <h1>No assignments yet</h1>
+        <p className="panel-copy">Your interviewer has not assigned problems to this account.</p>
+      </>
+    );
+  } else if (exam.status === "expired") {
+    content = (
+      <>
+        <p className="eyebrow">Candidate Exam</p>
+        <h1>Time limit reached</h1>
+        <p className="panel-copy">This exam has expired. Submission and custom runs are locked.</p>
+      </>
+    );
+  } else {
+    content = (
+      <>
+        <p className="eyebrow">Candidate Exam</p>
+        <h1>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h1>
+        <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
+        <button className="primary-button" disabled={examStarting} onClick={onStartExam} type="button">
+          {examStarting ? "Starting..." : "Start Exam"}
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <div className="fullscreen-wrapper">
+      <section className="workspace-container dashboard-page exam-gate-page">
+        <article className="status-card exam-start-card">
+          {content}
+          {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
+        </article>
+      </section>
+    </div>
+  );
+}
+
+// --- SettingsModal ---
+
+interface SettingsModalProps {
+  readonly fontSize: number;
+  readonly tabSize: number;
+  readonly keybinding: string;
+  readonly onFontSizeChange: (value: number) => void;
+  readonly onTabSizeChange: (value: number) => void;
+  readonly onKeybindingChange: (value: string) => void;
+  readonly onClose: () => void;
+}
+
+function SettingsModal({ fontSize, tabSize, keybinding, onFontSizeChange, onTabSizeChange, onKeybindingChange, onClose }: SettingsModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  // Close on backdrop click (when click target is the dialog itself, not its inner content)
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="settings-modal-dialog"
+      onClick={handleBackdropClick}
+      onClose={onClose}
+    >
+      <div className="settings-modal">
+        <h3>Editor Settings</h3>
+
+        <label className="field">
+          <span>Font Size (px)</span>
+          <select value={fontSize} onChange={(e) => onFontSizeChange(Number(e.target.value))}>
+            <option value={10}>10</option>
+            <option value={12}>12</option>
+            <option value={14}>14</option>
+            <option value={16}>16</option>
+            <option value={18}>18</option>
+            <option value={20}>20</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Tab Size</span>
+          <select value={tabSize} onChange={(e) => onTabSizeChange(Number(e.target.value))}>
+            <option value={2}>2 Spaces</option>
+            <option value={4}>4 Spaces</option>
+            <option value={8}>8 Spaces</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Key Binding</span>
+          <select value={keybinding} onChange={(e) => onKeybindingChange(e.target.value)}>
+            <option value="standard">Standard</option>
+            <option value="vim">Vim</option>
+          </select>
+        </label>
+
+        <div className="settings-modal-actions">
+          <button className="primary-button" onClick={onClose} type="button">
+            Done
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+// --- AssignmentDrawer ---
+
+interface AssignmentDrawerProps {
+  readonly isOpen: boolean;
+  readonly assignments: AssignmentSummary[];
+  readonly assignmentsLoading: boolean;
+  readonly selectedProblemId: string | null;
+  readonly remainingSeconds: number | null;
+  readonly onOpen: () => void;
+  readonly onClose: () => void;
+  readonly onSelectProblem: (problemId: string) => void;
+}
+
+function AssignmentDrawer({ isOpen, assignments, assignmentsLoading, selectedProblemId, remainingSeconds, onOpen, onClose, onSelectProblem }: AssignmentDrawerProps) {
+  let assignmentList: JSX.Element;
+  if (assignmentsLoading) {
+    assignmentList = <p className="empty-state">Loading assignments...</p>;
+  } else if (assignments.length === 0) {
+    assignmentList = <div className="empty-state">No assignments yet.</div>;
+  } else {
+    assignmentList = (
+      <>
+        {assignments.map((assignment) => (
+          <button
+            key={assignment.id}
+            className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
+            onClick={() => onSelectProblem(assignment.problemId)}
+            type="button"
+          >
+            <strong>{assignment.problemTitle}</strong>
+            <span>{assignment.difficulty}</span>
+          </button>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {!isOpen && (
+        <button className="drawer-toggle-btn" onClick={onOpen} title="Show Assignments" type="button">
+          &gt;
+        </button>
+      )}
+
+      {isOpen && (
+        <button
+          type="button"
+          className="drawer-overlay"
+          onClick={onClose}
+          aria-label="Close assignments drawer"
+        />
+      )}
+
+      <div className={`problem-drawer ${isOpen ? "open" : ""}`}>
+        <div className="panel-header" style={{ marginBottom: '1rem' }}>
+          <div>
+            <h2>Assignments</h2>
+            <p className="label-text">Remaining: {formatRemainingTime(remainingSeconds)}</p>
+          </div>
+          <button className="chip-button" onClick={onClose} title="Close" type="button">
+            ✕
+          </button>
+        </div>
+
+        <div className="problem-stack assignment-list">
+          {assignmentList}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// --- CandidateWorkspace ---
+
+export function CandidateWorkspace({ token, user, initialProblemId }: CandidateWorkspaceProps) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
     user.role === "problem_admin" ? initialProblemId ?? null : null
@@ -48,39 +251,34 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [customRun, setCustomRun] = useState<CustomRunDetail | null>(null);
   const [customRunLoading, setCustomRunLoading] = useState(false);
 
-  // UI 控制狀態
+  // UI control state
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [leftWidth, setLeftWidth] = useState(40);
   const [topHeight, setTopHeight] = useState(60);
 
-  // === 編輯器偏好設定狀態 ===
+  // === Editor preference settings state ===
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [fontSize, setFontSize] = useState<number>(14);
   const [tabSize, setTabSize] = useState<number>(4);
   const [keybinding, setKeybinding] = useState<string>("standard");
+
   const isAdminPreview = user.role === "problem_admin";
   const showAssignmentDrawer = user.role === "candidate" && !initialProblemId && exam?.status === "started";
 
-  // === 編輯器與 Vim 實體參考 ===
+  // === Editor and Vim instance references ===
   const editorRef = useRef<any>(null);
   const vimModeRef = useRef<any>(null);
 
-  // 輔助函式：將你的語言格式轉換為 Monaco 支援的格式
+  // Helper: converts language format to Monaco-supported format
   const getMonacoLanguage = (lang: string) => {
     const l = lang.toLowerCase();
     if (l === "c++") return "cpp";
     return l;
   };
 
-  // 當 Monaco 編輯器掛載完成時觸發
-  const handleEditorMount = (editor: any) => {
-    editorRef.current = editor;
-    applyKeybinding(keybinding); // 初始化時套用按鍵綁定設定
-  };
-
-  // 套用按鍵綁定邏輯
+  // Apply keybinding logic
   const applyKeybinding = (mode: string) => {
-    // 每次切換前，先卸載既有的 Vim 模式以避免記憶體流失或重複綁定
+    // Dispose existing Vim mode before switching to avoid memory leaks or duplicate bindings
     if (vimModeRef.current) {
       vimModeRef.current.dispose();
       vimModeRef.current = null;
@@ -89,18 +287,24 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     if (mode === "vim" && editorRef.current) {
       const statusNode = document.getElementById("vim-status-bar");
       if (statusNode) {
-        // 清空先前的狀態文字 (避免殘留)
+        // Clear previous status text to avoid stale content
         statusNode.innerHTML = "";
         vimModeRef.current = initVimMode(editorRef.current, statusNode);
       }
     }
   };
 
-  // 監聽 keybinding 狀態變化，動態切換模式
+  // Triggered when Monaco editor finishes mounting
+  const handleEditorMount = (editor: any) => {
+    editorRef.current = editor;
+    applyKeybinding(keybinding);
+  };
+
+  // Re-apply keybinding whenever mode changes
   useEffect(() => {
     applyKeybinding(keybinding);
 
-    // 元件卸載時的清理工作
+    // Cleanup on unmount
     return () => {
       if (vimModeRef.current) {
         vimModeRef.current.dispose();
@@ -119,7 +323,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     }
 
     setAssignmentsLoading(true);
-
     setWorkspaceError(null);
 
     getCandidateExam(token)
@@ -160,11 +363,11 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       return;
     }
 
-    const timer = window.setInterval(() => {
+    const timer = globalThis.setInterval(() => {
       setRemainingSeconds((current) => current === null ? null : Math.max(0, current - 1));
     }, 1000);
 
-    return () => window.clearInterval(timer);
+    return () => globalThis.clearInterval(timer);
   }, [exam?.remainingSeconds, exam?.status, user.role]);
 
   useEffect(() => {
@@ -183,11 +386,9 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     }
 
     let cancelled = false;
-
     setProblemLoading(true);
 
-    const api =
-      user.role === "problem_admin" ? getAdminProblem : getProblem;
+    const api = user.role === "problem_admin" ? getAdminProblem : getProblem;
 
     api(token, selectedProblemId)
       .then((nextProblem: ProblemDetail) => {
@@ -198,9 +399,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       })
       .catch((error) => {
         if (!cancelled)
-          setWorkspaceError(
-            error instanceof Error ? error.message : "Failed to load problem"
-          );
+          setWorkspaceError(error instanceof Error ? error.message : "Failed to load problem");
       })
       .finally(() => {
         if (!cancelled) setProblemLoading(false);
@@ -250,16 +449,16 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
         if (cancelled) return;
         setSubmission(nextSubmission);
         if (["queued", "running"].includes(nextSubmission.status)) {
-          timer = window.setTimeout(poll, 1000);
+          timer = globalThis.setTimeout(poll, 1000);
         }
       } catch (error) {
         if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll submission");
       }
     };
-    timer = window.setTimeout(poll, 600);
+    timer = globalThis.setTimeout(poll, 600);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      globalThis.clearTimeout(timer);
     };
   }, [submission, token, user.role]);
 
@@ -274,16 +473,16 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
         if (cancelled) return;
         setCustomRun(nextRun);
         if (["queued", "running"].includes(nextRun.status)) {
-          timer = window.setTimeout(poll, 800);
+          timer = globalThis.setTimeout(poll, 800);
         }
       } catch (error) {
         if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll custom run");
       }
     };
-    timer = window.setTimeout(poll, 500);
+    timer = globalThis.setTimeout(poll, 500);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      globalThis.clearTimeout(timer);
     };
   }, [customRun?.id, customRun?.status, token]);
 
@@ -429,149 +628,194 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
 
   if (user.role === "candidate" && exam?.status !== "started") {
     return (
-      <div className="fullscreen-wrapper">
-        <section className="workspace-container dashboard-page exam-gate-page">
-          <article className="status-card exam-start-card">
-            {assignmentsLoading ? (
-              <>
-                <p className="eyebrow">Candidate Exam</p>
-                <h1>Loading exam...</h1>
-              </>
-            ) : !exam || exam.assignmentCount === 0 ? (
-              <>
-                <p className="eyebrow">Candidate Exam</p>
-                <h1>No assignments yet</h1>
-                <p className="panel-copy">Your interviewer has not assigned problems to this account.</p>
-              </>
-            ) : exam.status === "expired" ? (
-              <>
-                <p className="eyebrow">Candidate Exam</p>
-                <h1>Time limit reached</h1>
-                <p className="panel-copy">This exam has expired. Submission and custom runs are locked.</p>
-              </>
-            ) : (
-              <>
-                <p className="eyebrow">Candidate Exam</p>
-                <h1>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h1>
-                <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
-                <button className="primary-button" disabled={examStarting} onClick={handleStartExam} type="button">
-                  {examStarting ? "Starting..." : "Start Exam"}
-                </button>
-              </>
-            )}
-            {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
-          </article>
-        </section>
+      <ExamGateCard
+        assignmentsLoading={assignmentsLoading}
+        exam={exam}
+        examStarting={examStarting}
+        workspaceError={workspaceError}
+        onStartExam={handleStartExam}
+      />
+    );
+  }
+
+  let consoleTitle = "Console";
+  if (rightTab === "output" && submission) {
+    consoleTitle = submission.status;
+  } else if (rightTab === "terminal" && customRun) {
+    consoleTitle = customRun.status;
+  }
+
+  let leftPanelContent: JSX.Element;
+  if (leftTab === "description") {
+    if (problem) {
+      leftPanelContent = (
+        <>
+          <div className="meta-row">
+            <span>Difficulty: {problem.difficulty}</span>
+            <span>Time: {problem.timeLimitMs} ms</span>
+            <span>Memory: {problem.memoryLimitKb} KB</span>
+          </div>
+          <p className="panel-copy">{problem.description}</p>
+          <div className="sample-grid">
+            <div>
+              <p className="label-text">Sample Input</p>
+              <pre>{problem.sampleInput}</pre>
+            </div>
+            <div>
+              <p className="label-text">Sample Output</p>
+              <pre>{problem.sampleOutput}</pre>
+            </div>
+          </div>
+        </>
+      );
+    } else {
+      leftPanelContent = (
+        <div className="empty-state">
+          {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
+        </div>
+      );
+    }
+  } else {
+    leftPanelContent = (
+      <SubmissionHistoryPanel
+        emptyMessage={isAdminPreview ? "No preview submissions yet." : "No submissions yet."}
+        loading={historyLoading}
+        onSelect={handleSelectHistoryItem}
+        selectedId={submission?.id}
+        submissions={submissionHistory}
+      />
+    );
+  }
+
+  let outputContent: JSX.Element;
+  if (submission) {
+    outputContent = (
+      <div className="result-stack">
+        {submission.result?.errorMessage ? (
+          <p className="error-text">{submission.result.errorMessage}</p>
+        ) : null}
+        <div className="case-list">
+          {submission.result?.cases.map((testCase) => (
+            <div className="case-item" key={testCase.testCaseId}>
+              <div>
+                <strong>{testCase.testCaseId}</strong>
+                <small>
+                  {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+                </small>
+              </div>
+              <span className={testCase.passed ? "case-pass" : "case-fail"}>
+                {testCase.passed ? "PASS" : "FAIL"}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     );
+  } else {
+    outputContent = (
+      <div className="empty-state">
+        Submit code to see judge output.
+      </div>
+    );
+  }
+
+  let terminalCustomRunOutput: JSX.Element;
+  if (customRun) {
+    terminalCustomRunOutput = (
+      <div className="terminal-output-grid">
+        {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
+        <div>
+          <p className="label-text">stdout</p>
+          <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
+        </div>
+        <div>
+          <p className="label-text">stderr</p>
+          <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
+        </div>
+        {customRun.executionTimeMs === null ? null : <small>{customRun.executionTimeMs} ms</small>}
+      </div>
+    );
+  } else {
+    terminalCustomRunOutput = (
+      <div className="empty-state">Run custom input to see stdout and stderr.</div>
+    );
+  }
+
+  let rightTabContent: JSX.Element;
+  if (rightTab === "testcases") {
+    rightTabContent = (
+      <div className="problem-stack">
+        <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
+      </div>
+    );
+  } else if (rightTab === "terminal") {
+    rightTabContent = (
+      <div className="problem-stack">
+        <label className="field">
+          <span>Standard Input</span>
+          <textarea
+            disabled={user.role !== "candidate"}
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder="Input passed to stdin"
+            rows={5}
+            value={customInput}
+          />
+        </label>
+
+        <button
+          className="secondary-button"
+          disabled={customRunLoading || !problem || user.role !== "candidate"}
+          onClick={handleCustomRun}
+          title={user.role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
+          type="button"
+        >
+          {customRunLoading ? "Starting..." : "Run Custom Input"}
+        </button>
+
+        {terminalCustomRunOutput}
+      </div>
+    );
+  } else {
+    rightTabContent = outputContent;
   }
 
   return (
     <div className="fullscreen-wrapper">
 
-      {/* 偏好設定 Modal */}
+      {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="settings-overlay" onClick={() => setIsSettingsOpen(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Editor Settings</h3>
-
-            <label className="field">
-              <span>Font Size (px)</span>
-              {/* 改為下拉選單 */}
-              <select value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))}>
-                <option value={10}>10</option>
-                <option value={12}>12</option>
-                <option value={14}>14</option>
-                <option value={16}>16</option>
-                <option value={18}>18</option>
-                <option value={20}>20</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Tab Size</span>
-              <select value={tabSize} onChange={(e) => setTabSize(Number(e.target.value))}>
-                <option value={2}>2 Spaces</option>
-                <option value={4}>4 Spaces</option>
-                <option value={8}>8 Spaces</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Key Binding</span>
-              <select value={keybinding} onChange={(e) => setKeybinding(e.target.value)}>
-                <option value="standard">Standard</option>
-                <option value="vim">Vim</option>
-              </select>
-            </label>
-
-            <div className="settings-modal-actions">
-              <button className="primary-button" onClick={() => setIsSettingsOpen(false)}>
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
+        <SettingsModal
+          fontSize={fontSize}
+          keybinding={keybinding}
+          tabSize={tabSize}
+          onClose={() => setIsSettingsOpen(false)}
+          onFontSizeChange={setFontSize}
+          onKeybindingChange={setKeybinding}
+          onTabSizeChange={setTabSize}
+        />
       )}
 
-      {/* 固定在左側邊緣的開啟按鈕 (未開啟抽屜時顯示) */}
-      {showAssignmentDrawer && !isSelectorOpen && (
-        <button
-          className="drawer-toggle-btn"
-          onClick={() => setIsSelectorOpen(true)}
-          title="Show Assignments"
-        >
-          &gt;
-        </button>
+      {/* Sidebar drawer: problem selector */}
+      {showAssignmentDrawer && (
+        <AssignmentDrawer
+          assignments={assignments}
+          assignmentsLoading={assignmentsLoading}
+          isOpen={isSelectorOpen}
+          remainingSeconds={remainingSeconds}
+          selectedProblemId={selectedProblemId}
+          onClose={() => setIsSelectorOpen(false)}
+          onOpen={() => setIsSelectorOpen(true)}
+          onSelectProblem={(problemId) => {
+            setSelectedProblemId(problemId);
+            setIsSelectorOpen(false);
+          }}
+        />
       )}
 
-      {/* 側邊抽屜 Overlay */}
-      {showAssignmentDrawer && isSelectorOpen && (
-        <div className="drawer-overlay" onClick={() => setIsSelectorOpen(false)} />
-      )}
-
-      {/* 側邊抽屜：題目選擇器 */}
-      {showAssignmentDrawer ? (
-        <div className={`problem-drawer ${isSelectorOpen ? "open" : ""}`}>
-          <div className="panel-header" style={{ marginBottom: '1rem' }}>
-            <div>
-              <h2>Assignments</h2>
-              <p className="label-text">Remaining: {formatRemainingTime(remainingSeconds)}</p>
-            </div>
-            <button className="chip-button" onClick={() => setIsSelectorOpen(false)} title="Close">
-              ✕
-            </button>
-          </div>
-
-          <div className="problem-stack assignment-list">
-            {assignmentsLoading ? (
-              <p className="empty-state">Loading assignments...</p>
-            ) : assignments.length === 0 ? (
-              <div className="empty-state">No assignments yet.</div>
-            ) : (
-              assignments.map((assignment) => (
-                <button
-                  key={assignment.id}
-                  className={`assignment-item ${selectedProblemId === assignment.problemId ? "assignment-item-active" : ""}`}
-                  onClick={() => {
-                    setSelectedProblemId(assignment.problemId);
-                    setIsSelectorOpen(false);
-                  }}
-                  type="button"
-                >
-                  <strong>{assignment.problemTitle}</strong>
-                  <span>{assignment.difficulty}</span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {/* 主要雙欄工作區 */}
+      {/* Main two-column workspace */}
       <section className="workspace-container">
 
-        {/* ================= 左欄：題目敘述與紀錄 ================= */}
+        {/* ================= Left column: problem description and history ================= */}
         <div className="panel-flex-content" style={{ flex: leftWidth, minWidth: "300px" }}>
           <article className="status-card panel-column" style={{ height: '100%' }}>
             <div className="panel-header">
@@ -598,53 +842,18 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
             </div>
 
             <div className="problem-stack">
-              {leftTab === "description" ? (
-                problem ? (
-                  <>
-                    <div className="meta-row">
-                      <span>Difficulty: {problem.difficulty}</span>
-                      <span>Time: {problem.timeLimitMs} ms</span>
-                      <span>Memory: {problem.memoryLimitKb} KB</span>
-                    </div>
-
-                    <p className="panel-copy">{problem.description}</p>
-
-                    <div className="sample-grid">
-                      <div>
-                        <p className="label-text">Sample Input</p>
-                        <pre>{problem.sampleInput}</pre>
-                      </div>
-                      <div>
-                        <p className="label-text">Sample Output</p>
-                        <pre>{problem.sampleOutput}</pre>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="empty-state">
-                    {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
-                  </div>
-                )
-              ) : (
-                <SubmissionHistoryPanel
-                  emptyMessage={isAdminPreview ? "No preview submissions yet." : "No submissions yet."}
-                  loading={historyLoading}
-                  onSelect={handleSelectHistoryItem}
-                  selectedId={submission?.id}
-                  submissions={submissionHistory}
-                />
-              )}
+              {leftPanelContent}
             </div>
           </article>
         </div>
 
-        {/* ================= 左右欄拖曳調整列 ================= */}
+        {/* ================= Left-right column drag resizer ================= */}
         <div className="resizer-x" onPointerDown={handleColDividerDrag} title="Drag to resize columns" />
 
-        {/* ================= 右欄：上下分割 ================= */}
+        {/* ================= Right column: top-bottom split ================= */}
         <div className="panel-flex-content" style={{ flex: 100 - leftWidth, minWidth: "300px" }}>
 
-          {/* 右欄上半部：Editor */}
+          {/* Right column upper half: Editor */}
           <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
@@ -681,7 +890,7 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
 
               <div className="problem-stack" style={{ display: "flex", flexDirection: "column" }}>
 
-                {/* Monaco Editor 與 Vim 狀態列外框 */}
+                {/* Monaco Editor and Vim status bar container */}
                 <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden" }}>
                   <Editor
                     height="100%"
@@ -694,13 +903,13 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                       minimap: { enabled: false },
                       fontSize: fontSize,
                       tabSize: tabSize,
-                      detectIndentation: false, // 關閉自動偵測，強制使用自訂的 tabSize
+                      detectIndentation: false, // disable auto-detection, force custom tabSize
                       scrollBeyondLastLine: false,
                       wordWrap: "on",
                       padding: { top: 8 }
                     }}
                   />
-                  {/* Vim 專用狀態列 */}
+                  {/* Vim-specific status bar */}
                   <div id="vim-status-bar" className="vim-status-bar" />
                 </div>
 
@@ -720,10 +929,10 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
             </article>
           </div>
 
-          {/* 右欄上下拖曳調整列 */}
+          {/* Right column top-bottom drag resizer */}
           <div className="resizer-y" onPointerDown={handleRowDividerDrag} title="Drag to resize height" />
 
-          {/* 右欄下半部：Testcases & Output */}
+          {/* Right column lower half: Testcases & Output */}
           <div className="panel-flex-content" style={{ flex: 100 - topHeight, minHeight: "170px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
@@ -751,83 +960,11 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                       Output
                     </button>
                   </div>
-                  <h2>{rightTab === "output" && submission ? submission.status : rightTab === "terminal" && customRun ? customRun.status : "Console"}</h2>
+                  <h2>{consoleTitle}</h2>
                 </div>
               </div>
 
-              {rightTab === "testcases" ? (
-                <div className="problem-stack">
-                  <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
-                </div>
-              ) : rightTab === "terminal" ? (
-                <div className="problem-stack">
-                  <label className="field">
-                    <span>Standard Input</span>
-                    <textarea
-                      disabled={user.role !== "candidate"}
-                      onChange={(event) => setCustomInput(event.target.value)}
-                      placeholder="Input passed to stdin"
-                      rows={5}
-                      value={customInput}
-                    />
-                  </label>
-
-                  <button
-                    className="secondary-button"
-                    disabled={customRunLoading || !problem || user.role !== "candidate"}
-                    onClick={handleCustomRun}
-                    title={user.role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
-                    type="button"
-                  >
-                    {customRunLoading ? "Starting..." : "Run Custom Input"}
-                  </button>
-
-                  {customRun ? (
-                    <div className="terminal-output-grid">
-                      {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
-                      <div>
-                        <p className="label-text">stdout</p>
-                        <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
-                      </div>
-                      <div>
-                        <p className="label-text">stderr</p>
-                        <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
-                      </div>
-                      {customRun.executionTimeMs !== null ? <small>{customRun.executionTimeMs} ms</small> : null}
-                    </div>
-                  ) : (
-                    <div className="empty-state">Run custom input to see stdout and stderr.</div>
-                  )}
-                </div>
-              ) : (
-                submission ? (
-                  <div className="result-stack">
-                    {submission.result?.errorMessage ? (
-                      <p className="error-text">{submission.result.errorMessage}</p>
-                    ) : null}
-
-                    <div className="case-list">
-                      {submission.result?.cases.map((testCase) => (
-                        <div className="case-item" key={testCase.testCaseId}>
-                          <div>
-                            <strong>{testCase.testCaseId}</strong>
-                            <small>
-                              {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
-                            </small>
-                          </div>
-                          <span className={testCase.passed ? "case-pass" : "case-fail"}>
-                            {testCase.passed ? "PASS" : "FAIL"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    Submit code to see judge output.
-                  </div>
-                )
-              )}
+              {rightTabContent}
             </article>
           </div>
 

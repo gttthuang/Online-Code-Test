@@ -1,0 +1,6 @@
+projectKey=online-code-test
+serverUrl=http://localhost:9000
+serverVersion=26.5.0.122743
+dashboardUrl=http://localhost:9000/dashboard?id=online-code-test
+ceTaskId=ff3a8b57-f300-4682-a92b-8739fd40b97c
+ceTaskUrl=http://localhost:9000/api/ce/task?id=ff3a8b57-f300-4682-a92b-8739fd40b97c
