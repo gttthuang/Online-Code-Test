@@ -778,7 +778,15 @@ textarea {
 }
 
 .testcase-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   font-weight: 700;
+}
+
+.testcase-row-title small {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .testcase-row-header {
@@ -796,6 +804,27 @@ textarea {
 
 .testcase-delete-button {
   flex: 0 0 auto;
+}
+
+.batch-import-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  margin-bottom: 0.85rem;
+  padding: 0.9rem;
+}
+
+.file-chip-button {
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.file-chip-button input {
+  display: none;
 }
 
 .upload-success {
@@ -1484,6 +1513,15 @@ textarea {
   .problem-table-row,
   .impact-grid {
     grid-template-columns: 1fr;
+  }
+
+  .batch-import-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .file-chip-button {
+    justify-content: center;
   }
 
   .floating-toast {

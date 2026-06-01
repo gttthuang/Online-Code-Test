@@ -16,6 +16,7 @@ interface TestCaseState {
   id: string;
   input: File | null;
   output: File | null;
+  label?: string;
 }
 
 interface ProblemFormState {
@@ -50,12 +51,43 @@ const roleLabels = {
   problem_admin: "Admin"
 } satisfies Record<UserRole, string>;
 
+const hiddenTestcaseMaxCount = 50;
+
 function createEmptyTestcase(): TestCaseState {
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `testcase_${Date.now()}_${Math.random()}`,
     input: null,
     output: null
   };
+}
+
+function createImportedTestcase(input: File, output: File, label: string): TestCaseState {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `testcase_${label}_${Date.now()}_${Math.random()}`,
+    input,
+    output,
+    label
+  };
+}
+
+function getTestcaseFileParts(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith(".in")) {
+    return {
+      kind: "input" as const,
+      stem: fileName.slice(0, -3)
+    };
+  }
+
+  if (lowerName.endsWith(".out")) {
+    return {
+      kind: "output" as const,
+      stem: fileName.slice(0, -4)
+    };
+  }
+
+  return null;
 }
 
 export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
@@ -256,6 +288,85 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     }
   }
 
+  function handleBatchImport(files: FileList | null) {
+    const selectedFiles = Array.from(files ?? []);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    const groups = new Map<string, {
+      label: string;
+      input: File | null;
+      output: File | null;
+    }>();
+    const errors: string[] = [];
+
+    selectedFiles.forEach((file) => {
+      const parts = getTestcaseFileParts(file.name);
+
+      if (!parts || !parts.stem.trim()) {
+        errors.push(`${file.name} must end with .in or .out.`);
+        return;
+      }
+
+      const key = parts.stem.toLowerCase();
+      const group = groups.get(key) ?? {
+        label: parts.stem,
+        input: null,
+        output: null
+      };
+      const currentFile = parts.kind === "input" ? group.input : group.output;
+
+      if (currentFile) {
+        errors.push(`${parts.stem} has more than one .${parts.kind === "input" ? "in" : "out"} file.`);
+        return;
+      }
+
+      groups.set(key, {
+        ...group,
+        [parts.kind]: file
+      });
+    });
+
+    const importedTestcases = Array.from(groups.values())
+      .sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: "base" }))
+      .map((group) => {
+        if (!group.input || !group.output) {
+          errors.push(`${group.label} must include both ${group.label}.in and ${group.label}.out.`);
+          return null;
+        }
+
+        return createImportedTestcase(group.input, group.output, group.label);
+      })
+      .filter((testcase): testcase is TestCaseState => Boolean(testcase));
+
+    const existingTestcases = testcases.filter((testcase) => testcase.input || testcase.output);
+
+    if (existingTestcases.length + importedTestcases.length > hiddenTestcaseMaxCount) {
+      errors.push(`A problem can have at most ${hiddenTestcaseMaxCount} hidden testcases.`);
+    }
+
+    if (errors.length > 0) {
+      const message = errors.slice(0, 3).join(" ");
+      setFormError(message);
+      showNotice({
+        type: "error",
+        title: "Batch import failed",
+        message
+      });
+      return;
+    }
+
+    setFormError(null);
+    setTestcases([...existingTestcases, ...importedTestcases]);
+    showNotice({
+      type: "success",
+      title: "Testcases imported",
+      message: `${importedTestcases.length} paired testcase(s) were added.`
+    });
+  }
+
   function updateTestcase(index: number, patch: Partial<TestCaseState>) {
     setTestcases((current) =>
       current.map((testcase, currentIndex) => (currentIndex === index ? { ...testcase, ...patch } : testcase))
@@ -360,10 +471,33 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       <div className="field">
         <span>Testcase Upload</span>
 
+        <div className="batch-import-panel">
+          <div>
+            <strong>Batch import paired files</strong>
+            <p className="helper-text">Select matching files in one action, for example 01.in with 01.out and 02.in with 02.out.</p>
+          </div>
+
+          <label className="chip-button file-chip-button">
+            Select .in/.out files
+            <input
+              accept=".in,.out"
+              multiple
+              onChange={(event) => {
+                handleBatchImport(event.target.files);
+                event.currentTarget.value = "";
+              }}
+              type="file"
+            />
+          </label>
+        </div>
+
         {testcases.map((testcase, index) => (
           <div className="testcase-row" key={testcase.id}>
             <div className="testcase-row-header">
-              <div className="testcase-row-title">Testcase {index + 1}</div>
+              <div className="testcase-row-title">
+                Testcase {index + 1}
+                {testcase.label ? <small>({testcase.label})</small> : null}
+              </div>
               <button className="delete-button testcase-delete-button" onClick={() => removeTestcase(index)} type="button">
                 x
               </button>
