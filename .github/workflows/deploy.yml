@@ -100,5 +100,7 @@ jobs:
           STAGE: ${{ vars.STAGE || 'dev' }}
           AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
           CANDIDATE_TOKEN: ${{ vars.SMOKE_CANDIDATE_TOKEN || 'candidate_alice' }}
+          INTERVIEWER_TOKEN: ${{ vars.SMOKE_INTERVIEWER_TOKEN || 'interviewer_bob' }}
+          SMOKE_CANDIDATE_ID: ${{ vars.SMOKE_CANDIDATE_ID || 'candidate_alice' }}
           SMOKE_PROBLEM_ID: ${{ vars.SMOKE_PROBLEM_ID || 'problem_reverse_string' }}
         run: bash infra/aws/smoke-test.sh

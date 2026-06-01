@@ -51,6 +51,34 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
+  SpaRoutingFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${AppName}-${Stage}-spa-routing"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Rewrite frontend application routes to index.html without masking API errors
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          var apiPrefixes = ["/auth/", "/me/", "/admin/", "/internal/"];
+
+          for (var index = 0; index < apiPrefixes.length; index++) {
+            if (uri.indexOf(apiPrefixes[index]) === 0) {
+              return request;
+            }
+          }
+
+          if (uri === "/healthz" || uri.indexOf(".") !== -1) {
+            return request;
+          }
+
+          request.uri = "/index.html";
+          return request;
+        }
+
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -59,13 +87,6 @@ Resources:
         DefaultRootObject: index.html
         HttpVersion: http2
         PriceClass: PriceClass_100
-        CustomErrorResponses:
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
         Origins:
           - Id: FrontendOrigin
             DomainName: !Sub "${FrontendBucketName}.s3-website-${AWS::Region}.amazonaws.com"
@@ -90,6 +111,9 @@ Resources:
             - GET
             - HEAD
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRoutingFunction.FunctionARN
         CacheBehaviors:
           - PathPattern: /auth/*
             TargetOriginId: ApiOrigin

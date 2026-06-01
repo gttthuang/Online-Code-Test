@@ -11,12 +11,14 @@ require_command node
 
 BASE_URL=${BASE_URL:-}
 CANDIDATE_TOKEN=${CANDIDATE_TOKEN:-candidate_alice}
+INTERVIEWER_TOKEN=${INTERVIEWER_TOKEN:-interviewer_bob}
+SMOKE_CANDIDATE_ID=${SMOKE_CANDIDATE_ID:-candidate_alice}
 SMOKE_PROBLEM_ID=${SMOKE_PROBLEM_ID:-problem_reverse_string}
 SMOKE_LANGUAGE=${SMOKE_LANGUAGE:-python}
 SMOKE_SOURCE_CODE=${SMOKE_SOURCE_CODE:-'print(input()[::-1])'}
 SMOKE_STDIN=${SMOKE_STDIN:-abc}
 SMOKE_EXPECTED_STDOUT=${SMOKE_EXPECTED_STDOUT:-cba}
-export BASE_URL CANDIDATE_TOKEN SMOKE_PROBLEM_ID SMOKE_LANGUAGE SMOKE_SOURCE_CODE SMOKE_STDIN
+export BASE_URL CANDIDATE_TOKEN INTERVIEWER_TOKEN SMOKE_CANDIDATE_ID SMOKE_PROBLEM_ID SMOKE_LANGUAGE SMOKE_SOURCE_CODE SMOKE_STDIN
 
 if [[ -z "${BASE_URL}" ]]; then
   cloudfront_domain=$(stack_output "${APP_NAME}-${STAGE}-edge" CloudFrontDomainName)
@@ -45,10 +47,11 @@ fi
 log_step "Smoke testing custom run worker"
 run_payload=$(
   node -e '
-    const payload = {
-      problemId: process.env.SMOKE_PROBLEM_ID,
-      language: process.env.SMOKE_LANGUAGE,
-      sourceCode: process.env.SMOKE_SOURCE_CODE,
+	    const payload = {
+	      candidateId: process.env.SMOKE_CANDIDATE_ID,
+	      problemId: process.env.SMOKE_PROBLEM_ID,
+	      language: process.env.SMOKE_LANGUAGE,
+	      sourceCode: process.env.SMOKE_SOURCE_CODE,
       stdin: process.env.SMOKE_STDIN
     };
     process.stdout.write(JSON.stringify(payload));
@@ -56,8 +59,8 @@ run_payload=$(
 )
 
 run_json=$(curl -sS --fail --max-time 20 \
-  -X POST "${BASE_URL}/me/custom-runs" \
-  -H "Authorization: Bearer ${CANDIDATE_TOKEN}" \
+  -X POST "${BASE_URL}/admin/custom-runs" \
+  -H "Authorization: Bearer ${INTERVIEWER_TOKEN}" \
   -H "Content-Type: application/json" \
   --data "${run_payload}")
 
@@ -67,8 +70,8 @@ echo "Created custom run ${run_id}"
 custom_run_passed=false
 for attempt in {1..30}; do
   detail_json=$(curl -sS --fail --max-time 20 \
-    "${BASE_URL}/me/custom-runs/${run_id}" \
-    -H "Authorization: Bearer ${CANDIDATE_TOKEN}")
+    "${BASE_URL}/admin/custom-runs/${run_id}" \
+    -H "Authorization: Bearer ${INTERVIEWER_TOKEN}")
   status=$(printf '%s' "${detail_json}" | json_value "data => data.status")
   echo "Custom run ${run_id} status=${status}"
 
