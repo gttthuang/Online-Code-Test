@@ -301,11 +301,70 @@ Response:
 }
 ```
 
+### `GET /me/exam`
+
+用途：
+
+- candidate 進入考試前先拿摘要
+- 如果還沒開始，只會回傳題數和時限，不會回傳題目明細
+- `status` 可能是 `not_started`、`started`、`expired`
+
+Response:
+
+```json
+{
+  "status": "not_started",
+  "assignmentCount": 2,
+  "durationMinutes": 60,
+  "startedAt": null,
+  "expiresAt": null,
+  "remainingSeconds": null,
+  "assignments": []
+}
+```
+
+### `POST /me/exam/start`
+
+用途：
+
+- candidate 按下開始後啟動計時
+- 開始後 response 會包含 assignments，前端才能開題目列表
+
+Response:
+
+```json
+{
+  "exam": {
+    "status": "started",
+    "assignmentCount": 2,
+    "durationMinutes": 60,
+    "startedAt": "2026-06-01T05:00:00.000Z",
+    "expiresAt": "2026-06-01T06:00:00.000Z",
+    "remainingSeconds": 3600,
+    "assignments": [
+      {
+        "id": "assignment_alice_two_sum",
+        "candidateId": "candidate_alice",
+        "problemId": "problem_two_sum",
+        "problemTitle": "Two Sum",
+        "difficulty": "easy",
+        "assignedAt": "2026-04-14T00:00:00.000Z",
+        "durationMinutes": 60,
+        "startedAt": "2026-06-01T05:00:00.000Z",
+        "expiresAt": "2026-06-01T06:00:00.000Z",
+        "latestSubmissionStatus": null
+      }
+    ]
+  }
+}
+```
+
 ### `GET /me/assignments`
 
 用途：
 
 - 讓 candidate 拿到自己被分配的題目列表
+- 考試未開始或已過期時會回傳空陣列
 
 Response:
 
@@ -318,6 +377,9 @@ Response:
     "problemTitle": "Two Sum",
     "difficulty": "easy",
     "assignedAt": "2026-04-14T00:00:00.000Z",
+    "durationMinutes": 60,
+    "startedAt": "2026-06-01T05:00:00.000Z",
+    "expiresAt": "2026-06-01T06:00:00.000Z",
     "latestSubmissionStatus": null
   }
 ]
@@ -328,6 +390,7 @@ Response:
 用途：
 
 - candidate 讀自己被指派的題目內容
+- candidate 必須先 `POST /me/exam/start`，而且不能超過時限
 
 Response:
 
@@ -599,13 +662,48 @@ DELETE /admin/problems/:problemId?force=true
 用途：
 
 - interviewer 指派題目給 candidate
+- 支援一次指派多題，並設定整場 exam 的時限
 
 Request:
 
 ```json
 {
   "candidateId": "candidate_alice",
-  "problemId": "problem_two_sum"
+  "problemIds": ["problem_two_sum", "problem_reverse_string"],
+  "durationMinutes": 60
+}
+```
+
+Response:
+
+```json
+{
+  "assignment": {
+    "id": "assignment_alice_two_sum",
+    "candidateId": "candidate_alice",
+    "problemId": "problem_two_sum",
+    "problemTitle": "Two Sum",
+    "difficulty": "easy",
+    "assignedAt": "2026-06-01T05:00:00.000Z",
+    "durationMinutes": 60,
+    "startedAt": null,
+    "expiresAt": null,
+    "latestSubmissionStatus": null
+  },
+  "assignments": [
+    {
+      "id": "assignment_alice_two_sum",
+      "candidateId": "candidate_alice",
+      "problemId": "problem_two_sum",
+      "problemTitle": "Two Sum",
+      "difficulty": "easy",
+      "assignedAt": "2026-06-01T05:00:00.000Z",
+      "durationMinutes": 60,
+      "startedAt": null,
+      "expiresAt": null,
+      "latestSubmissionStatus": null
+    }
+  ]
 }
 ```
 
@@ -786,10 +884,13 @@ Response:
 ### Candidate flow
 
 1. `POST /auth/login`
-2. `GET /me/assignments`
-3. `GET /me/problems/:problemId`
-4. `POST /me/submissions`
-5. 輪詢 `GET /me/submissions/:submissionId`
+2. `GET /me/exam`
+3. 如果 `status = not_started`，只顯示題數與時限
+4. candidate 按開始後呼叫 `POST /me/exam/start`
+5. `GET /me/assignments`
+6. `GET /me/problems/:problemId`
+7. `POST /me/submissions`
+8. 輪詢 `GET /me/submissions/:submissionId`
 
 ### Admin flow
 

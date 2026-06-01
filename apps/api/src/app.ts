@@ -65,6 +65,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "POST /auth/login",
       "GET /auth/me",
       "GET /internal/stats",
+      "GET /me/exam",
+      "POST /me/exam/start",
       "GET /me/assignments",
       "GET /me/problems/:problemId",
       "GET /me/submissions",
