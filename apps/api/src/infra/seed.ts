@@ -41,7 +41,7 @@ export function buildSeedData(): {
     },
     {
       id: "problem_admin_cindy",
-      name: "Cindy Problem Admin",
+      name: "Cindy Admin",
       email: "cindy.problem_admin@example.com",
       role: "problem_admin"
     }
