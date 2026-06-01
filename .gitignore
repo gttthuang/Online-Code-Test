@@ -3,6 +3,7 @@
 
 node_modules
 apps/web/dist
+sonar-project.properties
 .env
 .env3
 *.env.bak
