@@ -198,7 +198,7 @@ export type JudgeJob =
     };
 
 export function getJudgeJobId(job: JudgeJob) {
-  return job.kind === "custom_run" ? `custom_run:${job.runId}` : `submission:${job.submissionId}`;
+  return job.kind === "custom_run" ? `custom-run-${job.runId}` : `submission-${job.submissionId}`;
 }
 
 export interface JudgeCaseResult {

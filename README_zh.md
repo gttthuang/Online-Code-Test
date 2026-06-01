@@ -2,7 +2,7 @@
 
 # Online Code Test
 
-這個 repo 現在不是只有 template，而是已經有一版可跑的前後端 MVP。
+這個 repo 是一套可本機開發、可部署到 AWS 的線上 coding interview 系統。
 
 ## 目前狀態
 
@@ -14,20 +14,21 @@
 - schema 管理：SQL migrations + seed data
 - 判題流程：Redis queue + 獨立 worker process
 - 執行方式：Docker 隔離的 `python` / `cpp` runner + timeout
-- 前端路由：依角色分成 candidate、interviewer、problem admin workspace
+- 前端路由：依角色分成 candidate、interviewer、admin workspace
 
 也就是說，目前已經可以：
 
 - login
-- candidate 看 assignment / 題目 / 送 submission / 輪詢結果
-- interviewer 建 assignment / 查 candidate results
-- problem admin 建題 / 看題目列表
+- candidate 看 assignment / 題目 / live room / custom stdin terminal / submission history
+- interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、進 live shared room、看 replay、用 terminal 跑當前程式
+- admin 建題、批次匯入測資、preview、archive / force delete、管理 users、查看全站 submissions
 - worker 會在背景消化 queued submissions
 - API 可透過 `/internal/stats` 看目前 submission 狀態與 failure breakdown
 
-但目前還沒有：
+目前仍然需要後續強化：
 
 - 更完整的 production-grade sandbox 隔離
+- 正式 auth / JWT / RBAC policy hardening
 
 ## 本機啟動
 
@@ -54,7 +55,7 @@ npm run dev:web
 
 - Candidate：`/candidate`
 - Interviewer：`/interviewer`
-- Problem Admin：`/problem-admin`
+- Admin：`/problem-admin`
 
 Demo 帳號、路由、CI 與常見問題請看 [本機執行與驗證](./docs/local-development.md)。
 

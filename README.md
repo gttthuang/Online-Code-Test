@@ -2,7 +2,7 @@
 
 # Online Code Test
 
-An online coding exam system scaffold with a working backend MVP and a frontend MVP for candidate, interviewer, and problem admin flows.
+An online coding interview system with a working React frontend, Fastify API, PostgreSQL persistence, Redis-backed judge queue, Docker-isolated worker, and AWS deployment scripts.
 
 ## Current Status
 
@@ -14,9 +14,9 @@ An online coding exam system scaffold with a working backend MVP and a frontend 
 - schema management: SQL migrations + seed data
 - judge flow: Redis queue + separate worker process
 - execution: Docker-isolated `python` / `cpp` runners with timeout
-- frontend routing: role-based routes for candidate, interviewer, and problem admin workspaces
+- frontend routing: role-based routes for candidate, interviewer, and admin workspaces
 
-This means the app is ready for UI iteration and API integration work. PostgreSQL, Redis, and the worker are connected; sandboxing is currently Docker-based rather than a hardened production judge environment.
+The app supports candidate submissions, custom stdin runs, interviewer live rooms, replay, private notes/rubric, admin problem authoring, user management, and AWS deployment. Sandboxing is currently Docker-based rather than a fully hardened production judge environment.
 
 Local observability is also available through `GET /internal/stats`, which returns current submission status counts and judge failure breakdowns.
 
@@ -45,7 +45,7 @@ After login, the frontend redirects each role to its own route:
 
 - Candidate: `/candidate`
 - Interviewer: `/interviewer`
-- Problem Admin: `/problem-admin`
+- Admin: `/problem-admin`
 
 Demo emails are documented in [Local Development](./docs/local-development.md).
 

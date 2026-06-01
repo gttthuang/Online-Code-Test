@@ -10,7 +10,7 @@
 - 驗證方式：`Authorization: Bearer <token>`
 - demo login 會直接回傳 `token = user.id`
 
-目前的目的，是先讓前端可以穩定串接。現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission；之後就算繼續強化 Redis retry 策略或 Docker sandbox，也盡量不改 API surface。
+現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission 與 custom stdin run。之後就算繼續強化 Redis retry 策略或 Docker sandbox，也盡量不改 API surface。
 
 ## Base URL
 
@@ -20,7 +20,7 @@
 
 - Candidate: `alice.candidate@example.com`
 - Interviewer: `bob.interviewer@example.com`
-- Problem Admin: `cindy.problem_admin@example.com`
+- Admin: `cindy.problem_admin@example.com`
 
 ## Auth 規則
 
@@ -67,12 +67,14 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /me/submissions`
 - `POST /me/submissions`
 - `GET /me/submissions/:submissionId`
+- `POST /me/custom-runs`
+- `GET /me/custom-runs/:runId`
 
-### Interviewer / Problem Admin
+### Interviewer / Admin
 
 - `GET /admin/problems`
 
-### Problem Admin
+### Admin
 
 - `POST /admin/problems`
 - `DELETE /admin/problems/:problemId`
@@ -98,6 +100,13 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 
 - `GET /admin/submissions`
 - `GET /admin/submissions/:submissionId`
+- `POST /admin/custom-runs`
+- `GET /admin/custom-runs/:runId`
+- `GET /admin/live/rooms/:candidateId/:problemId/replay`
+
+### Live Room
+
+- `WS /live/rooms?candidateId=:candidateId&problemId=:problemId&token=:token`
 
 ## 主要 Request / Response
 
@@ -177,8 +186,8 @@ Response:
 
 用途：
 
-- problem admin 查看所有帳號與角色
-- UI 用這個列表確認目前有哪些 candidate / interviewer / problem admin
+- admin 查看所有帳號與角色
+- UI 用這個列表確認目前有哪些 candidate / interviewer / admin
 
 Response:
 
@@ -197,7 +206,7 @@ Response:
 
 用途：
 
-- problem admin 建立任意角色帳號
+- admin 建立任意角色帳號
 - role 只能是 `candidate`、`interviewer`、`problem_admin`
 
 Request:
@@ -227,7 +236,7 @@ Response:
 
 用途：
 
-- problem admin 刪除還沒有被題目、assignment、submission 引用的帳號
+- admin 刪除還沒有被題目、assignment、submission 引用的帳號
 - 不能刪除目前登入中的自己
 
 常見失敗：
@@ -462,17 +471,69 @@ Response:
 }
 ```
 
+### `POST /me/custom-runs`
+
+用途：
+
+- candidate 用自訂 stdin 跑目前程式
+- 不會建立正式 submission，也不會影響 score / submission history
+- 仍然由 Redis queue + judge worker + Docker sandbox 執行
+
+Request:
+
+```json
+{
+  "problemId": "problem_reverse_string",
+  "language": "python",
+  "sourceCode": "print(input()[::-1])",
+  "stdin": "abc"
+}
+```
+
+Response:
+
+```json
+{
+  "runId": "run_123",
+  "status": "queued"
+}
+```
+
+### `GET /me/custom-runs/:runId`
+
+Response:
+
+```json
+{
+  "id": "run_123",
+  "candidateId": "candidate_alice",
+  "problemId": "problem_reverse_string",
+  "requestedBy": "candidate_alice",
+  "language": "python",
+  "sourceCode": "print(input()[::-1])",
+  "stdin": "abc",
+  "status": "finished",
+  "stdout": "cba\n",
+  "stderr": "",
+  "errorType": null,
+  "errorMessage": null,
+  "executionTimeMs": 120,
+  "createdAt": "2026-04-14T12:00:00.000Z",
+  "updatedAt": "2026-04-14T12:00:01.000Z"
+}
+```
+
 ### `GET /admin/problems`
 
 用途：
 
-- 讓 interviewer / problem admin 讀題目列表
+- 讓 interviewer / admin 讀題目列表
 
 ### `POST /admin/problems`
 
 用途：
 
-- problem admin 建立題目
+- admin 建立題目
 
 Request:
 
@@ -510,9 +571,9 @@ Validation:
 
 用途：
 
-- problem admin 刪除未被使用的題目
+- admin 刪除未被使用的題目
 - 如果題目已被 assignment 指派，或已有 candidate submission，會被拒絕
-- problem admin 自己在 preview 產生的 submission 不會阻止刪除
+- admin 自己在 preview 產生的 submission 不會阻止刪除
 
 常見失敗：
 
@@ -522,11 +583,20 @@ Validation:
     "code": "problem_in_use",
     "message": "Cannot delete problem because it is assigned or has candidate submissions",
     "details": {
-      "hasAssignments": true,
-      "hasCandidateSubmissions": false
+      "assignments": 1,
+      "candidateSubmissions": 2,
+      "previewSubmissions": 0,
+      "reviews": 1,
+      "canDeleteWithoutForce": false
     }
   }
 }
+```
+
+如果 UI 確認後要強制刪除，呼叫：
+
+```http
+DELETE /admin/problems/:problemId?force=true
 ```
 
 ### `POST /admin/assignments`
@@ -664,6 +734,90 @@ Request:
 
 - admin 查看任意 submission detail
 - interviewer 只能查看正式 candidate submission detail
+
+### `POST /admin/custom-runs`
+
+用途：
+
+- interviewer 在 live room 裡用 candidate / problem context 跑目前程式
+- admin / interviewer 都不會因此建立正式 submission
+
+Request:
+
+```json
+{
+  "candidateId": "candidate_alice",
+  "problemId": "problem_reverse_string",
+  "language": "python",
+  "sourceCode": "print(input().upper())",
+  "stdin": "hello"
+}
+```
+
+Response:
+
+```json
+{
+  "runId": "run_123",
+  "status": "queued"
+}
+```
+
+### `GET /admin/custom-runs/:runId`
+
+用途：
+
+- interviewer / admin 輪詢 custom run 結果
+- 回傳 shape 同 `GET /me/custom-runs/:runId`
+
+### `GET /admin/live/rooms/:candidateId/:problemId/replay`
+
+用途：
+
+- interviewer / admin 讀取 live room 事件時間線
+- 前端用 `code_update` 事件做 replay，不會回寫 live room snapshot
+
+Response:
+
+```json
+{
+  "events": [
+    {
+      "id": "live_event_123",
+      "candidateId": "candidate_alice",
+      "problemId": "problem_reverse_string",
+      "actorId": "candidate_alice",
+      "actorRole": "candidate",
+      "eventType": "code_update",
+      "payload": {
+        "language": "python",
+        "sourceCode": "print(input())"
+      },
+      "createdAt": "2026-04-14T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+### `WS /live/rooms`
+
+連線 query：
+
+```text
+/live/rooms?candidateId=candidate_alice&problemId=problem_reverse_string&token=interviewer_bob
+```
+
+Client message:
+
+```json
+{
+  "type": "code_update",
+  "language": "python",
+  "sourceCode": "print(42)"
+}
+```
+
+Server message 會包含 `room_snapshot`、`presence_update`、`code_update`、`cursor_update`、`pong` 或 `error`。
 
 ## Judge 結果分類
 

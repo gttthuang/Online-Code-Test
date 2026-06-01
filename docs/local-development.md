@@ -41,7 +41,7 @@ npm run dev:web
 
 - Candidate: `alice.candidate@example.com`
 - Interviewer: `bob.interviewer@example.com`
-- Problem Admin: `cindy.problem_admin@example.com`
+- Admin: `cindy.problem_admin@example.com`
 
 登入後前端會依 role 自動導向對應頁面。
 
@@ -58,6 +58,8 @@ npm run dev:web
 - `/problem-admin/new`
 - `/problem-admin/problems`
 - `/problem-admin/problems/:problemId/preview`
+- `/problem-admin/submissions`
+- `/problem-admin/users`
 
 如果登入角色不符合路由需求，前端會導回該角色自己的 workspace。
 
@@ -69,6 +71,12 @@ npm run dev:web
 npm run typecheck
 POSTGRES_PORT=5433 npm run test:api
 npm run build:web
+```
+
+完整檢查可以直接跑：
+
+```bash
+npm run ci:verify
 ```
 
 如果本機 PostgreSQL 使用 docker compose，API 測試通常要用 `POSTGRES_PORT=5433`，因為 compose 會把 container 內的 `5432` 映射到 host 的 `5433`。
@@ -120,6 +128,17 @@ curl http://localhost:3000/healthz
 docker compose -f infra/docker-compose.yml up -d redis
 npm run dev:worker
 ```
+
+### Terminal / custom run 一直 queued
+
+custom run 和正式 submission 使用同一條 Redis queue，也需要 worker：
+
+```bash
+docker compose -f infra/docker-compose.yml up -d redis
+npm run dev:worker
+```
+
+如果 worker 第一次跑，會先拉 `python:3.13-slim` / `gcc:13` sandbox images。
 
 ### Web build 缺 Rollup native package
 

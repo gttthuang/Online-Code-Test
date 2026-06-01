@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { getJudgeJobId } from "@oct/contracts";
 import type { CreateCustomRunResponse, CustomRunDetail } from "@oct/contracts";
 
 import { authHeader, createHarness, createWorker, destroyHarness, login } from "./helpers.js";
+
+test("judge queue job ids are BullMQ-safe", () => {
+  assert.equal(getJudgeJobId({ kind: "custom_run", runId: "run_123" }).includes(":"), false);
+  assert.equal(getJudgeJobId({ kind: "submission", submissionId: "submission_123" }).includes(":"), false);
+});
 
 test("candidate can run custom stdin without creating a submission", async () => {
   const harness = await createHarness();

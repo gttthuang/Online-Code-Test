@@ -43,6 +43,7 @@ bash infra/aws/deploy.sh
 
 - `main` 上的 `CI` 成功後自動觸發 `Deploy AWS`
 - 也可以在 GitHub Actions 頁面手動觸發 `Deploy AWS`
+- deploy workflow 設了 concurrency，同一個 branch 只保留最新部署，舊的 in-progress deploy 會被取消
 
 腳本會自動處理：
 
@@ -151,8 +152,8 @@ bash infra/aws/status.sh
 1. 建立或更新 foundation stack
 2. 建立或更新 data stack
 3. 建立或更新 ECR image
-4. 建立或更新 ECS worker stack
-5. 建立或更新 Elastic Beanstalk API environment
+4. 建立或更新 Elastic Beanstalk API environment，讓 API 先跑 migrations
+5. 建立或更新 ECS worker stack
 6. 建立或更新 CloudFront + frontend bucket
 7. build web 並上傳到 S3
 8. 對 CloudFront 做 invalidation
@@ -220,8 +221,9 @@ bash infra/aws/status.sh
 - 這套腳本預設抓 default VPC 和 default subnets。
 - `RDS` / `ElastiCache` 會放在同一個 VPC 內，由 VPC CIDR 允許 API / worker 存取。
 - `Elastic Beanstalk` 目前是單一 API image，不負責跑 judge worker。
-- `CloudFront` 會對 `/auth/*`、`/me/*`、`/admin/*`、`/healthz`、`/internal/*` 轉送到 API origin，其餘路徑回 frontend。
+- `CloudFront` 會對 `/auth/*`、`/me/*`、`/admin/*`、`/live/*`、`/healthz`、`/internal/*` 轉送到 API origin，其餘路徑回 frontend。
 - frontend build 目前預設走 same-origin，相容於 CloudFront path-based routing。
+- WebSocket live room 使用 `/live/rooms`，需要 CloudFront `/live/*` behavior 才能在雲端正常連線。
 
 ## 目前仍然是第一版
 
@@ -233,7 +235,6 @@ bash infra/aws/status.sh
 
 之後還值得補的項目：
 
-- Redis credentials 改成 Secrets Manager 或 SSM Parameter Store
 - CloudFront custom domain + ACM
 - Beanstalk health / alarm / log shipping
 - ECS worker auto scaling policy

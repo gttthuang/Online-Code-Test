@@ -79,33 +79,6 @@ docker build \
   "${REPO_ROOT}"
 docker push "${WORKER_IMAGE_URI}"
 
-log_step "Deploying ECS worker stack"
-aws cloudformation deploy \
-  --stack-name "${WORKER_STACK_NAME}" \
-  --template-file "${SCRIPT_DIR}/templates/worker.yaml" \
-  --parameter-overrides \
-    AppName="${APP_NAME}" \
-    Stage="${STAGE}" \
-    VpcId="${VPC_ID}" \
-    SubnetIds="${SUBNET_IDS_CSV}" \
-    WorkerImageUri="${WORKER_IMAGE_URI}" \
-    InstanceType="${WORKER_INSTANCE_TYPE}" \
-    DesiredCapacity="${WORKER_DESIRED_CAPACITY}" \
-    MaxSize="${WORKER_MAX_SIZE}" \
-    PostgresHost="${POSTGRES_HOST}" \
-    PostgresPort="${POSTGRES_PORT}" \
-    PostgresDb="${POSTGRES_DB}" \
-    PostgresUser="${POSTGRES_USER}" \
-    PostgresPassword="${DB_PASSWORD}" \
-    PostgresSsl="true" \
-    RedisHost="${REDIS_HOST}" \
-    RedisPort="${REDIS_PORT}" \
-    RedisPassword="${REDIS_PASSWORD:-}" \
-    RedisTls="${REDIS_TLS_ENABLED}" \
-    QueueConcurrency="${JUDGE_QUEUE_CONCURRENCY}" \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region "${AWS_REGION}"
-
 log_step "Packaging Elastic Beanstalk application version"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
@@ -219,6 +192,33 @@ API_CNAME=$(aws elasticbeanstalk describe-environments \
   --query "Environments[0].CNAME" \
   --output text \
   --region "${AWS_REGION}")
+
+log_step "Deploying ECS worker stack"
+aws cloudformation deploy \
+  --stack-name "${WORKER_STACK_NAME}" \
+  --template-file "${SCRIPT_DIR}/templates/worker.yaml" \
+  --parameter-overrides \
+    AppName="${APP_NAME}" \
+    Stage="${STAGE}" \
+    VpcId="${VPC_ID}" \
+    SubnetIds="${SUBNET_IDS_CSV}" \
+    WorkerImageUri="${WORKER_IMAGE_URI}" \
+    InstanceType="${WORKER_INSTANCE_TYPE}" \
+    DesiredCapacity="${WORKER_DESIRED_CAPACITY}" \
+    MaxSize="${WORKER_MAX_SIZE}" \
+    PostgresHost="${POSTGRES_HOST}" \
+    PostgresPort="${POSTGRES_PORT}" \
+    PostgresDb="${POSTGRES_DB}" \
+    PostgresUser="${POSTGRES_USER}" \
+    PostgresPassword="${DB_PASSWORD}" \
+    PostgresSsl="true" \
+    RedisHost="${REDIS_HOST}" \
+    RedisPort="${REDIS_PORT}" \
+    RedisPassword="${REDIS_PASSWORD:-}" \
+    RedisTls="${REDIS_TLS_ENABLED}" \
+    QueueConcurrency="${JUDGE_QUEUE_CONCURRENCY}" \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region "${AWS_REGION}"
 
 log_step "Deploying edge stack"
 delete_stack_if_rollback_complete "${EDGE_STACK_NAME}"

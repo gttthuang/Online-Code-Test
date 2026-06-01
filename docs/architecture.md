@@ -7,7 +7,7 @@
 ```text
 Browser
   -> apps/web (React + Vite, localhost:5173)
-  -> proxy /auth /me /admin /healthz /internal/stats
+  -> proxy /auth /me /admin /live /healthz /internal/stats
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
       -> Redis
@@ -24,16 +24,16 @@ Browser
 
 - login
 - 依角色導向不同 workspace route
-- candidate submission flow
-- interviewer / problem admin 的最小操作面
-- 輪詢 submission 結果
+- candidate submission flow、custom stdin terminal、submission history
+- interviewer candidate management、assignment、live room、replay、notes / rubric
+- admin problem authoring、batch testcase import、user management、submission review
+- 輪詢 submission / custom run 結果
 
 目前狀態：
 
-- 已有 MVP
 - 已有正式前端 route 分流
 - `/login` 不再直接顯示 demo account selector
-- candidate / interviewer / problem admin 進入各自 route
+- candidate / interviewer / admin 進入各自 route
 
 目前前端主要 route：
 
@@ -48,6 +48,8 @@ Browser
 - `/problem-admin/new`
 - `/problem-admin/problems`
 - `/problem-admin/problems/:problemId/preview`
+- `/problem-admin/submissions`
+- `/problem-admin/users`
 
 ### `apps/api`
 
@@ -58,12 +60,13 @@ Browser
 - assignment APIs
 - problem APIs
 - submission APIs
+- custom run APIs
+- live room WebSocket / replay APIs
 - result APIs
 - local observability stats endpoint
 
 目前狀態：
 
-- 已有 MVP
 - route surface 已經固定到前端可以直接串
 - token 目前只是 demo token，不是真 JWT
 - `GET /internal/stats` 會回 PostgreSQL 聚合出的 submission / failure counters
@@ -106,14 +109,16 @@ Browser
 
 ## 目前的判題流程
 
-目前 submission 會先寫進 PostgreSQL，接著由 API enqueue 到 Redis，再由獨立的 `apps/judge-worker` 消費並處理：
+目前正式 submission 與 custom stdin run 都會先寫進 PostgreSQL，接著由 API enqueue 到 Redis，再由獨立的 `apps/judge-worker` 消費並處理：
 
 - API 只負責建立 `queued` submission
-- API 會 enqueue Redis job
-- worker 會 consume Redis job 並 claim queued submission
-- worker 會把 submission 更新成 `running`
-- worker 會在短生命週期 Docker sandbox 內編譯 / 執行 submission
-- worker 會讀 hidden test cases，逐筆比對輸出
+- API 會建立 `queued` custom run
+- API 會 enqueue Redis job，job 會標示 `submission` 或 `custom_run`
+- worker 會 consume Redis job 並 claim queued item
+- worker 會把 item 更新成 `running`
+- worker 會在短生命週期 Docker sandbox 內編譯 / 執行
+- 正式 submission 會讀 hidden test cases，逐筆比對輸出
+- custom run 會回傳 stdout / stderr / error
 - worker 會回寫 `finished` 或 `failed`
 
 目前 worker 已經有第一版 Docker sandbox execution：
