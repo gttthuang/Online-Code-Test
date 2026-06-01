@@ -77,6 +77,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "DELETE /admin/users/:userId",
       "POST /admin/problems",
       "GET /admin/problems",
+      "GET /admin/problems/:problemId/impact",
+      "PATCH /admin/problems/:problemId/archive",
       "DELETE /admin/problems/:problemId",
       "POST /admin/assignments",
       "GET /admin/candidates/:candidateId/results",

@@ -76,6 +76,7 @@ export interface ProblemSummary {
   timeLimitMs: number;
   memoryLimitKb: number;
   supportedLanguages: SupportedLanguage[];
+  archivedAt: string | null;
 }
 
 export interface ProblemDetail extends ProblemSummary {
@@ -102,6 +103,23 @@ export interface CreateProblemRequest {
 }
 
 export interface CreateProblemResponse {
+  problem: ProblemSummary;
+}
+
+export interface ProblemLifecycleImpact {
+  problemId: string;
+  assignments: number;
+  candidateSubmissions: number;
+  previewSubmissions: number;
+  reviews: number;
+  canDeleteWithoutForce: boolean;
+}
+
+export interface ProblemArchiveRequest {
+  archived: boolean;
+}
+
+export interface ProblemArchiveResponse {
   problem: ProblemSummary;
 }
 

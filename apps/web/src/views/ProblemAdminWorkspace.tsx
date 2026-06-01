@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
-import type { AuthUser, ProblemDifficulty, ProblemSummary, SubmissionHistoryItem, SubmissionStatus, UserRole } from "@oct/contracts";
+import type { AuthUser, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, SubmissionStatus, UserRole } from "@oct/contracts";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getUsers } from "../lib/api";
+import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 
@@ -68,6 +68,10 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "description" | "sample" | "testcase">("info");
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmImpact, setConfirmImpact] = useState<ProblemLifecycleImpact | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [forceDeleteConfirmed, setForceDeleteConfirmed] = useState(false);
+  const [lifecycleBusyId, setLifecycleBusyId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const previewProblemId = location.pathname.match(/^\/problem-admin\/problems\/([^/]+)\/preview$/)?.[1] ?? null;
@@ -175,6 +179,29 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     }
   }
 
+  async function requestDeleteProblem(problemId: string) {
+    setConfirmId(problemId);
+    setConfirmImpact(null);
+    setForceDeleteConfirmed(false);
+    setConfirmLoading(true);
+    setInventoryError(null);
+
+    try {
+      setConfirmImpact(await getProblemImpact(token, problemId));
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to load delete impact";
+      setInventoryError(message);
+      showNotice({
+        type: "error",
+        title: "Impact not loaded",
+        message
+      });
+      setConfirmId(null);
+    } finally {
+      setConfirmLoading(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!confirmId) {
       return;
@@ -182,7 +209,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
     try {
       setInventoryError(null);
-      await deleteProblem(token, confirmId);
+      await deleteProblem(token, confirmId, forceDeleteConfirmed);
       setProblems((current) => current.filter((problem) => problem.id !== confirmId));
       showNotice({
         type: "success",
@@ -199,6 +226,33 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
       });
     } finally {
       setConfirmId(null);
+      setConfirmImpact(null);
+      setForceDeleteConfirmed(false);
+    }
+  }
+
+  async function handleArchiveProblem(problem: ProblemSummary) {
+    const archived = !problem.archivedAt;
+
+    try {
+      setLifecycleBusyId(problem.id);
+      const response = await archiveProblem(token, problem.id, archived);
+      setProblems((current) => current.map((item) => item.id === problem.id ? response.problem : item));
+      showNotice({
+        type: "success",
+        title: archived ? "Problem archived" : "Problem restored",
+        message: `${problem.title} ${archived ? "will no longer be assignable." : "is assignable again."}`
+      });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to update problem lifecycle";
+      setInventoryError(message);
+      showNotice({
+        type: "error",
+        title: "Problem not updated",
+        message
+      });
+    } finally {
+      setLifecycleBusyId(null);
     }
   }
 
@@ -395,12 +449,24 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
                   <small>{problem.id}</small>
                 </div>
 
-                <span>{problem.difficulty}</span>
+                <div className="submission-history-meta">
+                  <span>{problem.difficulty}</span>
+                  {problem.archivedAt ? <span className="badge badge-warning">archived</span> : <span className="badge badge-success">active</span>}
+                </div>
                 <button className="chip-button" onClick={() => navigate(`/problem-admin/problems/${problem.id}/preview`)} type="button">
                   Preview
                 </button>
 
-                <button className="delete-button" onClick={() => setConfirmId(problem.id)} type="button">
+                <button
+                  className="chip-button"
+                  disabled={lifecycleBusyId === problem.id}
+                  onClick={() => handleArchiveProblem(problem)}
+                  type="button"
+                >
+                  {problem.archivedAt ? "Restore" : "Archive"}
+                </button>
+
+                <button className="delete-button" onClick={() => requestDeleteProblem(problem.id)} type="button">
                   x
                 </button>
               </div>
@@ -496,16 +562,60 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
       {confirmId ? (
         <div className="modal-backdrop">
-          <div className="modal">
-            <p>Confirm this problem is not used by any assignment or submission before deleting:</p>
+          <div className="modal modal-wide">
+            <p>Delete problem</p>
             <p className="modal-target-title">{confirmProblem?.title}</p>
+
+            {confirmLoading ? (
+              <div className="empty-state">Loading impact...</div>
+            ) : confirmImpact ? (
+              <div className="impact-grid">
+                <div>
+                  <span>Assignments</span>
+                  <strong>{confirmImpact.assignments}</strong>
+                </div>
+                <div>
+                  <span>Candidate submissions</span>
+                  <strong>{confirmImpact.candidateSubmissions}</strong>
+                </div>
+                <div>
+                  <span>Preview submissions</span>
+                  <strong>{confirmImpact.previewSubmissions}</strong>
+                </div>
+                <div>
+                  <span>Reviews</span>
+                  <strong>{confirmImpact.reviews}</strong>
+                </div>
+              </div>
+            ) : null}
+
+            {confirmImpact && !confirmImpact.canDeleteWithoutForce ? (
+              <label className="force-delete-check">
+                <input
+                  checked={forceDeleteConfirmed}
+                  onChange={(event) => setForceDeleteConfirmed(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>Force delete assignments, submissions, testcase results, and reviews for this problem.</span>
+              </label>
+            ) : null}
+
             <div className="modal-actions">
-              <button className="chip-button" onClick={() => setConfirmId(null)} type="button">
+              <button className="chip-button" onClick={() => {
+                setConfirmId(null);
+                setConfirmImpact(null);
+                setForceDeleteConfirmed(false);
+              }} type="button">
                 Cancel
               </button>
 
-              <button className="chip-button" onClick={confirmDelete} type="button">
-                Delete
+              <button
+                className="chip-button"
+                disabled={confirmLoading || Boolean(confirmImpact && !confirmImpact.canDeleteWithoutForce && !forceDeleteConfirmed)}
+                onClick={confirmDelete}
+                type="button"
+              >
+                {forceDeleteConfirmed ? "Force Delete" : "Delete"}
               </button>
             </div>
           </div>

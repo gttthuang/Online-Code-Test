@@ -56,6 +56,7 @@ export function buildSeedData(): {
       timeLimitMs: 1000,
       memoryLimitKb: 65536,
       supportedLanguages: defaultLanguages,
+      archivedAt: null,
       sampleInput: "nums = [2, 7, 11, 15], target = 9",
       sampleOutput: "[0, 1]",
       hiddenTestCases: [
@@ -75,6 +76,7 @@ export function buildSeedData(): {
       timeLimitMs: 1000,
       memoryLimitKb: 65536,
       supportedLanguages: defaultLanguages,
+      archivedAt: null,
       sampleInput: "\"cloud\"",
       sampleOutput: "\"duolc\"",
       hiddenTestCases: [

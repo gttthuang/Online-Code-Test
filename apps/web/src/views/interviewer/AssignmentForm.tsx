@@ -17,12 +17,13 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
 
   const getCandidateLabel = (c: AuthUser) => `${c.name} (${c.email})`;
   const getProblemLabel = (p: ProblemSummary) => `${p.title} - ${p.difficulty.toUpperCase()}`;
+  const activeProblems = problems.filter((problem) => !problem.archivedAt);
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const candidate = candidates.find(c => getCandidateLabel(c) === candidateInput);
-    const problem = problems.find(p => getProblemLabel(p) === problemInput);
+    const problem = activeProblems.find(p => getProblemLabel(p) === problemInput);
 
     if (!candidate || !problem) {
       setError("Please select a valid candidate and problem from the dropdown list.");
@@ -87,7 +88,7 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
             onChange={(e) => setProblemInput(e.target.value)}
           />
           <datalist id="problem-list">
-            {problems.map((p) => (
+            {activeProblems.map((p) => (
               <option key={p.id} value={getProblemLabel(p)} />
             ))}
           </datalist>

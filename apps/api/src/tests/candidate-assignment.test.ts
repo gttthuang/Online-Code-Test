@@ -6,6 +6,7 @@ import {
   createAssignment,
   createCandidate,
   createHarness,
+  createProblem,
   destroyHarness,
   login
 } from "./helpers.js";
@@ -60,6 +61,43 @@ test("duplicate assignments are rejected", async () => {
 
     assert.equal(duplicateResponse.statusCode, 409);
     assert.equal(duplicateResponse.json().error.code, "assignment_exists");
+  } finally {
+    await destroyHarness(harness);
+  }
+});
+
+test("archived problems cannot be assigned", async () => {
+  const harness = await createHarness();
+
+  try {
+    const interviewer = await login(harness.app, "bob.interviewer@example.com");
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const candidate = await createCandidate(harness.app, interviewer.token);
+    const problem = await createProblem(harness.app, problemAdmin.token, {
+      title: "Archived Assignment"
+    });
+
+    const archiveResponse = await harness.app.inject({
+      method: "PATCH",
+      url: `/admin/problems/${problem.id}/archive`,
+      headers: authHeader(problemAdmin.token),
+      payload: { archived: true }
+    });
+
+    assert.equal(archiveResponse.statusCode, 200);
+
+    const response = await harness.app.inject({
+      method: "POST",
+      url: "/admin/assignments",
+      headers: authHeader(interviewer.token),
+      payload: {
+        candidateId: candidate.id,
+        problemId: problem.id
+      }
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().error.code, "problem_archived");
   } finally {
     await destroyHarness(harness);
   }

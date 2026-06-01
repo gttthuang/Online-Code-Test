@@ -11,6 +11,17 @@ const problemIdParamsSchema = z.object({
   problemId: z.string().min(1)
 });
 
+const deleteProblemQuerySchema = z.object({
+  force: z.union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .default(false)
+    .transform((value) => value === true || value === "true")
+});
+
+const archiveProblemSchema = z.object({
+  archived: z.boolean()
+});
+
 const hiddenTestCaseSchema = z.object({
   input: z.string().max(problemValidation.testCaseTextMaxChars),
   expectedOutput: z.string().max(problemValidation.testCaseTextMaxChars)
@@ -91,31 +102,62 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
     requireRole(user, ["problem_admin"]);
 
     const params = problemIdParamsSchema.parse(request.params);
+    const query = deleteProblemQuerySchema.parse(request.query);
+    const impact = await context.store.getProblemLifecycleImpact(params.problemId);
 
-    const [hasAssignment, hasSubmission] = await Promise.all([
-      context.store.hasAnyAssignment(params.problemId),
-      context.store.hasAnySubmission(params.problemId)
-    ]);
+    if (!impact) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
 
-    if (hasAssignment || hasSubmission) {
+    if (!impact.canDeleteWithoutForce && !query.force) {
       throw new AppError(
         400,
         "problem_in_use",
         "Cannot delete problem because it is assigned or has candidate submissions",
-        {
-          hasAssignments: hasAssignment,
-          hasCandidateSubmissions: hasSubmission
-        }
+        impact
       );
     }
 
-    const deleted = await context.store.deleteProblem(params.problemId);
+    const deleted = await context.store.deleteProblem(params.problemId, {
+      force: query.force
+    });
 
     if (!deleted) {
       throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
     return reply.status(204).send();
+  });
+
+  app.get("/admin/problems/:problemId/impact", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+    const impact = await context.store.getProblemLifecycleImpact(params.problemId);
+
+    if (!impact) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
+
+    return impact;
+  });
+
+  app.patch("/admin/problems/:problemId/archive", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+    const body = archiveProblemSchema.parse(request.body);
+    const problem = await context.store.archiveProblem(params.problemId, body.archived);
+
+    if (!problem) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
+
+    return {
+      problem
+    };
   });
 
   app.get("/admin/problems/:problemId", async (request) => {

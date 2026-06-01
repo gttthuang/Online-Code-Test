@@ -12,6 +12,8 @@ import type {
   CandidateReviewContextResponse,
   InterviewReview,
   LoginResponse,
+  ProblemArchiveResponse,
+  ProblemLifecycleImpact,
   ProblemSummary,
   ProblemDetail,
   SubmissionDetail,
@@ -189,11 +191,28 @@ export function createProblem(token: string, formData: FormData) {
   );
 }
 
-export function deleteProblem(token: string, problemId: string) {
+export function deleteProblem(token: string, problemId: string, force = false) {
+  const suffix = force ? "?force=true" : "";
+
   return request<void>(
-    `/admin/problems/${problemId}`,
+    `/admin/problems/${problemId}${suffix}`,
     {
       method: "DELETE",
+    },
+    token
+  );
+}
+
+export function getProblemImpact(token: string, problemId: string) {
+  return request<ProblemLifecycleImpact>(`/admin/problems/${problemId}/impact`, undefined, token);
+}
+
+export function archiveProblem(token: string, problemId: string, archived: boolean) {
+  return request<ProblemArchiveResponse>(
+    `/admin/problems/${problemId}/archive`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ archived })
     },
     token
   );

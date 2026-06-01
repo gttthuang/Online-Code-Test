@@ -11,6 +11,7 @@ import type {
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
+  ProblemLifecycleImpact,
   ProblemSummary,
   SubmissionDetail,
   SubmissionHistoryItem,
@@ -56,9 +57,11 @@ export interface AppStore {
   getProblem(problemId: string): Promise<ProblemRecord | null>;
   getProblemDetail(problemId: string): Promise<ProblemDetail | null>;
   createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary>;
+  getProblemLifecycleImpact(problemId: string): Promise<ProblemLifecycleImpact | null>;
+  archiveProblem(problemId: string, archived: boolean): Promise<ProblemSummary | null>;
   hasAnyAssignment(problemId: string): Promise<boolean>;
   hasAnySubmission(problemId: string): Promise<boolean>;
-  deleteProblem(problemId: string): Promise<boolean>;
+  deleteProblem(problemId: string, options?: { force?: boolean }): Promise<boolean>;
   deleteCandidate(candidateId: string): Promise<boolean>;
   hasAnyAssignmentForCandidate(candidateId: string): Promise<boolean>;
   hasAnySubmissionByCandidate(candidateId: string): Promise<boolean>;

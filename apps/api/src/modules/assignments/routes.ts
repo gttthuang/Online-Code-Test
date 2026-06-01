@@ -34,6 +34,10 @@ export async function registerAssignmentRoutes(app: FastifyInstance, context: Ap
       throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
+    if (problem.archivedAt) {
+      throw new AppError(400, "problem_archived", "Archived problems cannot be assigned");
+    }
+
     if (await context.store.hasAssignment(body.candidateId, body.problemId)) {
       throw new AppError(409, "assignment_exists", "This problem is already assigned to the candidate");
     }

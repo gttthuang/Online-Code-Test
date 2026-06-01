@@ -14,6 +14,7 @@ import type {
   JudgeFailureType,
   JudgeResult,
   ProblemDetail,
+  ProblemLifecycleImpact,
   ProblemSummary,
   SubmissionDetail,
   SubmissionHistoryItem,
@@ -34,6 +35,7 @@ type ProblemRow = {
   sample_input: string;
   sample_output: string;
   created_by: string;
+  archived_at: string | null;
 };
 
 type AssignmentRow = {
@@ -196,7 +198,8 @@ export class PostgresStore implements AppStore {
           supported_languages,
           sample_input,
           sample_output,
-          created_by
+          created_by,
+          archived_at
         from problems
         order by title asc
       `
@@ -218,7 +221,8 @@ export class PostgresStore implements AppStore {
           supported_languages,
           sample_input,
           sample_output,
-          created_by
+          created_by,
+          archived_at
         from problems
         where id = $1
       `,
@@ -357,18 +361,103 @@ export class PostgresStore implements AppStore {
     return result.rows[0]?.exists ?? false;
   }
 
-  async deleteProblem(problemId: string): Promise<boolean> {
+  async getProblemLifecycleImpact(problemId: string): Promise<ProblemLifecycleImpact | null> {
+    const problem = await this.getProblem(problemId);
+
+    if (!problem) {
+      return null;
+    }
+
+    const result = await this.pool.query<{
+      assignments: string;
+      candidate_submissions: string;
+      preview_submissions: string;
+      reviews: string;
+    }>(
+      `
+        select
+          (select count(*)::text from assignments where problem_id = $1) as assignments,
+          (
+            select count(*)::text
+            from submissions s
+            join users u on u.id = s.candidate_id
+            where s.problem_id = $1 and u.role = 'candidate'
+          ) as candidate_submissions,
+          (
+            select count(*)::text
+            from submissions s
+            join users u on u.id = s.candidate_id
+            where s.problem_id = $1 and u.role <> 'candidate'
+          ) as preview_submissions,
+          (select count(*)::text from interview_reviews where problem_id = $1) as reviews
+      `,
+      [problemId]
+    );
+    const row = result.rows[0];
+    const assignments = Number(row?.assignments ?? 0);
+    const candidateSubmissions = Number(row?.candidate_submissions ?? 0);
+
+    return {
+      problemId,
+      assignments,
+      candidateSubmissions,
+      previewSubmissions: Number(row?.preview_submissions ?? 0),
+      reviews: Number(row?.reviews ?? 0),
+      canDeleteWithoutForce: assignments === 0 && candidateSubmissions === 0
+    };
+  }
+
+  async archiveProblem(problemId: string, archived: boolean): Promise<ProblemSummary | null> {
+    const result = await this.pool.query<ProblemRow>(
+      `
+        update problems
+        set archived_at = ${archived ? "now()" : "null"}
+        where id = $1
+        returning
+          id,
+          title,
+          description,
+          difficulty,
+          time_limit_ms,
+          memory_limit_kb,
+          supported_languages,
+          sample_input,
+          sample_output,
+          created_by,
+          archived_at
+      `,
+      [problemId]
+    );
+
+    return result.rows[0] ? this.toProblemSummary(result.rows[0]) : null;
+  }
+
+  async deleteProblem(problemId: string, options: { force?: boolean } = {}): Promise<boolean> {
     const client = await this.pool.connect();
 
     try {
       await client.query("begin");
+
+      if (options.force) {
+        await client.query(`delete from assignments where problem_id = $1`, [problemId]);
+        await client.query(`delete from submissions where problem_id = $1`, [problemId]);
+      } else {
+        await client.query(
+          `
+            delete from submissions s
+            using users u
+            where s.candidate_id = u.id
+              and s.problem_id = $1
+              and u.role <> 'candidate'
+          `,
+          [problemId]
+        );
+      }
+
       await client.query(
         `
-          delete from submissions s
-          using users u
-          where s.candidate_id = u.id
-            and s.problem_id = $1
-            and u.role <> 'candidate'
+          delete from interview_reviews
+          where problem_id = $1
         `,
         [problemId]
       );
@@ -1043,7 +1132,8 @@ export class PostgresStore implements AppStore {
             supported_languages,
             sample_input,
             sample_output,
-            created_by
+            created_by,
+            archived_at
           from problems
           where id = $1
         `,
@@ -1083,7 +1173,8 @@ export class PostgresStore implements AppStore {
       timeLimitMs: "time_limit_ms" in problem ? problem.time_limit_ms : problem.timeLimitMs,
       memoryLimitKb: "memory_limit_kb" in problem ? problem.memory_limit_kb : problem.memoryLimitKb,
       supportedLanguages:
-        "supported_languages" in problem ? problem.supported_languages as ProblemSummary["supportedLanguages"] : problem.supportedLanguages
+        "supported_languages" in problem ? problem.supported_languages as ProblemSummary["supportedLanguages"] : problem.supportedLanguages,
+      archivedAt: "archived_at" in problem ? problem.archived_at : problem.archivedAt
     };
   }
 
