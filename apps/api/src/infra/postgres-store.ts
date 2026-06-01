@@ -7,9 +7,11 @@ import type {
   CandidateResultsResponse,
   CandidateReviewContextResponse,
   CreateCandidateRequest,
+  CreateCustomRunRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   CreateUserRequest,
+  CustomRunDetail,
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
@@ -68,6 +70,24 @@ type SubmissionHistoryRow = SubmissionRow & {
   candidate_email: string;
   candidate_role: AuthUser["role"];
   problem_title: string;
+};
+
+type CustomRunRow = {
+  id: string;
+  candidate_id: string;
+  problem_id: string;
+  requested_by: string;
+  language: CustomRunDetail["language"];
+  source_code: string;
+  stdin: string;
+  status: SubmissionStatus;
+  stdout: string | null;
+  stderr: string | null;
+  error_type: JudgeFailureType | null;
+  error_message: string | null;
+  execution_time_ms: number | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type InterviewReviewRow = {
@@ -632,6 +652,85 @@ export class PostgresStore implements AppStore {
     return submission;
   }
 
+  async createCustomRun(input: {
+    candidateId: string;
+    problemId: string;
+    requestedBy: string;
+    run: CreateCustomRunRequest;
+  }): Promise<CustomRunDetail> {
+    const runId = `run_${randomUUID()}`;
+    const now = new Date().toISOString();
+
+    await this.pool.query(
+      `
+        insert into custom_runs (
+          id,
+          candidate_id,
+          problem_id,
+          requested_by,
+          language,
+          source_code,
+          stdin,
+          status,
+          stdout,
+          stderr,
+          error_type,
+          error_message,
+          execution_time_ms,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, 'queued', null, null, null, null, null, $8::timestamptz, $8::timestamptz)
+      `,
+      [
+        runId,
+        input.candidateId,
+        input.problemId,
+        input.requestedBy,
+        input.run.language,
+        input.run.sourceCode,
+        input.run.stdin,
+        now
+      ]
+    );
+
+    const run = await this.getCustomRun(runId);
+
+    if (!run) {
+      throw new Error("failed_to_create_custom_run");
+    }
+
+    return run;
+  }
+
+  async getCustomRun(runId: string): Promise<CustomRunDetail | null> {
+    const result = await this.pool.query<CustomRunRow>(
+      `
+        select
+          id,
+          candidate_id,
+          problem_id,
+          requested_by,
+          language,
+          source_code,
+          stdin,
+          status,
+          stdout,
+          stderr,
+          error_type,
+          error_message,
+          execution_time_ms,
+          created_at,
+          updated_at
+        from custom_runs
+        where id = $1
+      `,
+      [runId]
+    );
+
+    return result.rows[0] ? this.toCustomRunDetail(result.rows[0]) : null;
+  }
+
   async getSubmissionById(submissionId: string): Promise<SubmissionDetail | null> {
     const result = await this.pool.query<SubmissionRow>(
       `
@@ -1182,6 +1281,26 @@ export class PostgresStore implements AppStore {
       problemTitle: row.problem_title,
       passedCases,
       totalCases
+    };
+  }
+
+  private toCustomRunDetail(row: CustomRunRow): CustomRunDetail {
+    return {
+      id: row.id,
+      candidateId: row.candidate_id,
+      problemId: row.problem_id,
+      requestedBy: row.requested_by,
+      language: row.language,
+      sourceCode: row.source_code,
+      stdin: row.stdin,
+      status: row.status,
+      stdout: row.stdout,
+      stderr: row.stderr,
+      errorType: row.error_type,
+      errorMessage: row.error_message,
+      executionTimeMs: row.execution_time_ms,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
   }
 

@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { Queue, Worker } from "bullmq";
-import { judgeQueueName, type JudgeJob } from "@oct/contracts";
+import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
 
 import { createPostgresPool } from "./postgres.js";
 import { createRedisConnection } from "./redis.js";
@@ -23,6 +23,11 @@ const recoveryQueue = new Queue<JudgeJob>(judgeQueueName, {
 const queueWorker = new Worker<JudgeJob>(
   judgeQueueName,
   async (job) => {
+    if (job.data.kind === "custom_run") {
+      await worker.processCustomRunById(job.data.runId);
+      return;
+    }
+
     await worker.processSubmissionById(job.data.submissionId);
   },
   {
@@ -55,15 +60,19 @@ async function shutdown() {
 }
 
 async function enqueueSubmission(submissionId: string) {
-  await recoveryQueue.add(
-    "judge-submission",
-    { submissionId },
-    {
-      jobId: submissionId,
-      removeOnComplete: 500,
-      removeOnFail: 500
-    }
-  );
+  await enqueueJob({ kind: "submission", submissionId });
+}
+
+async function enqueueCustomRun(runId: string) {
+  await enqueueJob({ kind: "custom_run", runId });
+}
+
+async function enqueueJob(job: JudgeJob) {
+  await recoveryQueue.add("judge-submission", job, {
+    jobId: getJudgeJobId(job),
+    removeOnComplete: 500,
+    removeOnFail: 500
+  });
 }
 
 async function syncQueuedSubmissions() {
@@ -80,16 +89,40 @@ async function syncQueuedSubmissions() {
   }
 }
 
-async function recoverAndRequeue() {
-  const recoveredSubmissionIds = await worker.runRecoveryPass();
+async function syncQueuedCustomRuns() {
+  const queuedRunIds = await worker.listQueuedCustomRunIds();
 
-  for (const submissionId of recoveredSubmissionIds) {
+  for (const runId of queuedRunIds) {
+    await enqueueCustomRun(runId);
+  }
+
+  if (queuedRunIds.length > 0) {
+    logInfo("queued_custom_runs_reenqueued", {
+      count: queuedRunIds.length
+    });
+  }
+}
+
+async function recoverAndRequeue() {
+  const recovered = await worker.runRecoveryPass();
+
+  for (const submissionId of recovered.submissionIds) {
     await enqueueSubmission(submissionId);
   }
 
-  if (recoveredSubmissionIds.length > 0) {
+  for (const runId of recovered.customRunIds) {
+    await enqueueCustomRun(runId);
+  }
+
+  if (recovered.submissionIds.length > 0) {
     logInfo("recovered_submissions_reenqueued", {
-      count: recoveredSubmissionIds.length
+      count: recovered.submissionIds.length
+    });
+  }
+
+  if (recovered.customRunIds.length > 0) {
+    logInfo("recovered_custom_runs_reenqueued", {
+      count: recovered.customRunIds.length
     });
   }
 }
@@ -124,6 +157,7 @@ logInfo("worker_started", {
 try {
   await recoverAndRequeue();
   await syncQueuedSubmissions();
+  await syncQueuedCustomRuns();
 } catch (error) {
   logError("worker_startup_error", {
     message: error instanceof Error ? error.message : "judge worker failed to start"

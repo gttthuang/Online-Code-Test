@@ -5,6 +5,7 @@ import websocket from "@fastify/websocket";
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
 import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
+import { registerCustomRunRoutes } from "./modules/custom-runs/routes.js";
 import { registerLiveRoomRoutes } from "./modules/live-room/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
@@ -71,6 +72,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "GET /me/submissions",
       "POST /me/submissions",
       "GET /me/submissions/:submissionId",
+      "POST /me/custom-runs",
+      "GET /me/custom-runs/:runId",
       "GET /admin/candidates",
       "POST /admin/candidates",
       "DELETE /admin/candidates/:candidateId",
@@ -91,6 +94,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "GET /admin/submissions",
       "POST /admin/submissions/preview",
       "GET /admin/submissions/:submissionId",
+      "POST /admin/custom-runs",
+      "GET /admin/custom-runs/:runId",
       "GET /admin/live/rooms/:candidateId/:problemId/replay",
       "WS /live/rooms"
     ]
@@ -136,6 +141,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerAuthRoutes(app, context);
   registerCandidateRoutes(app, context);
   registerAssignmentRoutes(app, context);
+  registerCustomRunRoutes(app, context);
   registerLiveRoomRoutes(app, context);
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);

@@ -28,6 +28,24 @@ export type ExecutionSubmission = {
   };
 };
 
+export type CustomRunExecution = {
+  runId: string;
+  language: SupportedLanguage;
+  sourceCode: string;
+  stdin: string;
+  timeLimitMs: number;
+  sandbox: ExecutionSubmission["sandbox"];
+};
+
+export type CustomRunExecutionResult = {
+  status: "finished" | "failed";
+  stdout: string;
+  stderr: string;
+  errorType?: "compile_error" | "runtime_error" | "time_limit_exceeded" | "sandbox_error" | "system_error";
+  errorMessage?: string;
+  executionTimeMs: number;
+};
+
 type CommandResult = {
   exitCode: number | null;
   stdout: string;
@@ -117,6 +135,72 @@ export async function executeSubmission(
       status: "finished",
       score,
       cases: caseResults
+    };
+  } finally {
+    await rm(workingDirectory, { recursive: true, force: true });
+  }
+}
+
+export async function executeCustomRun(input: CustomRunExecution): Promise<CustomRunExecutionResult> {
+  const workRoot = resolve(process.cwd(), input.sandbox.workRoot);
+  await mkdir(workRoot, { recursive: true });
+
+  const workingDirectory = await mkdtemp(join(workRoot, "oct-run-"));
+  await chmod(workingDirectory, 0o777);
+
+  try {
+    const runnable = await prepareRunnable(
+      input.language,
+      input.sourceCode,
+      workingDirectory,
+      input.sandbox
+    );
+
+    if ("compileError" in runnable) {
+      return {
+        status: "failed",
+        stdout: "",
+        stderr: "",
+        errorType: "compile_error",
+        errorMessage: runnable.compileError,
+        executionTimeMs: 0
+      };
+    }
+
+    const runResult = await runCommand(runnable.command, runnable.args, {
+      cwd: workingDirectory,
+      input: input.stdin,
+      timeoutMs: input.timeLimitMs,
+      sandbox: input.sandbox
+    });
+
+    if (runResult.timedOut) {
+      return {
+        status: "failed",
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        errorType: "time_limit_exceeded",
+        errorMessage: `Time limit exceeded after ${input.timeLimitMs}ms`,
+        executionTimeMs: runResult.durationMs
+      };
+    }
+
+    if (runResult.exitCode !== 0) {
+      return {
+        status: "failed",
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        errorType: "runtime_error",
+        errorMessage: formatRuntimeError(runResult.stderr),
+        executionTimeMs: runResult.durationMs
+      };
+    }
+
+    return {
+      status: "finished",
+      stdout: runResult.stdout,
+      stderr: runResult.stderr,
+      executionTimeMs: runResult.durationMs
     };
   } finally {
     await rm(workingDirectory, { recursive: true, force: true });

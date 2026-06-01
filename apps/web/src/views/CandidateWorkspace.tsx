@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import type { AssignmentSummary, AuthUser, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 
-import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory } from "../lib/api";
+import { createCustomRun, createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun } from "../lib/api";
 import { useLiveRoom } from "../lib/useLiveRoom";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
@@ -40,7 +40,10 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
   const [submissionLoading, setSubmissionLoading] = useState(false);
 
   const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
-  const [rightTab, setRightTab] = useState<"testcases" | "output">("testcases");
+  const [rightTab, setRightTab] = useState<"testcases" | "terminal" | "output">("testcases");
+  const [customInput, setCustomInput] = useState("");
+  const [customRun, setCustomRun] = useState<CustomRunDetail | null>(null);
+  const [customRunLoading, setCustomRunLoading] = useState(false);
 
   // UI 控制狀態
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -201,6 +204,8 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
       .then((nextProblem: ProblemDetail) => {
         if (cancelled) return;
         setProblem(nextProblem);
+        setCustomInput(nextProblem.sampleInput);
+        setCustomRun(null);
       })
       .catch((error) => {
         if (!cancelled)
@@ -269,6 +274,30 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
     };
   }, [submission, token, user.role]);
 
+  useEffect(() => {
+    if (!customRun || !["queued", "running"].includes(customRun.status)) return;
+    let cancelled = false;
+    let timer = 0;
+    const poll = async () => {
+      try {
+        const nextRun = await getCustomRun(token, customRun.id);
+
+        if (cancelled) return;
+        setCustomRun(nextRun);
+        if (["queued", "running"].includes(nextRun.status)) {
+          timer = window.setTimeout(poll, 800);
+        }
+      } catch (error) {
+        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll custom run");
+      }
+    };
+    timer = window.setTimeout(poll, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [customRun?.id, customRun?.status, token]);
+
   async function handleSubmit() {
     if (!problem) return;
     setSubmissionLoading(true);
@@ -298,6 +327,46 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
       setWorkspaceError(error instanceof Error ? error.message : "Failed to create submission");
     } finally {
       setSubmissionLoading(false);
+    }
+  }
+
+  async function handleCustomRun() {
+    if (!problem || user.role !== "candidate") return;
+
+    setCustomRunLoading(true);
+    setWorkspaceError(null);
+    setRightTab("terminal");
+
+    try {
+      const created = await createCustomRun(token, {
+        problemId: problem.id,
+        language,
+        sourceCode,
+        stdin: customInput
+      });
+      const now = new Date().toISOString();
+
+      setCustomRun({
+        id: created.runId,
+        candidateId: user.id,
+        problemId: problem.id,
+        requestedBy: user.id,
+        language,
+        sourceCode,
+        stdin: customInput,
+        status: created.status,
+        stdout: null,
+        stderr: null,
+        errorType: null,
+        errorMessage: null,
+        executionTimeMs: null,
+        createdAt: now,
+        updatedAt: now
+      });
+    } catch (error) {
+      setWorkspaceError(error instanceof Error ? error.message : "Failed to run custom input");
+    } finally {
+      setCustomRunLoading(false);
     }
   }
 
@@ -621,19 +690,66 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
                     </button>
                     <button
                       className="chip-button"
+                      onClick={() => setRightTab("terminal")}
+                      style={{ fontWeight: rightTab === "terminal" ? "bold" : "normal" }}
+                    >
+                      Terminal
+                    </button>
+                    <button
+                      className="chip-button"
                       onClick={() => setRightTab("output")}
                       style={{ fontWeight: rightTab === "output" ? "bold" : "normal" }}
                     >
                       Output
                     </button>
                   </div>
-                  <h2>{rightTab === "output" && submission ? submission.status : "Console"}</h2>
+                  <h2>{rightTab === "output" && submission ? submission.status : rightTab === "terminal" && customRun ? customRun.status : "Console"}</h2>
                 </div>
               </div>
 
               {rightTab === "testcases" ? (
                 <div className="problem-stack">
                   <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
+                </div>
+              ) : rightTab === "terminal" ? (
+                <div className="problem-stack">
+                  <label className="field">
+                    <span>Standard Input</span>
+                    <textarea
+                      disabled={user.role !== "candidate"}
+                      onChange={(event) => setCustomInput(event.target.value)}
+                      placeholder="Input passed to stdin"
+                      rows={5}
+                      value={customInput}
+                    />
+                  </label>
+
+                  <button
+                    className="secondary-button"
+                    disabled={customRunLoading || !problem || user.role !== "candidate"}
+                    onClick={handleCustomRun}
+                    title={user.role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
+                    type="button"
+                  >
+                    {customRunLoading ? "Starting..." : "Run Custom Input"}
+                  </button>
+
+                  {customRun ? (
+                    <div className="terminal-output-grid">
+                      {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
+                      <div>
+                        <p className="label-text">stdout</p>
+                        <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
+                      </div>
+                      <div>
+                        <p className="label-text">stderr</p>
+                        <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
+                      </div>
+                      {customRun.executionTimeMs !== null ? <small>{customRun.executionTimeMs} ms</small> : null}
+                    </div>
+                  ) : (
+                    <div className="empty-state">Run custom input to see stdout and stderr.</div>
+                  )}
                 </div>
               ) : (
                 submission ? (

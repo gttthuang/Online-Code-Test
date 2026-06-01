@@ -3,10 +3,12 @@ import type {
   AuthUser,
   CandidateResultsResponse,
   CandidateReviewContextResponse,
+  CreateCustomRunRequest,
   CreateCandidateRequest,
   CreateProblemRequest,
   CreateSubmissionRequest,
   CreateUserRequest,
+  CustomRunDetail,
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
@@ -73,6 +75,13 @@ export interface AppStore {
   hasAssignment(candidateId: string, problemId: string): Promise<boolean>;
   listAssignmentsForCandidate(candidateId: string): Promise<AssignmentSummary[]>;
   createSubmission(candidateId: string, input: CreateSubmissionRequest): Promise<SubmissionDetail>;
+  createCustomRun(input: {
+    candidateId: string;
+    problemId: string;
+    requestedBy: string;
+    run: CreateCustomRunRequest;
+  }): Promise<CustomRunDetail>;
+  getCustomRun(runId: string): Promise<CustomRunDetail | null>;
   getSubmissionById(submissionId: string): Promise<SubmissionDetail | null>;
   getSubmissionHistoryItem(submissionId: string): Promise<SubmissionHistoryItem | null>;
   listSubmissions(filters?: {

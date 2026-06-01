@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { reviewRecommendations } from "@oct/contracts";
-import type { AuthUser, CandidateReviewContextResponse, InterviewReview, LiveRoomReplayEvent, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
-import { deleteCandidateReview, getCandidateReviewContext, getCandidateSubmissionHistory, getLiveRoomReplay, saveCandidateReview } from "../../lib/api";
+import type { AuthUser, CandidateReviewContextResponse, CustomRunDetail, InterviewReview, LiveRoomReplayEvent, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import { createAdminCustomRun, deleteCandidateReview, getAdminCustomRun, getCandidateReviewContext, getCandidateSubmissionHistory, getLiveRoomReplay, saveCandidateReview } from "../../lib/api";
 import { useLiveRoom } from "../../lib/useLiveRoom";
 import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
 import Editor from "@monaco-editor/react";
@@ -255,6 +255,10 @@ function LiveRoomPanel({
   const [selectedReplayIndex, setSelectedReplayIndex] = useState(0);
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
+  const [customInput, setCustomInput] = useState("");
+  const [customRun, setCustomRun] = useState<CustomRunDetail | null>(null);
+  const [customRunLoading, setCustomRunLoading] = useState(false);
+  const [customRunError, setCustomRunError] = useState<string | null>(null);
   const suppressNextLiveBroadcastRef = useRef(false);
   const liveRoom = useLiveRoom({
     token,
@@ -295,7 +299,85 @@ function LiveRoomPanel({
     setReplayEvents([]);
     setSelectedReplayIndex(0);
     setReplayError(null);
+    setCustomRun(null);
+    setCustomInput("");
+    setCustomRunError(null);
   }, [candidate.id, problemId]);
+
+  useEffect(() => {
+    if (!customRun || !["queued", "running"].includes(customRun.status)) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer = 0;
+    const poll = async () => {
+      try {
+        const nextRun = await getAdminCustomRun(token, customRun.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        setCustomRun(nextRun);
+        if (["queued", "running"].includes(nextRun.status)) {
+          timer = window.setTimeout(poll, 800);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCustomRunError(err instanceof Error ? err.message : "Failed to poll custom run");
+        }
+      }
+    };
+
+    timer = window.setTimeout(poll, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [customRun?.id, customRun?.status, token]);
+
+  async function handleCustomRun() {
+    if (!problemId) {
+      return;
+    }
+
+    setCustomRunLoading(true);
+    setCustomRunError(null);
+
+    try {
+      const created = await createAdminCustomRun(token, {
+        candidateId: candidate.id,
+        problemId,
+        language,
+        sourceCode,
+        stdin: customInput
+      });
+      const now = new Date().toISOString();
+
+      setCustomRun({
+        id: created.runId,
+        candidateId: candidate.id,
+        problemId,
+        requestedBy: "",
+        language,
+        sourceCode,
+        stdin: customInput,
+        status: created.status,
+        stdout: null,
+        stderr: null,
+        errorType: null,
+        errorMessage: null,
+        executionTimeMs: null,
+        createdAt: now,
+        updatedAt: now
+      });
+    } catch (err) {
+      setCustomRunError(err instanceof Error ? err.message : "Failed to start custom run");
+    } finally {
+      setCustomRunLoading(false);
+    }
+  }
 
   async function handleLoadReplay() {
     if (!problemId) {
@@ -357,6 +439,51 @@ function LiveRoomPanel({
           theme="light"
           value={sourceCode}
         />
+      </div>
+
+      <div className="live-room-replay">
+        <div className="panel-header compact-panel-header">
+          <div>
+            <p className="eyebrow">Terminal</p>
+            <h3>Run current room code</h3>
+          </div>
+          <button className="chip-button" disabled={!problemId || customRunLoading} onClick={handleCustomRun} type="button">
+            {customRunLoading ? "Starting..." : "Run"}
+          </button>
+        </div>
+
+        <label className="field">
+          <span>stdin</span>
+          <textarea
+            disabled={!problemId}
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder="Input passed to stdin"
+            rows={4}
+            value={customInput}
+          />
+        </label>
+
+        {customRunError ? <p className="error-text">{customRunError}</p> : null}
+
+        {customRun ? (
+          <div className="terminal-output-grid">
+            <div className={`live-room-strip live-room-${customRun.status === "failed" ? "error" : "connected"}`}>
+              <span>{customRun.status}</span>
+              {customRun.executionTimeMs !== null ? <span>{customRun.executionTimeMs} ms</span> : null}
+            </div>
+            {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
+            <div>
+              <p className="label-text">stdout</p>
+              <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
+            </div>
+            <div>
+              <p className="label-text">stderr</p>
+              <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
+            </div>
+          </div>
+        ) : (
+          <p className="helper-text">Run code with stdin without creating an official submission.</p>
+        )}
       </div>
 
       <div className="live-room-replay">

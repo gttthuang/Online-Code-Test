@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { judgeQueueName, type JudgeJob } from "@oct/contracts";
+import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
 
 export interface JudgeQueue {
   enqueue(job: JudgeJob): Promise<void>;
@@ -11,7 +11,7 @@ export class RedisJudgeQueue implements JudgeQueue {
 
   async enqueue(job: JudgeJob) {
     await this.queue.add("judge-submission", job, {
-      jobId: job.submissionId,
+      jobId: getJudgeJobId(job),
       removeOnComplete: 500,
       removeOnFail: 500
     });

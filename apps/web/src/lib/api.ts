@@ -2,14 +2,19 @@ import type {
   AssignmentSummary,
   AuthUser,
   CandidateResultsResponse,
+  CandidateReviewContextResponse,
+  CreateCandidateRequest,
+  CreateCandidateResponse,
   CreateAssignmentRequest,
   CreateAssignmentResponse,
+  CreateCustomRunRequest,
+  CreateCustomRunResponse,
   CreateProblemResponse,
   CreateSubmissionRequest,
   CreateSubmissionResponse,
   CreateUserRequest,
   CreateUserResponse,
-  CandidateReviewContextResponse,
+  CustomRunDetail,
   InterviewReview,
   LoginResponse,
   LiveRoomReplayEvent,
@@ -18,9 +23,7 @@ import type {
   ProblemSummary,
   ProblemDetail,
   SubmissionDetail,
-  SubmissionHistoryItem,
-  CreateCandidateRequest,
-  CreateCandidateResponse
+  SubmissionHistoryItem
 } from "@oct/contracts";
 
 interface HealthResponse {
@@ -222,6 +225,21 @@ export function createSubmission(token: string, payload: CreateSubmissionRequest
   );
 }
 
+export function createCustomRun(token: string, payload: CreateCustomRunRequest) {
+  return request<CreateCustomRunResponse>(
+    "/me/custom-runs",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function getCustomRun(token: string, runId: string) {
+  return request<CustomRunDetail>(`/me/custom-runs/${runId}`, undefined, token);
+}
+
 export function getSubmission(token: string, submissionId: string) {
   return request<SubmissionDetail>(`/me/submissions/${submissionId}`, undefined, token);
 }
@@ -297,6 +315,21 @@ export function getCandidateSubmissionHistory(token: string, candidateId: string
 
 export function getCandidateReviewContext(token: string, candidateId: string) {
   return request<CandidateReviewContextResponse>(`/admin/candidates/${candidateId}/reviews`, undefined, token);
+}
+
+export function createAdminCustomRun(token: string, payload: CreateCustomRunRequest & { candidateId: string }) {
+  return request<CreateCustomRunResponse>(
+    "/admin/custom-runs",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function getAdminCustomRun(token: string, runId: string) {
+  return request<CustomRunDetail>(`/admin/custom-runs/${runId}`, undefined, token);
 }
 
 export function saveCandidateReview(

@@ -153,8 +153,52 @@ export interface CreateSubmissionResponse {
   status: SubmissionStatus;
 }
 
-export interface JudgeJob {
-  submissionId: string;
+export interface CreateCustomRunRequest {
+  problemId: string;
+  language: SupportedLanguage;
+  sourceCode: string;
+  stdin: string;
+}
+
+export interface CreateAdminCustomRunRequest extends CreateCustomRunRequest {
+  candidateId: string;
+}
+
+export interface CreateCustomRunResponse {
+  runId: string;
+  status: SubmissionStatus;
+}
+
+export interface CustomRunDetail {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  requestedBy: string;
+  language: SupportedLanguage;
+  sourceCode: string;
+  stdin: string;
+  status: SubmissionStatus;
+  stdout: string | null;
+  stderr: string | null;
+  errorType: JudgeFailureType | null;
+  errorMessage: string | null;
+  executionTimeMs: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type JudgeJob =
+  | {
+      kind?: "submission";
+      submissionId: string;
+    }
+  | {
+      kind: "custom_run";
+      runId: string;
+    };
+
+export function getJudgeJobId(job: JudgeJob) {
+  return job.kind === "custom_run" ? `custom_run:${job.runId}` : `submission:${job.submissionId}`;
 }
 
 export interface JudgeCaseResult {
