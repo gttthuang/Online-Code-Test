@@ -22,8 +22,5 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "dependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.61.0"
   }
 }

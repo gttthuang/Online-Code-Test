@@ -440,7 +440,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   useEffect(() => {
     if (!submission || !["queued", "running"].includes(submission.status)) return;
     let cancelled = false;
-    let timer = 0;
+    let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
         const api = user.role === "problem_admin" ? getPreviewSubmission : getSubmission;
@@ -465,7 +465,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   useEffect(() => {
     if (!customRun || !["queued", "running"].includes(customRun.status)) return;
     let cancelled = false;
-    let timer = 0;
+    let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
         const nextRun = await getCustomRun(token, customRun.id);
@@ -479,7 +479,9 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
         if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll custom run");
       }
     };
+
     timer = globalThis.setTimeout(poll, 500);
+
     return () => {
       cancelled = true;
       globalThis.clearTimeout(timer);
