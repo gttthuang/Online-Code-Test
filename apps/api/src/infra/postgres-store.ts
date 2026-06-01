@@ -13,6 +13,7 @@ import type {
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
+  LiveRoomSnapshot,
   ProblemDetail,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -81,6 +82,15 @@ type InterviewReviewRow = {
   testing_debugging: number;
   recommendation: InterviewReview["recommendation"];
   created_at: string;
+  updated_at: string;
+};
+
+type LiveRoomSnapshotRow = {
+  candidate_id: string;
+  problem_id: string;
+  language: LiveRoomSnapshot["language"];
+  source_code: string;
+  updated_by: string | null;
   updated_at: string;
 };
 
@@ -914,6 +924,85 @@ export class PostgresStore implements AppStore {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async getLiveRoomSnapshot(candidateId: string, problemId: string): Promise<LiveRoomSnapshot | null> {
+    const result = await this.pool.query<LiveRoomSnapshotRow>(
+      `
+        select candidate_id, problem_id, language, source_code, updated_by, updated_at
+        from live_room_snapshots
+        where candidate_id = $1 and problem_id = $2
+      `,
+      [candidateId, problemId]
+    );
+
+    return result.rows[0] ? this.toLiveRoomSnapshot(result.rows[0]) : null;
+  }
+
+  async upsertLiveRoomSnapshot(input: {
+    candidateId: string;
+    problemId: string;
+    language: LiveRoomSnapshot["language"];
+    sourceCode: string;
+    updatedBy: string;
+  }): Promise<LiveRoomSnapshot> {
+    const result = await this.pool.query<LiveRoomSnapshotRow>(
+      `
+        insert into live_room_snapshots (
+          candidate_id,
+          problem_id,
+          language,
+          source_code,
+          updated_by,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, now())
+        on conflict (candidate_id, problem_id)
+        do update set
+          language = excluded.language,
+          source_code = excluded.source_code,
+          updated_by = excluded.updated_by,
+          updated_at = excluded.updated_at
+        returning candidate_id, problem_id, language, source_code, updated_by, updated_at
+      `,
+      [input.candidateId, input.problemId, input.language, input.sourceCode, input.updatedBy]
+    );
+
+    return this.toLiveRoomSnapshot(result.rows[0]);
+  }
+
+  async createLiveRoomEvent(input: {
+    candidateId: string;
+    problemId: string;
+    actorId: string;
+    actorRole: AuthUser["role"];
+    eventType: "join" | "leave" | "code_update" | "cursor_update";
+    payload: unknown;
+  }): Promise<void> {
+    await this.pool.query(
+      `
+        insert into live_room_events (
+          id,
+          candidate_id,
+          problem_id,
+          actor_id,
+          actor_role,
+          event_type,
+          payload,
+          created_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+      `,
+      [
+        `live_event_${randomUUID()}`,
+        input.candidateId,
+        input.problemId,
+        input.actorId,
+        input.actorRole,
+        input.eventType,
+        JSON.stringify(input.payload)
+      ]
+    );
+  }
+
   async getInternalStats(): Promise<InternalStats> {
     const [totalsResult, statusesResult, failuresResult, judgeCasesResult] = await Promise.all([
       this.pool.query<{
@@ -1184,6 +1273,17 @@ export class PostgresStore implements AppStore {
       description: problem.description,
       sampleInput: "sample_input" in problem ? problem.sample_input : problem.sampleInput,
       sampleOutput: "sample_output" in problem ? problem.sample_output : problem.sampleOutput
+    };
+  }
+
+  private toLiveRoomSnapshot(row: LiveRoomSnapshotRow): LiveRoomSnapshot {
+    return {
+      candidateId: row.candidate_id,
+      problemId: row.problem_id,
+      language: row.language,
+      sourceCode: row.source_code,
+      updatedBy: row.updated_by,
+      updatedAt: row.updated_at
     };
   }
 }

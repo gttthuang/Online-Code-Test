@@ -10,6 +10,7 @@ import type {
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
+  LiveRoomSnapshot,
   ProblemDetail,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -94,5 +95,21 @@ export interface AppStore {
     recommendation: InterviewReview["recommendation"];
   }): Promise<InterviewReview | null>;
   deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean>;
+  getLiveRoomSnapshot(candidateId: string, problemId: string): Promise<LiveRoomSnapshot | null>;
+  upsertLiveRoomSnapshot(input: {
+    candidateId: string;
+    problemId: string;
+    language: LiveRoomSnapshot["language"];
+    sourceCode: string;
+    updatedBy: string;
+  }): Promise<LiveRoomSnapshot>;
+  createLiveRoomEvent(input: {
+    candidateId: string;
+    problemId: string;
+    actorId: string;
+    actorRole: AuthUser["role"];
+    eventType: "join" | "leave" | "code_update" | "cursor_update";
+    payload: unknown;
+  }): Promise<void>;
   getInternalStats(): Promise<InternalStats>;
 }

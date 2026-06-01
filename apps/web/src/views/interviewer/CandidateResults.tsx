@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { reviewRecommendations } from "@oct/contracts";
-import type { AuthUser, CandidateReviewContextResponse, InterviewReview, ReviewRecommendation, SubmissionHistoryItem } from "@oct/contracts";
+import type { AuthUser, CandidateReviewContextResponse, InterviewReview, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 import { deleteCandidateReview, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
+import { useLiveRoom } from "../../lib/useLiveRoom";
 import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
+import Editor from "@monaco-editor/react";
 
 interface CandidateResultsProps {
   token: string;
@@ -215,6 +217,12 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
               selectedProblemId={selectedProblemId}
             />
 
+            <LiveRoomPanel
+              candidate={results.candidate}
+              problemId={selectedProblemId}
+              token={token}
+            />
+
             <SubmissionHistoryPanel
               emptyMessage="No submissions found for this candidate."
               onSelect={(submission) => setSelectedSubmissionId(submission.id)}
@@ -229,6 +237,92 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
         )}
       </div>
     </article>
+  );
+}
+
+function LiveRoomPanel({
+  candidate,
+  problemId,
+  token
+}: {
+  candidate: AuthUser;
+  problemId: string;
+  token: string;
+}) {
+  const [sourceCode, setSourceCode] = useState("");
+  const [language, setLanguage] = useState<SupportedLanguage>("python");
+  const suppressNextLiveBroadcastRef = useRef(false);
+  const liveRoom = useLiveRoom({
+    token,
+    candidateId: candidate.id,
+    problemId: problemId || null,
+    onCodeUpdate: (snapshot) => {
+      suppressNextLiveBroadcastRef.current = true;
+      setSourceCode(snapshot.sourceCode);
+      setLanguage(snapshot.language);
+    }
+  });
+
+  useEffect(() => {
+    if (!problemId || liveRoom.status !== "connected") {
+      return;
+    }
+
+    if (suppressNextLiveBroadcastRef.current) {
+      suppressNextLiveBroadcastRef.current = false;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      liveRoom.sendCodeUpdate(language, sourceCode);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [language, liveRoom.sendCodeUpdate, liveRoom.status, problemId, sourceCode]);
+
+  return (
+    <section className="review-editor live-room-card">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Live Room</p>
+          <h3>{candidate.name}</h3>
+          <div className={`live-room-strip live-room-${liveRoom.status}`}>
+            <span>{problemId ? liveRoom.status : "select a problem"}</span>
+            <span>{liveRoom.participants.length} participant(s)</span>
+            {liveRoom.error ? <span>{liveRoom.error}</span> : null}
+          </div>
+        </div>
+      </div>
+
+      <label className="field">
+        <span>Language</span>
+        <select
+          disabled={!problemId}
+          onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
+          value={language}
+        >
+          <option value="python">python</option>
+          <option value="cpp">cpp</option>
+        </select>
+      </label>
+
+      <div className="live-room-editor">
+        <Editor
+          height="260px"
+          language={language === "cpp" ? "cpp" : language}
+          onChange={(value) => setSourceCode(value ?? "")}
+          options={{
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: "on"
+          }}
+          theme="light"
+          value={sourceCode}
+        />
+      </div>
+    </section>
   );
 }
 

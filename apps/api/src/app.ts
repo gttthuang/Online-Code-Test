@@ -1,9 +1,11 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
+import websocket from "@fastify/websocket";
 
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
 import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
+import { registerLiveRoomRoutes } from "./modules/live-room/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
 import { registerReviewRoutes } from "./modules/reviews/routes.js";
@@ -88,7 +90,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "DELETE /admin/candidates/:candidateId/reviews/:problemId",
       "GET /admin/submissions",
       "POST /admin/submissions/preview",
-      "GET /admin/submissions/:submissionId"
+      "GET /admin/submissions/:submissionId",
+      "WS /live/rooms"
     ]
   }));
 
@@ -123,10 +126,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
     reply.status(statusCode).send(body);
   });
-  app.register(multipart);
+  await app.register(websocket, {
+    options: {
+      maxPayload: 128 * 1024
+    }
+  });
+  await app.register(multipart);
   registerAuthRoutes(app, context);
   registerCandidateRoutes(app, context);
   registerAssignmentRoutes(app, context);
+  registerLiveRoomRoutes(app, context);
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);
   registerResultRoutes(app, context);

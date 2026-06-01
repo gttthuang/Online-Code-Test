@@ -138,6 +138,18 @@ export function getHealth() {
   return request<HealthResponse>("/healthz");
 }
 
+export function getLiveRoomSocketUrl(token: string, candidateId: string, problemId: string) {
+  const baseUrl = apiBaseUrl || window.location.origin;
+  const url = new URL("/live/rooms", baseUrl);
+
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("candidateId", candidateId);
+  url.searchParams.set("problemId", problemId);
+  url.searchParams.set("token", token);
+
+  return url.toString();
+}
+
 export function loginWithEmail(email: string) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",

@@ -1336,6 +1336,43 @@ textarea {
   margin: 0;
 }
 
+.live-room-card {
+  background:
+    linear-gradient(135deg, rgba(255, 248, 234, 0.92), rgba(232, 245, 238, 0.76));
+}
+
+.live-room-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.live-room-strip span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 0.2rem 0.5rem;
+}
+
+.live-room-connected span:first-child {
+  border-color: rgba(31, 136, 61, 0.35);
+  color: var(--success);
+}
+
+.live-room-error span:first-child {
+  border-color: rgba(196, 68, 68, 0.35);
+  color: var(--danger);
+}
+
+.live-room-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .rubric-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
