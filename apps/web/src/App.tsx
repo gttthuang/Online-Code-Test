@@ -4,17 +4,12 @@ import type { AuthUser } from "@oct/contracts";
 import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PlusCircle, UserRoundCog } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { getAssignments, getHealth, getMe, loginWithEmail } from "./lib/api";
+import { getAssignments, getMe, loginWithEmail } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
 import { CandidateWorkspace } from "./views/CandidateWorkspace";
 import { InterviewerWorkspace } from "./views/InterviewerWorkspace";
 import { LoginPanel } from "./views/LoginPanel";
 import { ProblemAdminWorkspace } from "./views/ProblemAdminWorkspace";
-
-interface HealthState {
-  status: "idle" | "ready" | "error";
-  message: string;
-}
 
 interface SessionState {
   token: string;
@@ -30,6 +25,12 @@ const roleHomePath = {
 const workspaceCopy = {
   candidate: "Candidate Exam",
   interviewer: "Interviewer Console",
+  problem_admin: "Admin"
+} satisfies Record<AuthUser["role"], string>;
+
+const roleDisplayName = {
+  candidate: "Candidate",
+  interviewer: "Interviewer",
   problem_admin: "Admin"
 } satisfies Record<AuthUser["role"], string>;
 
@@ -124,41 +125,11 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
 
 function AppRoutes() {
   const storedSession = useMemo(() => loadStoredSession(), []);
-  const [health, setHealth] = useState<HealthState>({
-    status: "idle",
-    message: "Checking API status..."
-  });
   const [session, setSession] = useState<SessionState | null>(storedSession);
   const [sessionLoading, setSessionLoading] = useState(Boolean(storedSession));
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getHealth()
-      .then(() => {
-        if (!cancelled) {
-          setHealth({
-            status: "ready",
-            message: "API connection ready"
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setHealth({
-            status: "error",
-            message: "Cannot reach API"
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!session?.token) {
@@ -238,7 +209,7 @@ function AppRoutes() {
           session ? (
             <Navigate replace to={roleHomePath[session.user.role]} />
           ) : (
-            <LoginPage error={loginError} health={health} isLoading={loginLoading} onLogin={handleLogin} />
+            <LoginPage error={loginError} isLoading={loginLoading} onLogin={handleLogin} />
           )
         }
         path="/login"
@@ -281,7 +252,7 @@ function AppRoutes() {
       <Route
         element={
           <ProtectedWorkspace expectedRole="problem_admin" onLogout={handleLogout} session={session}>
-            {session ? <ProblemAdminWorkspace token={session.token} /> : null}
+            {session ? <ProblemAdminWorkspace currentUserId={session.user.id} token={session.token} /> : null}
           </ProtectedWorkspace>
         }
         path="/problem-admin/*"
@@ -297,18 +268,16 @@ function AppRoutes() {
 
 function LoginPage({
   error,
-  health,
   isLoading,
   onLogin
 }: {
   error: string | null;
-  health: HealthState;
   isLoading: boolean;
   onLogin: (email: string) => Promise<void>;
 }) {
   return (
     <main className="app-shell login-shell">
-      <LoginPanel error={error} health={health} isLoading={isLoading} onLogin={onLogin} />
+      <LoginPanel error={error} isLoading={isLoading} onLogin={onLogin} />
     </main>
   );
 }
@@ -382,7 +351,7 @@ function WorkspaceFrame({ children, onLogout, session }: { children: ReactNode; 
               <strong>{session.user.name}</strong>
               <span>{session.user.email}</span>
             </div>
-            <span className="role-badge">{session.user.role}</span>
+            <span className="role-badge">{roleDisplayName[session.user.role]}</span>
             <button className="secondary-button icon-button-text" onClick={onLogout} type="button">
               <LogOut aria-hidden="true" size={16} />
               <span>Log Out</span>

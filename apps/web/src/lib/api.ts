@@ -37,6 +37,21 @@ interface ApiErrorPayload {
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
+const validationFieldLabels: Record<string, string> = {
+  title: "Title",
+  description: "Description",
+  difficulty: "Difficulty",
+  timeLimitMs: "Time limit",
+  memoryLimitKb: "Memory limit",
+  supportedLanguages: "Supported languages",
+  sampleInput: "Sample input",
+  sampleOutput: "Sample output",
+  hiddenTestCases: "Hidden testcases",
+  email: "Email",
+  name: "Name",
+  role: "Role"
+};
+
 function safeJsonParse<T>(text: string): T | string {
   try {
     return JSON.parse(text) as T;
@@ -92,7 +107,7 @@ function formatErrorDetails(details: unknown): string | null {
   if (detailObject.fieldErrors) {
     for (const [field, value] of Object.entries(detailObject.fieldErrors)) {
       if (Array.isArray(value) && value.length > 0) {
-        messages.push(`${field}: ${value.map(String).join(", ")}`);
+        messages.push(`${formatValidationField(field)}: ${value.map(formatValidationMessage).join(", ")}`);
       }
     }
   }
@@ -104,6 +119,24 @@ function formatErrorDetails(details: unknown): string | null {
   return Object.entries(details)
     .map(([key, value]) => `${key}: ${String(value)}`)
     .join("; ");
+}
+
+function formatValidationField(field: string) {
+  return validationFieldLabels[field] ?? field.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+}
+
+function formatValidationMessage(message: unknown) {
+  const text = String(message);
+
+  if (text.includes("Expected number, received nan")) {
+    return "must be a valid number";
+  }
+
+  if (text.includes("Required")) {
+    return "is required";
+  }
+
+  return text;
 }
 
 async function request<T>(path: string, init?: RequestInit, token?: string): Promise<T> {

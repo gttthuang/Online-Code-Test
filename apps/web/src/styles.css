@@ -342,33 +342,6 @@ textarea {
   line-height: 1.6;
 }
 
-.health-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel-strong);
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.health-dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 999px;
-  background: #d39a2c;
-}
-
-.health-ready .health-dot {
-  background: var(--success);
-}
-
-.health-error .health-dot {
-  background: var(--danger);
-}
-
 .session-strip {
   margin-top: 0;
   padding: 1.4rem 1.6rem;

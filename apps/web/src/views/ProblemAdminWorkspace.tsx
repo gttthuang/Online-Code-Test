@@ -9,6 +9,7 @@ import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 
 interface ProblemAdminWorkspaceProps {
+  currentUserId: string;
   token: string;
 }
 
@@ -90,7 +91,7 @@ function getTestcaseFileParts(fileName: string) {
   return null;
 }
 
-export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
+export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
@@ -679,7 +680,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
         {activeSection === "users" ? (
           <section className="workspace-grid single-column-grid">
-            <UserManager currentUserId={token} onNotice={showNotice} token={token} />
+            <UserManager currentUserId={currentUserId} onNotice={showNotice} token={token} />
           </section>
         ) : null}
       </div>
