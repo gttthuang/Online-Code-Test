@@ -27,6 +27,15 @@ const submissionIdParamsSchema = z.object({
   submissionId: z.string().min(1)
 });
 
+const candidateIdParamsSchema = z.object({
+  candidateId: z.string().min(1)
+});
+
+const adminSubmissionQuerySchema = z.object({
+  candidateId: z.string().min(1).optional(),
+  problemId: z.string().min(1).optional()
+});
+
 export async function registerSubmissionRoutes(app: FastifyInstance, context: AppContext) {
   app.post("/me/submissions", async (request) => {
     const user = await requireUser(request, context);
@@ -59,6 +68,15 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     };
   });
 
+  app.get("/me/submissions", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["candidate"]);
+
+    return context.store.listSubmissions({
+      candidateId: user.id
+    });
+  });
+
   app.get("/me/submissions/:submissionId", async (request) => {
     const user = await requireUser(request, context);
     requireRole(user, ["candidate"]);
@@ -71,6 +89,35 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     }
 
     return submission;
+  });
+
+  app.get("/admin/candidates/:candidateId/submissions", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["interviewer", "problem_admin"]);
+
+    const params = candidateIdParamsSchema.parse(request.params);
+    const candidate = await context.store.getUserById(params.candidateId);
+
+    if (!candidate || candidate.role !== "candidate") {
+      throw new AppError(404, "candidate_not_found", "Candidate does not exist");
+    }
+
+    return {
+      candidate,
+      submissions: await context.store.listSubmissions({
+        candidateId: params.candidateId,
+        candidateRole: "candidate"
+      })
+    };
+  });
+
+  app.get("/admin/submissions", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const query = adminSubmissionQuerySchema.parse(request.query);
+
+    return context.store.listSubmissions(query);
   });
 
   // =========================
@@ -120,15 +167,15 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
   app.get("/admin/submissions/:submissionId", async (request) => {
     const user = await requireUser(request, context);
 
-    requireRole(user, ["problem_admin"]);
+    requireRole(user, ["interviewer", "problem_admin"]);
 
     const params = submissionIdParamsSchema.parse(request.params);
 
-    const submission = await context.store.getSubmissionById(
+    const submission = await context.store.getSubmissionHistoryItem(
       params.submissionId
     );
 
-    if (!submission || submission.candidateId !== user.id) {
+    if (!submission || (user.role === "interviewer" && submission.candidateRole !== "candidate")) {
       throw new AppError(
         404,
         "submission_not_found",

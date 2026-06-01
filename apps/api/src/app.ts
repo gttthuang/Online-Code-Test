@@ -65,6 +65,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "GET /internal/stats",
       "GET /me/assignments",
       "GET /me/problems/:problemId",
+      "GET /me/submissions",
       "POST /me/submissions",
       "GET /me/submissions/:submissionId",
       "GET /admin/candidates",
@@ -78,6 +79,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "DELETE /admin/problems/:problemId",
       "POST /admin/assignments",
       "GET /admin/candidates/:candidateId/results",
+      "GET /admin/candidates/:candidateId/submissions",
+      "GET /admin/submissions",
       "POST /admin/submissions/preview",
       "GET /admin/submissions/:submissionId"
     ]

@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SupportedLanguage } from "@oct/contracts";
+import type { AssignmentSummary, AuthUser, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 
-import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission } from "../lib/api";
+import { createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory } from "../lib/api";
+import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
 
 // 引入 Monaco Editor 與 Vim 模式
@@ -32,6 +33,8 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [sourceCode, setSourceCode] = useState("print(42)");
   const [language, setLanguage] = useState<SupportedLanguage>("python");
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
+  const [submissionHistory, setSubmissionHistory] = useState<SubmissionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [submissionLoading, setSubmissionLoading] = useState(false);
 
   const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
@@ -167,6 +170,33 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   }, [selectedProblemId, token, user.role]);
 
   useEffect(() => {
+    if (!selectedProblemId) {
+      setSubmissionHistory([]);
+      return;
+    }
+
+    let cancelled = false;
+    const api = user.role === "problem_admin" ? getAdminSubmissionHistory : getMySubmissionHistory;
+
+    setHistoryLoading(true);
+    api(token)
+      .then((items) => {
+        if (cancelled) return;
+        setSubmissionHistory(items.filter((item) => item.problemId === selectedProblemId));
+      })
+      .catch((error) => {
+        if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to load submission history");
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProblemId, submission?.id, submission?.status, token, user.role]);
+
+  useEffect(() => {
     if (!submission || !["queued", "running"].includes(submission.status)) return;
     let cancelled = false;
     let timer = 0;
@@ -221,6 +251,13 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     } finally {
       setSubmissionLoading(false);
     }
+  }
+
+  function handleSelectHistoryItem(item: SubmissionHistoryItem) {
+    setSubmission(item);
+    setSourceCode(item.sourceCode);
+    setLanguage(item.language);
+    setRightTab("output");
   }
 
   const handleColDividerDrag = (e: React.PointerEvent) => {
@@ -420,23 +457,13 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
                   </div>
                 )
               ) : (
-                submission ? (
-                  <div className="result-stack">
-                    <div className="result-summary">
-                      <strong>Latest Status</strong>
-                      <span>{submission.status}</span>
-                    </div>
-                    <div className="meta-row">
-                      <span>Language: {submission.language}</span>
-                      <span>Score: {submission.score ?? "--"}</span>
-                      <span>Submitted: {new Date(submission.createdAt).toLocaleTimeString()}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    {isAdminPreview ? "Run preview code to see the latest result." : "No submissions yet."}
-                  </div>
-                )
+                <SubmissionHistoryPanel
+                  emptyMessage={isAdminPreview ? "No preview submissions yet." : "No submissions yet."}
+                  loading={historyLoading}
+                  onSelect={handleSelectHistoryItem}
+                  selectedId={submission?.id}
+                  submissions={submissionHistory}
+                />
               )}
             </div>
           </article>

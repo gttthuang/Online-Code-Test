@@ -47,6 +47,7 @@ const workspaceNav = {
     { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },
     { label: "New Problem", path: "/problem-admin/new", icon: PlusCircle },
     { label: "Problems", path: "/problem-admin/problems", icon: Database },
+    { label: "Submissions", path: "/problem-admin/submissions", icon: Activity },
     { label: "Users", path: "/problem-admin/users", icon: UserRoundCog }
   ]
 } satisfies Record<AuthUser["role"], Array<{ label: string; path: string; icon: typeof LayoutDashboard }>>;

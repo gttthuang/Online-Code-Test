@@ -11,6 +11,7 @@ import type {
   ProblemDetail,
   ProblemSummary,
   SubmissionDetail,
+  SubmissionHistoryItem,
   SubmissionStatus
 } from "@oct/contracts";
 
@@ -65,6 +66,12 @@ export interface AppStore {
   listAssignmentsForCandidate(candidateId: string): Promise<AssignmentSummary[]>;
   createSubmission(candidateId: string, input: CreateSubmissionRequest): Promise<SubmissionDetail>;
   getSubmissionById(submissionId: string): Promise<SubmissionDetail | null>;
+  getSubmissionHistoryItem(submissionId: string): Promise<SubmissionHistoryItem | null>;
+  listSubmissions(filters?: {
+    candidateId?: string;
+    problemId?: string;
+    candidateRole?: AuthUser["role"];
+  }): Promise<SubmissionHistoryItem[]>;
   getRawSubmission(submissionId: string): Promise<SubmissionDetail | null>;
   updateSubmissionStatus(submissionId: string, status: SubmissionStatus): Promise<SubmissionDetail | null>;
   completeSubmission(submissionId: string, result: JudgeResult): Promise<SubmissionDetail | null>;

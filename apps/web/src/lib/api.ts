@@ -13,6 +13,7 @@ import type {
   ProblemSummary,
   ProblemDetail,
   SubmissionDetail,
+  SubmissionHistoryItem,
   CreateCandidateRequest,
   CreateCandidateResponse
 } from "@oct/contracts";
@@ -167,6 +168,10 @@ export function getSubmission(token: string, submissionId: string) {
   return request<SubmissionDetail>(`/me/submissions/${submissionId}`, undefined, token);
 }
 
+export function getMySubmissionHistory(token: string) {
+  return request<SubmissionHistoryItem[]>("/me/submissions", undefined, token);
+}
+
 export function getAdminProblems(token: string) {
   return request<ProblemSummary[]>("/admin/problems", undefined, token);
 }
@@ -205,6 +210,18 @@ export function createAssignment(token: string, payload: CreateAssignmentRequest
 
 export function getCandidateResults(token: string, candidateId: string) {
   return request<CandidateResultsResponse>(`/admin/candidates/${candidateId}/results`, undefined, token);
+}
+
+export function getCandidateSubmissionHistory(token: string, candidateId: string) {
+  return request<{ candidate: AuthUser; submissions: SubmissionHistoryItem[] }>(
+    `/admin/candidates/${candidateId}/submissions`,
+    undefined,
+    token
+  );
+}
+
+export function getAdminSubmissionHistory(token: string) {
+  return request<SubmissionHistoryItem[]>("/admin/submissions", undefined, token);
 }
 
 export function getCandidates(token: string) {
@@ -283,7 +300,15 @@ export function getPreviewSubmission(
   token: string,
   submissionId: string
 ) {
-  return request<SubmissionDetail>(
+  return request<SubmissionHistoryItem>(
+    `/admin/submissions/${submissionId}`,
+    undefined,
+    token
+  );
+}
+
+export function getAdminSubmission(token: string, submissionId: string) {
+  return request<SubmissionHistoryItem>(
     `/admin/submissions/${submissionId}`,
     undefined,
     token

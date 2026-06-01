@@ -14,6 +14,7 @@ import type {
   ProblemDetail,
   ProblemSummary,
   SubmissionDetail,
+  SubmissionHistoryItem,
   SubmissionStatus
 } from "@oct/contracts";
 import type { Pool } from "pg";
@@ -53,6 +54,13 @@ type SubmissionRow = {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type SubmissionHistoryRow = SubmissionRow & {
+  candidate_name: string;
+  candidate_email: string;
+  candidate_role: AuthUser["role"];
+  problem_title: string;
 };
 
 type SubmissionCaseRow = {
@@ -561,6 +569,37 @@ export class PostgresStore implements AppStore {
     };
   }
 
+  async getSubmissionHistoryItem(submissionId: string): Promise<SubmissionHistoryItem | null> {
+    const rows = await this.querySubmissionHistory([`s.id = $1`], [submissionId]);
+    return rows[0] ?? null;
+  }
+
+  async listSubmissions(filters: {
+    candidateId?: string;
+    problemId?: string;
+    candidateRole?: AuthUser["role"];
+  } = {}): Promise<SubmissionHistoryItem[]> {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+
+    if (filters.candidateId) {
+      values.push(filters.candidateId);
+      conditions.push(`s.candidate_id = $${values.length}`);
+    }
+
+    if (filters.problemId) {
+      values.push(filters.problemId);
+      conditions.push(`s.problem_id = $${values.length}`);
+    }
+
+    if (filters.candidateRole) {
+      values.push(filters.candidateRole);
+      conditions.push(`u.role = $${values.length}`);
+    }
+
+    return this.querySubmissionHistory(conditions, values);
+  }
+
   async getRawSubmission(submissionId: string): Promise<SubmissionDetail | null> {
     return this.getSubmissionById(submissionId);
   }
@@ -758,6 +797,59 @@ export class PostgresStore implements AppStore {
           ? Number(judgeCasesRow.avg_execution_time_ms)
           : null
       }
+    };
+  }
+
+  private async querySubmissionHistory(conditions: string[], values: unknown[]): Promise<SubmissionHistoryItem[]> {
+    const whereClause = conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
+    const result = await this.pool.query<SubmissionHistoryRow>(
+      `
+        select
+          s.id,
+          s.candidate_id,
+          s.problem_id,
+          s.language,
+          s.source_code,
+          s.status,
+          s.score,
+          s.error_type,
+          s.error_message,
+          s.created_at,
+          s.updated_at,
+          u.name as candidate_name,
+          u.email as candidate_email,
+          u.role as candidate_role,
+          p.title as problem_title
+        from submissions s
+        join users u on u.id = s.candidate_id
+        join problems p on p.id = s.problem_id
+        ${whereClause}
+        order by s.created_at desc
+      `,
+      values
+    );
+
+    return Promise.all(result.rows.map((row) => this.toSubmissionHistoryItem(row)));
+  }
+
+  private async toSubmissionHistoryItem(row: SubmissionHistoryRow): Promise<SubmissionHistoryItem> {
+    const submission = await this.getSubmissionById(row.id);
+
+    if (!submission) {
+      throw new Error(`submission_not_found:${row.id}`);
+    }
+
+    const totalCases = submission.result?.cases.length ?? 0;
+    const passedCases = submission.result?.cases.filter((testCase) => testCase.passed).length ?? 0;
+
+    return {
+      ...submission,
+      candidateName: row.candidate_name,
+      candidateEmail: row.candidate_email,
+      candidateRole: row.candidate_role,
+      problemTitle: row.problem_title,
+      passedCases,
+      totalCases
     };
   }
 

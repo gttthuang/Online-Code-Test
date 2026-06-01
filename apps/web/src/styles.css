@@ -1174,6 +1174,89 @@ textarea {
   gap: 0.5rem;
 }
 
+.submission-history-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.submission-history-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.submission-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.8rem;
+}
+
+.submission-history-row-active {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.submission-history-main,
+.submission-history-meta {
+  min-width: 0;
+}
+
+.submission-history-main {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.submission-history-main span,
+.submission-history-main small {
+  color: var(--muted);
+}
+
+.submission-history-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.submission-history-detail {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 1rem;
+}
+
+.submission-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+  gap: 1rem;
+}
+
+.code-snapshot {
+  min-height: 180px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.9rem;
+  white-space: pre-wrap;
+}
+
 .stat-row {
   display: flex;
   justify-content: space-between;
@@ -1319,7 +1402,9 @@ textarea {
 
 @media (max-width: 860px) {
   .user-management-grid,
-  .user-table-row {
+  .user-table-row,
+  .submission-history-row,
+  .submission-detail-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
-import type { AuthUser, ProblemDifficulty, ProblemSummary, UserRole } from "@oct/contracts";
+import type { AuthUser, ProblemDifficulty, ProblemSummary, SubmissionHistoryItem, SubmissionStatus, UserRole } from "@oct/contracts";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getUsers } from "../lib/api";
+import { createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getUsers } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
+import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 
 interface ProblemAdminWorkspaceProps {
   token: string;
@@ -70,7 +71,9 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const previewProblemId = location.pathname.match(/^\/problem-admin\/problems\/([^/]+)\/preview$/)?.[1] ?? null;
-  const activeSection = location.pathname.includes("/users")
+  const activeSection = location.pathname.includes("/submissions")
+    ? "submissions"
+    : location.pathname.includes("/users")
     ? "users"
     : location.pathname.includes("/new")
     ? "new"
@@ -468,6 +471,12 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
 
         {activeSection === "problems" ? <section className="workspace-grid single-column-grid">{renderInventoryCard()}</section> : null}
 
+        {activeSection === "submissions" ? (
+          <section className="workspace-grid single-column-grid">
+            <AdminSubmissionHistory token={token} />
+          </section>
+        ) : null}
+
         {activeSection === "users" ? (
           <section className="workspace-grid single-column-grid">
             <UserManager currentUserId={token} onNotice={showNotice} token={token} />
@@ -692,6 +701,107 @@ function UserManager({
           )}
         </div>
       </div>
+    </article>
+  );
+}
+
+function AdminSubmissionHistory({ token }: { token: string }) {
+  const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([]);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    setError(null);
+
+    getAdminSubmissionHistory(token)
+      .then((items) => {
+        if (!cancelled) {
+          setSubmissions(items);
+        }
+      })
+      .catch((nextError) => {
+        if (!cancelled) {
+          setError(nextError instanceof Error ? nextError.message : "Failed to load submissions");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const filteredSubmissions = submissions.filter((submission) => {
+    const matchesStatus = statusFilter === "all" || submission.status === statusFilter;
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!matchesStatus) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    return [
+      submission.problemTitle,
+      submission.candidateName,
+      submission.candidateEmail,
+      submission.id,
+      submission.language
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
+  });
+
+  return (
+    <article className="status-card panel-column">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Submission History</p>
+          <h2>{filteredSubmissions.length} submission(s)</h2>
+        </div>
+      </div>
+
+      <div className="inline-form">
+        <label className="field flex-grow">
+          <span>Search</span>
+          <input
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Candidate, problem, language, or submission id"
+            value={query}
+          />
+        </label>
+
+        <label className="field">
+          <span>Status</span>
+          <select onChange={(event) => setStatusFilter(event.target.value as SubmissionStatus | "all")} value={statusFilter}>
+            <option value="all">All</option>
+            <option value="queued">queued</option>
+            <option value="running">running</option>
+            <option value="finished">finished</option>
+            <option value="failed">failed</option>
+          </select>
+        </label>
+      </div>
+
+      {error ? <p className="error-text">{error}</p> : null}
+
+      <SubmissionHistoryPanel
+        emptyMessage="No submissions found."
+        loading={loading}
+        onSelect={(submission) => setSelectedSubmissionId(submission.id)}
+        selectedId={selectedSubmissionId}
+        submissions={filteredSubmissions}
+      />
     </article>
   );
 }

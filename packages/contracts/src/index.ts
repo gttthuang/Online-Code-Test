@@ -168,6 +168,15 @@ export interface SubmissionDetail {
   result: JudgeResult | null;
 }
 
+export interface SubmissionHistoryItem extends SubmissionDetail {
+  candidateName: string;
+  candidateEmail: string;
+  candidateRole: UserRole;
+  problemTitle: string;
+  passedCases: number;
+  totalCases: number;
+}
+
 export interface CandidateResultItem {
   submissionId: string;
   problemId: string;

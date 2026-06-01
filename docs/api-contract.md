@@ -64,6 +64,7 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 
 - `GET /me/assignments`
 - `GET /me/problems/:problemId`
+- `GET /me/submissions`
 - `POST /me/submissions`
 - `GET /me/submissions/:submissionId`
 
@@ -88,6 +89,12 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `DELETE /admin/candidates/:candidateId`
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
+- `GET /admin/candidates/:candidateId/submissions`
+
+### Admin Submission Review
+
+- `GET /admin/submissions`
+- `GET /admin/submissions/:submissionId`
 
 ## 主要 Request / Response
 
@@ -357,6 +364,50 @@ Response:
 }
 ```
 
+### `GET /me/submissions`
+
+用途：
+
+- candidate 查看自己的 submission history
+- 每筆都包含當時提交的 source code snapshot 和 testcase-level result
+
+Response:
+
+```json
+[
+  {
+    "id": "submission_123",
+    "candidateId": "candidate_alice",
+    "candidateName": "Alice Candidate",
+    "candidateEmail": "alice.candidate@example.com",
+    "candidateRole": "candidate",
+    "problemId": "problem_reverse_string",
+    "problemTitle": "Reverse String",
+    "language": "python",
+    "status": "finished",
+    "sourceCode": "print(input()[::-1])",
+    "score": 100,
+    "passedCases": 1,
+    "totalCases": 1,
+    "createdAt": "2026-04-14T12:00:00.000Z",
+    "updatedAt": "2026-04-14T12:00:01.000Z",
+    "result": {
+      "submissionId": "submission_123",
+      "status": "finished",
+      "score": 100,
+      "cases": [
+        {
+          "testCaseId": "case_reverse_hidden_1",
+          "passed": true,
+          "executionTimeMs": 20,
+          "memoryKb": 1024
+        }
+      ]
+    }
+  }
+]
+```
+
 ### `GET /me/submissions/:submissionId`
 
 用途：
@@ -495,6 +546,42 @@ Request:
 用途：
 
 - interviewer 查某位 candidate 的 submission 結果
+
+### `GET /admin/candidates/:candidateId/submissions`
+
+用途：
+
+- interviewer / admin 查看某位 candidate 的完整 submission history
+- 包含 source code snapshot、score、testcase pass/fail、錯誤訊息
+- interviewer 只能透過 candidate history 查看正式 candidate submissions，不能查看 admin preview runs
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  },
+  "submissions": []
+}
+```
+
+### `GET /admin/submissions`
+
+用途：
+
+- admin 查看全站 submission history
+- 可用 query string 篩選：`candidateId`、`problemId`
+
+### `GET /admin/submissions/:submissionId`
+
+用途：
+
+- admin 查看任意 submission detail
+- interviewer 只能查看正式 candidate submission detail
 
 ## Judge 結果分類
 
