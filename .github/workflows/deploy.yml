@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name || github.run_id }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:

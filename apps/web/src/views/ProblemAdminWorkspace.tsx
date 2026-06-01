@@ -46,7 +46,7 @@ const initialFormState: ProblemFormState = {
 const roleLabels = {
   candidate: "Candidate",
   interviewer: "Interviewer",
-  problem_admin: "Problem Admin"
+  problem_admin: "Admin"
 } satisfies Record<UserRole, string>;
 
 function createEmptyTestcase(): TestCaseState {
@@ -434,7 +434,7 @@ export function ProblemAdminWorkspace({ token }: ProblemAdminWorkspaceProps) {
     <>
       <div className="workspace-container dashboard-page">
         <header className="workspace-header">
-          <h1>Problem Admin Dashboard</h1>
+          <h1>Admin Dashboard</h1>
           <p className="subtitle text-muted">Create, validate, preview, and retire coding problems.</p>
         </header>
 

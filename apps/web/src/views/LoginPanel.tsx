@@ -29,9 +29,6 @@ export function LoginPanel({ health, isLoading, error, onLogin }: LoginPanelProp
           </div>
         </div>
         <h1>Sign in to your assigned workspace.</h1>
-        <p>
-          Your role determines whether you enter the candidate exam, interviewer console, or problem authoring dashboard.
-        </p>
         {health.status === "error" ? (
           <div className={`health-indicator health-${health.status}`}>
             <span className="health-dot" />

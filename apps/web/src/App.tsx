@@ -30,7 +30,7 @@ const roleHomePath = {
 const workspaceCopy = {
   candidate: "Candidate Exam",
   interviewer: "Interviewer Console",
-  problem_admin: "Problem Admin"
+  problem_admin: "Admin"
 } satisfies Record<AuthUser["role"], string>;
 
 const workspaceNav = {
