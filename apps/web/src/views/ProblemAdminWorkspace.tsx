@@ -375,6 +375,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   }
 
   function removeTestcase(index: number) {
+    setFormError(null);
     setTestcases((current) => {
       if (current.length <= 1) {
         return [createEmptyTestcase()];
@@ -499,8 +500,14 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                 Testcase {index + 1}
                 {testcase.label ? <small>({testcase.label})</small> : null}
               </div>
-              <button className="delete-button testcase-delete-button" onClick={() => removeTestcase(index)} type="button">
-                x
+              <button
+                aria-label={testcases.length <= 1 ? `Clear testcase ${index + 1}` : `Remove testcase ${index + 1}`}
+                className="delete-button testcase-delete-button"
+                onClick={() => removeTestcase(index)}
+                title={testcases.length <= 1 ? "Clear this testcase row" : "Remove this testcase row"}
+                type="button"
+              >
+                {testcases.length <= 1 ? "Clear" : "Remove"}
               </button>
             </div>
 
