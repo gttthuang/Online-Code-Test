@@ -34,7 +34,7 @@ test("successful submission is judged and visible in interviewer results", async
     });
 
     const worker = createWorker(harness.workerPool);
-    assert.equal(await worker.processNextSubmission(), true);
+    assert.equal(await worker.processSubmissionById(submission.submissionId), true);
 
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "finished");
@@ -67,7 +67,7 @@ test("invalid code fails submissions", async () => {
     });
 
     const worker = createWorker(harness.workerPool);
-    assert.equal(await worker.processNextSubmission(), true);
+    assert.equal(await worker.processSubmissionById(submission.submissionId), true);
 
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "failed");
@@ -91,7 +91,7 @@ test("wrong answers finish with zero score", async () => {
     });
 
     const worker = createWorker(harness.workerPool);
-    assert.equal(await worker.processNextSubmission(), true);
+    assert.equal(await worker.processSubmissionById(submission.submissionId), true);
 
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "finished");
@@ -115,7 +115,7 @@ test("timeouts fail submissions", async () => {
     });
 
     const worker = createWorker(harness.workerPool);
-    assert.equal(await worker.processNextSubmission(), true);
+    assert.equal(await worker.processSubmissionById(submission.submissionId), true);
 
     const detail = await fetchSubmission(harness.app, candidate.token, submission.submissionId);
     assert.equal(detail.status, "failed");

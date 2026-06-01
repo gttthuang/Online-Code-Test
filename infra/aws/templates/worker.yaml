@@ -1,0 +1,243 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS EC2 worker service for Online Code Test judge execution
+
+Parameters:
+  AppName:
+    Type: String
+  Stage:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  WorkerImageUri:
+    Type: String
+  InstanceType:
+    Type: String
+    Default: t3.small
+  DesiredCapacity:
+    Type: Number
+    Default: 1
+  MaxSize:
+    Type: Number
+    Default: 2
+  PostgresHost:
+    Type: String
+  PostgresPort:
+    Type: String
+    Default: "5432"
+  PostgresDb:
+    Type: String
+  PostgresUser:
+    Type: String
+  PostgresPassword:
+    Type: String
+    NoEcho: true
+  PostgresSsl:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "true"
+  RedisHost:
+    Type: String
+  RedisPort:
+    Type: String
+    Default: "6379"
+  RedisPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
+  RedisTls:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "true"
+  QueueConcurrency:
+    Type: String
+    Default: "2"
+
+Resources:
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/${AppName}/${Stage}/worker"
+      RetentionInDays: 14
+
+  WorkerCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${AppName}-${Stage}-worker"
+
+  WorkerTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-${Stage}-worker-execution-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  WorkerContainerInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-${Stage}-worker-instance-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+
+  WorkerContainerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${AppName}-${Stage}-worker-instance-profile"
+      Roles:
+        - !Ref WorkerContainerInstanceRole
+
+  WorkerInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS worker instances
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  WorkerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: "{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}"
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Arn: !GetAtt WorkerContainerInstanceProfile.Arn
+        SecurityGroupIds:
+          - !GetAtt WorkerInstanceSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${WorkerCluster} >> /etc/ecs/ecs.config
+            mkdir -p /var/lib/oct-judge-work
+            chmod 777 /var/lib/oct-judge-work
+
+  WorkerAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: !Ref DesiredCapacity
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WorkerLaunchTemplate
+        Version: !GetAtt WorkerLaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: !Sub "${AppName}-${Stage}-worker-ecs"
+          PropagateAtLaunch: true
+
+  WorkerCapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: !Sub "${AppName}-${Stage}-worker-capacity"
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref WorkerAutoScalingGroup
+        ManagedScaling:
+          Status: ENABLED
+          TargetCapacity: 100
+        ManagedTerminationProtection: DISABLED
+
+  WorkerClusterCapacityAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref WorkerCluster
+      CapacityProviders:
+        - !Ref WorkerCapacityProvider
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: !Ref WorkerCapacityProvider
+          Weight: 1
+
+  WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${AppName}-${Stage}-worker"
+      RequiresCompatibilities:
+        - EC2
+      NetworkMode: bridge
+      ExecutionRoleArn: !GetAtt WorkerTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: worker
+          Image: !Ref WorkerImageUri
+          Essential: true
+          MemoryReservation: 768
+          Environment:
+            - Name: POSTGRES_HOST
+              Value: !Ref PostgresHost
+            - Name: POSTGRES_PORT
+              Value: !Ref PostgresPort
+            - Name: POSTGRES_DB
+              Value: !Ref PostgresDb
+            - Name: POSTGRES_USER
+              Value: !Ref PostgresUser
+            - Name: POSTGRES_PASSWORD
+              Value: !Ref PostgresPassword
+            - Name: POSTGRES_SSL
+              Value: !Ref PostgresSsl
+            - Name: REDIS_HOST
+              Value: !Ref RedisHost
+            - Name: REDIS_PORT
+              Value: !Ref RedisPort
+            - Name: REDIS_PASSWORD
+              Value: !Ref RedisPassword
+            - Name: REDIS_TLS
+              Value: !Ref RedisTls
+            - Name: JUDGE_QUEUE_CONCURRENCY
+              Value: !Ref QueueConcurrency
+            - Name: JUDGE_SANDBOX_WORK_ROOT
+              Value: /var/lib/oct-judge-work
+          MountPoints:
+            - SourceVolume: docker-sock
+              ContainerPath: /var/run/docker.sock
+            - SourceVolume: judge-work
+              ContainerPath: /var/lib/oct-judge-work
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref WorkerLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: worker
+      Volumes:
+        - Name: docker-sock
+          Host:
+            SourcePath: /var/run/docker.sock
+        - Name: judge-work
+          Host:
+            SourcePath: /var/lib/oct-judge-work
+
+  WorkerService:
+    Type: AWS::ECS::Service
+    DependsOn: WorkerClusterCapacityAssociation
+    Properties:
+      Cluster: !Ref WorkerCluster
+      ServiceName: !Sub "${AppName}-${Stage}-worker"
+      DesiredCount: 1
+      CapacityProviderStrategy:
+        - CapacityProvider: !Ref WorkerCapacityProvider
+          Weight: 1
+      TaskDefinition: !Ref WorkerTaskDefinition
+
+Outputs:
+  WorkerClusterName:
+    Value: !Ref WorkerCluster
+  WorkerServiceName:
+    Value: !Ref WorkerService

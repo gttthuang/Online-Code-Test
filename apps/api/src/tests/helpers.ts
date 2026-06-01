@@ -7,6 +7,8 @@ import type {
   CreateProblemRequest,
   CreateProblemResponse,
   CreateSubmissionResponse,
+  StartCandidateExamResponse,
+  CreateUserResponse,
   LoginResponse,
   SubmissionDetail
 } from "@oct/contracts";
@@ -14,6 +16,7 @@ import type { FastifyInstance } from "fastify";
 import { Pool } from "pg";
 
 import { buildApp } from "../app.js";
+import type { JudgeQueue } from "../infra/judge-queue.js";
 import { createPostgresPool } from "../infra/postgres.js";
 import { JudgeWorker } from "../../../judge-worker/src/worker.js";
 import { createPostgresPool as createWorkerPostgresPool } from "../../../judge-worker/src/postgres.js";
@@ -43,6 +46,10 @@ const basePostgresConfig = {
   ssl: process.env.POSTGRES_SSL === "true"
 };
 
+const testJudgeQueue: JudgeQueue = {
+  async enqueue() {}
+};
+
 export async function createHarness(): Promise<TestHarness> {
   const dbName = `oct_test_${randomUUID().replaceAll("-", "_")}`;
   await createDatabase(dbName);
@@ -54,7 +61,8 @@ export async function createHarness(): Promise<TestHarness> {
 
   const app = await buildApp({
     postgres,
-    logger: false
+    logger: false,
+    judgeQueue: testJudgeQueue
   });
   await app.ready();
 
@@ -93,7 +101,6 @@ export function authHeader(token: string) {
 export function createWorker(pool: Pool, options?: { staleThresholdMs?: number }) {
   return new JudgeWorker(
     pool,
-    25,
     250,
     options?.staleThresholdMs ?? 30_000,
     workerConfig.sandbox
@@ -116,6 +123,26 @@ export async function createCandidate(app: FastifyInstance, interviewerToken: st
 
   assert.equal(response.statusCode, 200);
   return response.json<CreateCandidateResponse>().candidate;
+}
+
+export async function createUser(app: FastifyInstance, problemAdminToken: string, input?: {
+  name?: string;
+  email?: string;
+  role?: "candidate" | "interviewer" | "problem_admin";
+}) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/admin/users",
+    headers: authHeader(problemAdminToken),
+    payload: {
+      name: input?.name ?? "Test User",
+      email: input?.email ?? `user.${randomUUID()}@example.com`,
+      role: input?.role ?? "candidate"
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  return response.json<CreateUserResponse>().user;
 }
 
 export async function createProblem(
@@ -173,6 +200,8 @@ export async function createSubmission(
     sourceCode: string;
   }
 ) {
+  await startCandidateExam(app, candidateToken);
+
   const response = await app.inject({
     method: "POST",
     url: "/me/submissions",
@@ -182,6 +211,17 @@ export async function createSubmission(
 
   assert.equal(response.statusCode, 200);
   return response.json<CreateSubmissionResponse>();
+}
+
+export async function startCandidateExam(app: FastifyInstance, candidateToken: string) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/me/exam/start",
+    headers: authHeader(candidateToken)
+  });
+
+  assert.equal(response.statusCode, 200);
+  return response.json<StartCandidateExamResponse>().exam;
 }
 
 export async function fetchSubmission(app: FastifyInstance, candidateToken: string, submissionId: string) {

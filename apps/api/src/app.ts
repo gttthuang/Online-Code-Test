@@ -4,19 +4,25 @@ import multipart from "@fastify/multipart";
 import { registerAssignmentRoutes } from "./modules/assignments/routes.js";
 import { registerCandidateRoutes } from "./modules/candidates/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
+import { registerCustomRunRoutes } from "./modules/custom-runs/routes.js";
 import { registerProblemRoutes } from "./modules/problems/routes.js";
 import { registerResultRoutes } from "./modules/results/routes.js";
+import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
+import { registerUserRoutes } from "./modules/users/routes.js";
 import { toErrorResponse } from "./core/errors.js";
 import { config } from "./config.js";
-import { DatabaseJudgeQueue } from "./infra/judge-queue.js";
+import { createRedisJudgeQueue } from "./infra/judge-queue.js";
 import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
 import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
+import { createJudgeQueue } from "./infra/redis.js";
+import type { JudgeQueue } from "./infra/judge-queue.js";
 
 type BuildAppOptions = {
   postgres?: typeof config.postgres;
   logger?: boolean;
+  judgeQueue?: JudgeQueue;
 };
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -30,10 +36,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await initializePostgres(postgresPool);
 
   const store = new PostgresStore(postgresPool);
-  const judgeQueue = new DatabaseJudgeQueue();
+  const judgeQueue =
+    options.judgeQueue ??
+    createRedisJudgeQueue(createJudgeQueue(config.redis));
   const context = { store, judgeQueue };
 
   app.addHook("onClose", async () => {
+    if (judgeQueue.close) {
+      await judgeQueue.close();
+    }
     await postgresPool.end();
   });
 
@@ -54,16 +65,37 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "POST /auth/login",
       "GET /auth/me",
       "GET /internal/stats",
+      "GET /me/exam",
+      "POST /me/exam/start",
       "GET /me/assignments",
       "GET /me/problems/:problemId",
+      "GET /me/submissions",
       "POST /me/submissions",
       "GET /me/submissions/:submissionId",
+      "POST /me/custom-runs",
+      "GET /me/custom-runs/:runId",
       "GET /admin/candidates",
       "POST /admin/candidates",
+      "DELETE /admin/candidates/:candidateId",
+      "GET /admin/users",
+      "POST /admin/users",
+      "DELETE /admin/users/:userId",
       "POST /admin/problems",
       "GET /admin/problems",
+      "GET /admin/problems/:problemId/impact",
+      "PATCH /admin/problems/:problemId/archive",
+      "DELETE /admin/problems/:problemId",
       "POST /admin/assignments",
-      "GET /admin/candidates/:candidateId/results"
+      "GET /admin/candidates/:candidateId/results",
+      "GET /admin/candidates/:candidateId/submissions",
+      "GET /admin/candidates/:candidateId/reviews",
+      "PUT /admin/candidates/:candidateId/reviews/:problemId",
+      "DELETE /admin/candidates/:candidateId/reviews/:problemId",
+      "GET /admin/submissions",
+      "POST /admin/submissions/preview",
+      "GET /admin/submissions/:submissionId",
+      "POST /admin/custom-runs",
+      "GET /admin/custom-runs/:runId"
     ]
   }));
 
@@ -71,20 +103,24 @@ export async function buildApp(options: BuildAppOptions = {}) {
     status: "ok",
     service: "api",
     storageMode: "postgres",
-    queueMode: "database-polling",
+    queueMode: "redis-bullmq",
     postgres: {
       configuredHost: postgresConfig.host,
       configuredDatabase: postgresConfig.database,
       status: await pingPostgres(postgresPool)
         .then(() => "reachable")
         .catch(() => "unreachable")
+    },
+    redis: {
+      configuredHost: config.redis.host,
+      configuredDb: config.redis.db
     }
   }));
 
   app.get("/internal/stats", async () => ({
     service: "api",
     generatedAt: new Date().toISOString(),
-    queueMode: "database-polling",
+    queueMode: "redis-bullmq",
     storageMode: "postgres",
     stats: await store.getInternalStats()
   }));
@@ -94,13 +130,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
     reply.status(statusCode).send(body);
   });
-  app.register(multipart);
+  await app.register(multipart);
   registerAuthRoutes(app, context);
   registerCandidateRoutes(app, context);
   registerAssignmentRoutes(app, context);
+  registerCustomRunRoutes(app, context);
   registerProblemRoutes(app, context);
   registerSubmissionRoutes(app, context);
   registerResultRoutes(app, context);
+  registerReviewRoutes(app, context);
+  registerUserRoutes(app, context);
 
   return app;
 }

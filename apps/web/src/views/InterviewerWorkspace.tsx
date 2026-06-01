@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ProblemSummary, AuthUser } from "@oct/contracts";
+import { useLocation } from "react-router-dom";
 import { getAdminProblems, getCandidates } from "../lib/api";
 
 import { CandidateManager } from "./interviewer/CandidateManager";
@@ -14,6 +15,12 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [candidates, setCandidates] = useState<AuthUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+  const activeSection = location.pathname.includes("/candidates")
+    ? "candidates"
+    : location.pathname.includes("/results")
+      ? "results"
+      : "dashboard";
 
   useEffect(() => {
     let cancelled = false;
@@ -53,28 +60,30 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
         </div>
       )}
 
-      <section className="workspace-grid interviewer-grid">
-        <div className="grid-col-main">
-          {/* Top section: Assignment and Management */}
-          <div className="grid-row-split mb-lg">
-            <CandidateManager 
-              token={token} 
-              onCandidatesUpdated={setCandidates} 
-            />
-            <AssignmentForm 
-              token={token} 
-              candidates={candidates} 
-              problems={problems} 
-            />
+      {activeSection === "dashboard" ? (
+        <section className="workspace-grid interviewer-grid">
+          <div className="grid-col-main">
+            <div className="grid-row-split mb-lg">
+              <CandidateManager token={token} onCandidatesUpdated={setCandidates} />
+              <AssignmentForm token={token} candidates={candidates} problems={problems} />
+            </div>
+
+            <CandidateResults token={token} candidates={candidates} />
           </div>
-          
-          {/* Bottom section: Results */}
-          <CandidateResults 
-            token={token} 
-            candidates={candidates} 
-          />
-        </div>
-      </section>
+        </section>
+      ) : null}
+
+      {activeSection === "candidates" ? (
+        <section className="workspace-grid single-column-grid">
+          <CandidateManager token={token} onCandidatesUpdated={setCandidates} />
+        </section>
+      ) : null}
+
+      {activeSection === "results" ? (
+        <section className="workspace-grid single-column-grid">
+          <CandidateResults token={token} candidates={candidates} />
+        </section>
+      ) : null}
     </div>
   );
 }

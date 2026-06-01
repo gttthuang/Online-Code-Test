@@ -11,7 +11,8 @@ export default defineConfig({
       "/auth": apiProxyTarget,
       "/me": apiProxyTarget,
       "/admin": apiProxyTarget,
-      "/healthz": apiProxyTarget
+      "/healthz": apiProxyTarget,
+      "/internal": apiProxyTarget
     }
   }
 });

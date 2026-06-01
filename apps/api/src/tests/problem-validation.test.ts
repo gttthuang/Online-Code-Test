@@ -216,3 +216,63 @@ test("problem validation rejects invalid supportedLanguages JSON in multipart mo
     await destroyHarness(harness);
   }
 });
+
+test("problem admin can create multipart problems with multiple testcase pairs", async () => {
+  const harness = await createHarness();
+
+  try {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const formData = new FormData();
+    formData.set("title", "Multipart Testcase Batch");
+    formData.set("description", "This multipart request represents a batch testcase upload.");
+    formData.set("difficulty", "medium");
+    formData.set("timeLimitMs", "1000");
+    formData.set("memoryLimitKb", "65536");
+    formData.set("supportedLanguages", JSON.stringify(["python", "cpp"]));
+    formData.set("sampleInput", "3");
+    formData.set("sampleOutput", "6");
+    formData.set("testcases[0][input]", "1");
+    formData.set("testcases[0][output]", "1");
+    formData.set("testcases[1][input]", "2");
+    formData.set("testcases[1][output]", "4");
+    formData.set("testcases[2][input]", "3");
+    formData.set("testcases[2][output]", "9");
+
+    const response = await harness.app.inject({
+      method: "POST",
+      url: "/admin/problems",
+      headers: authHeader(problemAdmin.token),
+      payload: formData
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const testCaseResult = await harness.adminPool.query<{
+      input: string;
+      expected_output: string;
+    }>(
+      `
+        select input, expected_output
+        from test_cases
+        where problem_id = $1
+        order by input asc
+      `,
+      [response.json().problem.id]
+    );
+
+    assert.equal(testCaseResult.rowCount, 3);
+    assert.deepEqual(
+      testCaseResult.rows.map((testcase) => [
+        testcase.input,
+        testcase.expected_output
+      ]),
+      [
+        ["1", "1"],
+        ["2", "4"],
+        ["3", "9"]
+      ]
+    );
+  } finally {
+    await destroyHarness(harness);
+  }
+});

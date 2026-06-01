@@ -1,6 +1,10 @@
 import "dotenv/config";
 
+import { Queue, Worker } from "bullmq";
+import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
+
 import { createPostgresPool } from "./postgres.js";
+import { createRedisConnection } from "./redis.js";
 import { config } from "./config.js";
 import { logError, logInfo } from "./logger.js";
 import { JudgeWorker } from "./worker.js";
@@ -8,29 +12,139 @@ import { JudgeWorker } from "./worker.js";
 const pool = createPostgresPool(config.postgres);
 const worker = new JudgeWorker(
   pool,
-  config.pollIntervalMs,
   config.heartbeatIntervalMs,
   config.staleThresholdMs,
   config.sandbox
 );
+const redisConnection = createRedisConnection(config.redis);
+const recoveryQueue = new Queue<JudgeJob>(judgeQueueName, {
+  connection: redisConnection
+});
+const queueWorker = new Worker<JudgeJob>(
+  judgeQueueName,
+  async (job) => {
+    if (job.data.kind === "custom_run") {
+      await worker.processCustomRunById(job.data.runId);
+      return;
+    }
+
+    await worker.processSubmissionById(job.data.submissionId);
+  },
+  {
+    connection: redisConnection,
+    concurrency: config.queueConcurrency
+  }
+);
+const recoveryTimer = setInterval(() => {
+  void recoverAndRequeue().catch((error) => {
+    logError("worker_recovery_error", {
+      message: error instanceof Error ? error.message : "judge worker recovery failed"
+    });
+  });
+}, config.staleThresholdMs);
+
+let shuttingDown = false;
+
+async function shutdown() {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
+  clearInterval(recoveryTimer);
+  worker.stop();
+  await queueWorker.close();
+  await recoveryQueue.close();
+  await redisConnection.quit();
+  await pool.end();
+}
+
+async function enqueueSubmission(submissionId: string) {
+  await enqueueJob({ kind: "submission", submissionId });
+}
+
+async function enqueueCustomRun(runId: string) {
+  await enqueueJob({ kind: "custom_run", runId });
+}
+
+async function enqueueJob(job: JudgeJob) {
+  await recoveryQueue.add("judge-submission", job, {
+    jobId: getJudgeJobId(job),
+    removeOnComplete: 500,
+    removeOnFail: 500
+  });
+}
+
+async function syncQueuedSubmissions() {
+  const queuedSubmissionIds = await worker.listQueuedSubmissionIds();
+
+  for (const submissionId of queuedSubmissionIds) {
+    await enqueueSubmission(submissionId);
+  }
+
+  if (queuedSubmissionIds.length > 0) {
+    logInfo("queued_submissions_reenqueued", {
+      count: queuedSubmissionIds.length
+    });
+  }
+}
+
+async function syncQueuedCustomRuns() {
+  const queuedRunIds = await worker.listQueuedCustomRunIds();
+
+  for (const runId of queuedRunIds) {
+    await enqueueCustomRun(runId);
+  }
+
+  if (queuedRunIds.length > 0) {
+    logInfo("queued_custom_runs_reenqueued", {
+      count: queuedRunIds.length
+    });
+  }
+}
+
+async function recoverAndRequeue() {
+  const recovered = await worker.runRecoveryPass();
+
+  for (const submissionId of recovered.submissionIds) {
+    await enqueueSubmission(submissionId);
+  }
+
+  for (const runId of recovered.customRunIds) {
+    await enqueueCustomRun(runId);
+  }
+
+  if (recovered.submissionIds.length > 0) {
+    logInfo("recovered_submissions_reenqueued", {
+      count: recovered.submissionIds.length
+    });
+  }
+
+  if (recovered.customRunIds.length > 0) {
+    logInfo("recovered_custom_runs_reenqueued", {
+      count: recovered.customRunIds.length
+    });
+  }
+}
 
 process.on("SIGINT", async () => {
-  worker.stop();
-  await pool.end();
+  await shutdown();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
-  worker.stop();
-  await pool.end();
+  await shutdown();
   process.exit(0);
 });
 
 logInfo("worker_started", {
-  pollIntervalMs: config.pollIntervalMs,
   heartbeatIntervalMs: config.heartbeatIntervalMs,
   staleThresholdMs: config.staleThresholdMs,
+  queueMode: "redis-bullmq",
+  queueName: judgeQueueName,
+  queueConcurrency: config.queueConcurrency,
   postgres: `${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`,
+  redis: `${config.redis.host}:${config.redis.port}/${config.redis.db}`,
   sandbox: {
     pythonImage: config.sandbox.pythonImage,
     cppImage: config.sandbox.cppImage,
@@ -41,11 +155,13 @@ logInfo("worker_started", {
 });
 
 try {
-  await worker.start();
+  await recoverAndRequeue();
+  await syncQueuedSubmissions();
+  await syncQueuedCustomRuns();
 } catch (error) {
   logError("worker_startup_error", {
     message: error instanceof Error ? error.message : "judge worker failed to start"
   });
-  await pool.end();
+  await shutdown();
   process.exit(1);
 }

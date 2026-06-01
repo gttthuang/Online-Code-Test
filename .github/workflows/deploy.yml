@@ -1,0 +1,106 @@
+name: Deploy AWS
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Validate deploy configuration
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          test -n "$AWS_ACCESS_KEY_ID" || { echo "Missing GitHub secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo "Missing GitHub secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "$APP_NAME" || { echo "Missing deploy variable: APP_NAME"; exit 1; }
+          test -n "$STAGE" || { echo "Missing deploy variable: STAGE"; exit 1; }
+          test -n "$AWS_REGION" || { echo "Missing deploy variable: AWS_REGION"; exit 1; }
+          echo "Deploy target: app=$APP_NAME stage=$STAGE region=$AWS_REGION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux Rollup native package
+        run: |
+          ARCH="$(node -p "process.arch")"
+          if [ "$ARCH" = "x64" ]; then
+            npm install --no-save @rollup/rollup-linux-x64-gnu@4.60.1
+          elif [ "$ARCH" = "arm64" ]; then
+            npm install --no-save @rollup/rollup-linux-arm64-gnu@4.60.1
+          else
+            echo "Unsupported Rollup native architecture: $ARCH"
+            exit 1
+          fi
+
+      - name: Deploy to AWS
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          DB_NAME: ${{ vars.DB_NAME || 'online_code_test' }}
+          DB_USERNAME: ${{ vars.DB_USERNAME || 'oct_admin' }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PASSWORD_SECRET_NAME: ${{ vars.DB_PASSWORD_SECRET_NAME || '' }}
+          DB_PASSWORD_SSM_PARAMETER: ${{ vars.DB_PASSWORD_SSM_PARAMETER || '' }}
+          DB_INSTANCE_CLASS: ${{ vars.DB_INSTANCE_CLASS || 'db.t4g.micro' }}
+          REDIS_NODE_TYPE: ${{ vars.REDIS_NODE_TYPE || 'cache.t4g.micro' }}
+          REDIS_TLS: ${{ vars.REDIS_TLS || 'true' }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD || '' }}
+          REDIS_PASSWORD_SSM_PARAMETER: ${{ vars.REDIS_PASSWORD_SSM_PARAMETER || '' }}
+          WORKER_INSTANCE_TYPE: ${{ vars.WORKER_INSTANCE_TYPE || 't3.small' }}
+          WORKER_DESIRED_CAPACITY: ${{ vars.WORKER_DESIRED_CAPACITY || '1' }}
+          WORKER_MAX_SIZE: ${{ vars.WORKER_MAX_SIZE || '2' }}
+          JUDGE_QUEUE_CONCURRENCY: ${{ vars.JUDGE_QUEUE_CONCURRENCY || '2' }}
+        run: bash infra/aws/deploy.sh
+
+      - name: Smoke test AWS deployment
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          CANDIDATE_TOKEN: ${{ vars.SMOKE_CANDIDATE_TOKEN || 'candidate_alice' }}
+          INTERVIEWER_TOKEN: ${{ vars.SMOKE_INTERVIEWER_TOKEN || 'interviewer_bob' }}
+          SMOKE_CANDIDATE_ID: ${{ vars.SMOKE_CANDIDATE_ID || 'candidate_alice' }}
+          SMOKE_PROBLEM_ID: ${{ vars.SMOKE_PROBLEM_ID || 'problem_reverse_string' }}
+        run: bash infra/aws/smoke-test.sh

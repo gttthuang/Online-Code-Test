@@ -164,3 +164,57 @@
 .fullscreen-wrapper .panel-column {
     min-height: 10rem;
 }
+
+/* === 設定視窗 (Settings Modal) 樣式 === */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+}
+
+.settings-modal {
+    background: var(--panel-strong);
+    padding: 2rem;
+    border-radius: 16px;
+    width: 360px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.settings-modal h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text);
+}
+
+.settings-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+/* === Vim 狀態列樣式 === */
+.vim-status-bar {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    background: #f4efe5;
+    color: var(--text);
+    padding: 0 8px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--line);
+}
+
+/* 當未啟用 Vim 模式時隱藏狀態列 */
+.vim-status-bar:empty {
+    display: none;
+}

@@ -10,10 +10,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@fastify/multipart": "^10.0.0",
     "@oct/contracts": "0.1.0",
-    "@fastify/multipart": "^8",
+    "bullmq": "^5.76.8",
     "dotenv": "^16.6.1",
-    "fastify": "^4",
+    "fastify": "^5.8.5",
+    "ioredis": "^5.10.1",
     "pg": "^8.16.3",
     "zod": "^3"
   },

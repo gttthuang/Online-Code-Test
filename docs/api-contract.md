@@ -5,12 +5,12 @@
 ## 目前後端模式
 
 - 資料層：PostgreSQL
-- 判題：獨立 judge worker，以 database polling 方式處理 queued submission
+- 判題：獨立 judge worker，透過 Redis queue + BullMQ 處理 queued submission
 - 執行：worker 會用短生命週期 Docker container 跑 `python` / `cpp`，並用題目的 `timeLimitMs` 做 timeout
 - 驗證方式：`Authorization: Bearer <token>`
 - demo login 會直接回傳 `token = user.id`
 
-目前的目的，是先讓前端可以穩定串接。現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission；之後把 database polling 換成 Redis、把 Docker sandbox 強化成更完整的 production worker 時，盡量不改 API surface。
+現在 persistence 已經進 PostgreSQL，worker 也已經獨立，且能真的執行 `python` / `cpp` submission 與 custom stdin run。之後就算繼續強化 Redis retry 策略或 Docker sandbox，也盡量不改 API surface。
 
 ## Base URL
 
@@ -20,7 +20,7 @@
 
 - Candidate: `alice.candidate@example.com`
 - Interviewer: `bob.interviewer@example.com`
-- Problem Admin: `cindy.problem_admin@example.com`
+- Admin: `cindy.problem_admin@example.com`
 
 ## Auth 規則
 
@@ -40,10 +40,15 @@ Authorization: Bearer <token>
 {
   "error": {
     "code": "problem_not_found",
-    "message": "Problem does not exist"
+    "message": "Problem does not exist",
+    "details": {
+      "optional": "不同錯誤會帶不同細節"
+    }
   }
 }
 ```
+
+Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應該把這些細節顯示給使用者，而不是只顯示 `Request validation failed`。
 
 ## Endpoint 一覽
 
@@ -59,23 +64,44 @@ Authorization: Bearer <token>
 
 - `GET /me/assignments`
 - `GET /me/problems/:problemId`
+- `GET /me/submissions`
 - `POST /me/submissions`
 - `GET /me/submissions/:submissionId`
+- `POST /me/custom-runs`
+- `GET /me/custom-runs/:runId`
 
-### Interviewer / Problem Admin
+### Interviewer / Admin
 
 - `GET /admin/problems`
 
-### Problem Admin
+### Admin
 
 - `POST /admin/problems`
+- `DELETE /admin/problems/:problemId`
+- `GET /admin/users`
+- `POST /admin/users`
+- `DELETE /admin/users/:userId`
+- `POST /admin/submissions/preview`
+- `GET /admin/submissions/:submissionId`
 
 ### Interviewer
 
 - `GET /admin/candidates`
 - `POST /admin/candidates`
+- `DELETE /admin/candidates/:candidateId`
 - `POST /admin/assignments`
 - `GET /admin/candidates/:candidateId/results`
+- `GET /admin/candidates/:candidateId/submissions`
+- `GET /admin/candidates/:candidateId/reviews`
+- `PUT /admin/candidates/:candidateId/reviews/:problemId`
+- `DELETE /admin/candidates/:candidateId/reviews/:problemId`
+
+### Admin Submission Review
+
+- `GET /admin/submissions`
+- `GET /admin/submissions/:submissionId`
+- `POST /admin/custom-runs`
+- `GET /admin/custom-runs/:runId`
 
 ## 主要 Request / Response
 
@@ -86,6 +112,20 @@ Request:
 ```json
 {
   "email": "alice.candidate@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "candidate_alice",
+  "user": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  }
 }
 ```
 
@@ -137,19 +177,67 @@ Response:
 }
 ```
 
+### `GET /admin/users`
+
+用途：
+
+- admin 查看所有帳號與角色
+- UI 用這個列表確認目前有哪些 candidate / interviewer / admin
+
+Response:
+
+```json
+[
+  {
+    "id": "interviewer_bob",
+    "name": "Bob Interviewer",
+    "email": "bob.interviewer@example.com",
+    "role": "interviewer"
+  }
+]
+```
+
+### `POST /admin/users`
+
+用途：
+
+- admin 建立任意角色帳號
+- role 只能是 `candidate`、`interviewer`、`problem_admin`
+
+Request:
+
+```json
+{
+  "name": "Dana Interviewer",
+  "email": "dana.interviewer@example.com",
+  "role": "interviewer"
+}
+```
+
 Response:
 
 ```json
 {
-  "token": "candidate_alice",
   "user": {
-    "id": "candidate_alice",
-    "name": "Alice Candidate",
-    "email": "alice.candidate@example.com",
-    "role": "candidate"
+    "id": "interviewer_xxx",
+    "name": "Dana Interviewer",
+    "email": "dana.interviewer@example.com",
+    "role": "interviewer"
   }
 }
 ```
+
+### `DELETE /admin/users/:userId`
+
+用途：
+
+- admin 刪除還沒有被題目、assignment、submission 引用的帳號
+- 不能刪除目前登入中的自己
+
+常見失敗：
+
+- `user_self_delete_forbidden`: 不能刪自己
+- `user_in_use`: 該 user 已被 assignment / problem / submission 引用，不能直接刪
 
 ### `GET /auth/me`
 
@@ -183,7 +271,7 @@ Response:
 {
   "service": "api",
   "generatedAt": "2026-05-15T12:00:00.000Z",
-  "queueMode": "database-polling",
+  "queueMode": "redis-bullmq",
   "storageMode": "postgres",
   "stats": {
     "totals": {
@@ -213,11 +301,70 @@ Response:
 }
 ```
 
+### `GET /me/exam`
+
+用途：
+
+- candidate 進入考試前先拿摘要
+- 如果還沒開始，只會回傳題數和時限，不會回傳題目明細
+- `status` 可能是 `not_started`、`started`、`expired`
+
+Response:
+
+```json
+{
+  "status": "not_started",
+  "assignmentCount": 2,
+  "durationMinutes": 60,
+  "startedAt": null,
+  "expiresAt": null,
+  "remainingSeconds": null,
+  "assignments": []
+}
+```
+
+### `POST /me/exam/start`
+
+用途：
+
+- candidate 按下開始後啟動計時
+- 開始後 response 會包含 assignments，前端才能開題目列表
+
+Response:
+
+```json
+{
+  "exam": {
+    "status": "started",
+    "assignmentCount": 2,
+    "durationMinutes": 60,
+    "startedAt": "2026-06-01T05:00:00.000Z",
+    "expiresAt": "2026-06-01T06:00:00.000Z",
+    "remainingSeconds": 3600,
+    "assignments": [
+      {
+        "id": "assignment_alice_two_sum",
+        "candidateId": "candidate_alice",
+        "problemId": "problem_two_sum",
+        "problemTitle": "Two Sum",
+        "difficulty": "easy",
+        "assignedAt": "2026-04-14T00:00:00.000Z",
+        "durationMinutes": 60,
+        "startedAt": "2026-06-01T05:00:00.000Z",
+        "expiresAt": "2026-06-01T06:00:00.000Z",
+        "latestSubmissionStatus": null
+      }
+    ]
+  }
+}
+```
+
 ### `GET /me/assignments`
 
 用途：
 
 - 讓 candidate 拿到自己被分配的題目列表
+- 考試未開始或已過期時會回傳空陣列
 
 Response:
 
@@ -230,6 +377,9 @@ Response:
     "problemTitle": "Two Sum",
     "difficulty": "easy",
     "assignedAt": "2026-04-14T00:00:00.000Z",
+    "durationMinutes": 60,
+    "startedAt": "2026-06-01T05:00:00.000Z",
+    "expiresAt": "2026-06-01T06:00:00.000Z",
     "latestSubmissionStatus": null
   }
 ]
@@ -240,6 +390,7 @@ Response:
 用途：
 
 - candidate 讀自己被指派的題目內容
+- candidate 必須先 `POST /me/exam/start`，而且不能超過時限
 
 Response:
 
@@ -281,6 +432,50 @@ Response:
   "submissionId": "submission_123",
   "status": "queued"
 }
+```
+
+### `GET /me/submissions`
+
+用途：
+
+- candidate 查看自己的 submission history
+- 每筆都包含當時提交的 source code snapshot 和 testcase-level result
+
+Response:
+
+```json
+[
+  {
+    "id": "submission_123",
+    "candidateId": "candidate_alice",
+    "candidateName": "Alice Candidate",
+    "candidateEmail": "alice.candidate@example.com",
+    "candidateRole": "candidate",
+    "problemId": "problem_reverse_string",
+    "problemTitle": "Reverse String",
+    "language": "python",
+    "status": "finished",
+    "sourceCode": "print(input()[::-1])",
+    "score": 100,
+    "passedCases": 1,
+    "totalCases": 1,
+    "createdAt": "2026-04-14T12:00:00.000Z",
+    "updatedAt": "2026-04-14T12:00:01.000Z",
+    "result": {
+      "submissionId": "submission_123",
+      "status": "finished",
+      "score": 100,
+      "cases": [
+        {
+          "testCaseId": "case_reverse_hidden_1",
+          "passed": true,
+          "executionTimeMs": 20,
+          "memoryKb": 1024
+        }
+      ]
+    }
+  }
+]
 ```
 
 ### `GET /me/submissions/:submissionId`
@@ -334,17 +529,69 @@ Response:
 }
 ```
 
+### `POST /me/custom-runs`
+
+用途：
+
+- candidate 用自訂 stdin 跑目前程式
+- 不會建立正式 submission，也不會影響 score / submission history
+- 仍然由 Redis queue + judge worker + Docker sandbox 執行
+
+Request:
+
+```json
+{
+  "problemId": "problem_reverse_string",
+  "language": "python",
+  "sourceCode": "print(input()[::-1])",
+  "stdin": "abc"
+}
+```
+
+Response:
+
+```json
+{
+  "runId": "run_123",
+  "status": "queued"
+}
+```
+
+### `GET /me/custom-runs/:runId`
+
+Response:
+
+```json
+{
+  "id": "run_123",
+  "candidateId": "candidate_alice",
+  "problemId": "problem_reverse_string",
+  "requestedBy": "candidate_alice",
+  "language": "python",
+  "sourceCode": "print(input()[::-1])",
+  "stdin": "abc",
+  "status": "finished",
+  "stdout": "cba\n",
+  "stderr": "",
+  "errorType": null,
+  "errorMessage": null,
+  "executionTimeMs": 120,
+  "createdAt": "2026-04-14T12:00:00.000Z",
+  "updatedAt": "2026-04-14T12:00:01.000Z"
+}
+```
+
 ### `GET /admin/problems`
 
 用途：
 
-- 讓 interviewer / problem admin 讀題目列表
+- 讓 interviewer / admin 讀題目列表
 
 ### `POST /admin/problems`
 
 用途：
 
-- problem admin 建立題目
+- admin 建立題目
 
 Request:
 
@@ -378,18 +625,85 @@ Validation:
 - `hiddenTestCases`: 1 到 50 筆
 - 每筆 hidden testcase 的 `input` / `expectedOutput`: 各最多 16000 字元
 
+### `DELETE /admin/problems/:problemId`
+
+用途：
+
+- admin 刪除未被使用的題目
+- 如果題目已被 assignment 指派，或已有 candidate submission，會被拒絕
+- admin 自己在 preview 產生的 submission 不會阻止刪除
+
+常見失敗：
+
+```json
+{
+  "error": {
+    "code": "problem_in_use",
+    "message": "Cannot delete problem because it is assigned or has candidate submissions",
+    "details": {
+      "assignments": 1,
+      "candidateSubmissions": 2,
+      "previewSubmissions": 0,
+      "reviews": 1,
+      "canDeleteWithoutForce": false
+    }
+  }
+}
+```
+
+如果 UI 確認後要強制刪除，呼叫：
+
+```http
+DELETE /admin/problems/:problemId?force=true
+```
+
 ### `POST /admin/assignments`
 
 用途：
 
 - interviewer 指派題目給 candidate
+- 支援一次指派多題，並設定整場 exam 的時限
 
 Request:
 
 ```json
 {
   "candidateId": "candidate_alice",
-  "problemId": "problem_two_sum"
+  "problemIds": ["problem_two_sum", "problem_reverse_string"],
+  "durationMinutes": 60
+}
+```
+
+Response:
+
+```json
+{
+  "assignment": {
+    "id": "assignment_alice_two_sum",
+    "candidateId": "candidate_alice",
+    "problemId": "problem_two_sum",
+    "problemTitle": "Two Sum",
+    "difficulty": "easy",
+    "assignedAt": "2026-06-01T05:00:00.000Z",
+    "durationMinutes": 60,
+    "startedAt": null,
+    "expiresAt": null,
+    "latestSubmissionStatus": null
+  },
+  "assignments": [
+    {
+      "id": "assignment_alice_two_sum",
+      "candidateId": "candidate_alice",
+      "problemId": "problem_two_sum",
+      "problemTitle": "Two Sum",
+      "difficulty": "easy",
+      "assignedAt": "2026-06-01T05:00:00.000Z",
+      "durationMinutes": 60,
+      "startedAt": null,
+      "expiresAt": null,
+      "latestSubmissionStatus": null
+    }
+  ]
 }
 ```
 
@@ -398,6 +712,156 @@ Request:
 用途：
 
 - interviewer 查某位 candidate 的 submission 結果
+
+### `GET /admin/candidates/:candidateId/submissions`
+
+用途：
+
+- interviewer / admin 查看某位 candidate 的完整 submission history
+- 包含 source code snapshot、score、testcase pass/fail、錯誤訊息
+- interviewer 只能透過 candidate history 查看正式 candidate submissions，不能查看 admin preview runs
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  },
+  "submissions": []
+}
+```
+
+### `GET /admin/candidates/:candidateId/reviews`
+
+用途：
+
+- interviewer 查看自己對某位 candidate 的 private notes / rubric
+- response 會同時回傳該 candidate 的 assignments，讓前端可以針對每題填 review
+- candidate 和 admin 都不能讀 interviewer private review
+
+Response:
+
+```json
+{
+  "candidate": {
+    "id": "candidate_alice",
+    "name": "Alice Candidate",
+    "email": "alice.candidate@example.com",
+    "role": "candidate"
+  },
+  "assignments": [],
+  "reviews": [
+    {
+      "id": "review_xxx",
+      "candidateId": "candidate_alice",
+      "problemId": "problem_reverse_string",
+      "problemTitle": "Reverse String",
+      "interviewerId": "interviewer_bob",
+      "interviewerName": "Bob Interviewer",
+      "notes": "Solved with clear communication.",
+      "rubric": {
+        "problemSolving": 5,
+        "codeQuality": 4,
+        "communication": 5,
+        "testingDebugging": 4
+      },
+      "recommendation": "hire",
+      "createdAt": "2026-04-14T12:00:00.000Z",
+      "updatedAt": "2026-04-14T12:05:00.000Z"
+    }
+  ]
+}
+```
+
+### `PUT /admin/candidates/:candidateId/reviews/:problemId`
+
+用途：
+
+- interviewer 建立或更新自己對 candidate / problem 的 private review
+- `problemId` 必須是 candidate 已被指派的題目
+- rubric 每項為 1 到 5 分
+
+Request:
+
+```json
+{
+  "notes": "Solved with clear communication.",
+  "rubric": {
+    "problemSolving": 5,
+    "codeQuality": 4,
+    "communication": 5,
+    "testingDebugging": 4
+  },
+  "recommendation": "hire"
+}
+```
+
+`recommendation` 可用值：
+
+- `strong_hire`
+- `hire`
+- `lean_hire`
+- `lean_no_hire`
+- `no_hire`
+
+### `DELETE /admin/candidates/:candidateId/reviews/:problemId`
+
+用途：
+
+- interviewer 刪除自己寫過的 private review
+
+### `GET /admin/submissions`
+
+用途：
+
+- admin 查看全站 submission history
+- 可用 query string 篩選：`candidateId`、`problemId`
+
+### `GET /admin/submissions/:submissionId`
+
+用途：
+
+- admin 查看任意 submission detail
+- interviewer 只能查看正式 candidate submission detail
+
+### `POST /admin/custom-runs`
+
+用途：
+
+- interviewer / admin 用 candidate / problem context 跑程式片段
+- admin / interviewer 都不會因此建立正式 submission
+
+Request:
+
+```json
+{
+  "candidateId": "candidate_alice",
+  "problemId": "problem_reverse_string",
+  "language": "python",
+  "sourceCode": "print(input().upper())",
+  "stdin": "hello"
+}
+```
+
+Response:
+
+```json
+{
+  "runId": "run_123",
+  "status": "queued"
+}
+```
+
+### `GET /admin/custom-runs/:runId`
+
+用途：
+
+- interviewer / admin 輪詢 custom run 結果
+- 回傳 shape 同 `GET /me/custom-runs/:runId`
 
 ## Judge 結果分類
 
@@ -420,18 +884,23 @@ Request:
 ### Candidate flow
 
 1. `POST /auth/login`
-2. `GET /me/assignments`
-3. `GET /me/problems/:problemId`
-4. `POST /me/submissions`
-5. 輪詢 `GET /me/submissions/:submissionId`
+2. `GET /me/exam`
+3. 如果 `status = not_started`，只顯示題數與時限
+4. candidate 按開始後呼叫 `POST /me/exam/start`
+5. `GET /me/assignments`
+6. `GET /me/problems/:problemId`
+7. `POST /me/submissions`
+8. 輪詢 `GET /me/submissions/:submissionId`
 
 ### Admin flow
 
 1. `POST /auth/login`
 2. `GET /admin/problems`
 3. `POST /admin/problems`
-4. `POST /admin/assignments`
-5. `GET /admin/candidates/:candidateId/results`
+4. `GET /admin/users`
+5. `POST /admin/users`
+6. `POST /admin/assignments`
+7. `GET /admin/candidates/:candidateId/results`
 
 ## 補充
 

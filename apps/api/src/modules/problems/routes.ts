@@ -6,9 +6,21 @@ import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
 import { problemValidation } from "../../core/validation.js";
+import { assertCandidateExamCanAccessProblem } from "../assignments/exam-access.js";
 
 const problemIdParamsSchema = z.object({
   problemId: z.string().min(1)
+});
+
+const deleteProblemQuerySchema = z.object({
+  force: z.union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .default(false)
+    .transform((value) => value === true || value === "true")
+});
+
+const archiveProblemSchema = z.object({
+  archived: z.boolean()
 });
 
 const hiddenTestCaseSchema = z.object({
@@ -55,9 +67,7 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
 
     const params = problemIdParamsSchema.parse(request.params);
 
-    if (!(await context.store.isProblemAssigned(user.id, params.problemId))) {
-      throw new AppError(403, "problem_not_assigned", "Candidate has not been assigned this problem");
-    }
+    await assertCandidateExamCanAccessProblem(context, user.id, params.problemId);
 
     const problem = await context.store.getProblemDetail(params.problemId);
 
@@ -91,23 +101,62 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
     requireRole(user, ["problem_admin"]);
 
     const params = problemIdParamsSchema.parse(request.params);
+    const query = deleteProblemQuerySchema.parse(request.query);
+    const impact = await context.store.getProblemLifecycleImpact(params.problemId);
 
-    const [hasAssignment, hasSubmission] = await Promise.all([
-      context.store.hasAnyAssignment(params.problemId),
-      context.store.hasAnySubmission(params.problemId)
-    ]);
-
-    if (hasAssignment || hasSubmission) {
-      throw new AppError(400, "problem_in_use", "Cannot delete problem in use");
+    if (!impact) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
-    const deleted = await context.store.deleteProblem(params.problemId);
+    if (!impact.canDeleteWithoutForce && !query.force) {
+      throw new AppError(
+        400,
+        "problem_in_use",
+        "Cannot delete problem because it is assigned or has candidate submissions",
+        impact
+      );
+    }
+
+    const deleted = await context.store.deleteProblem(params.problemId, {
+      force: query.force
+    });
 
     if (!deleted) {
       throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
     return reply.status(204).send();
+  });
+
+  app.get("/admin/problems/:problemId/impact", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+    const impact = await context.store.getProblemLifecycleImpact(params.problemId);
+
+    if (!impact) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
+
+    return impact;
+  });
+
+  app.patch("/admin/problems/:problemId/archive", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["problem_admin"]);
+
+    const params = problemIdParamsSchema.parse(request.params);
+    const body = archiveProblemSchema.parse(request.body);
+    const problem = await context.store.archiveProblem(params.problemId, body.archived);
+
+    if (!problem) {
+      throw new AppError(404, "problem_not_found", "Problem does not exist");
+    }
+
+    return {
+      problem
+    };
   });
 
   app.get("/admin/problems/:problemId", async (request) => {
@@ -162,7 +211,11 @@ async function parseCreateProblemRequest(request: FastifyRequest) {
     }
 
     if (!input || !output) {
-      throw new AppError(400, "invalid_testcase_upload", "Each testcase must include both input and output");
+      throw new AppError(400, "invalid_testcase_upload", "Each testcase must include both input and output", {
+        index,
+        missingInput: !input,
+        missingOutput: !output
+      });
     }
 
     hiddenTestCases.push({

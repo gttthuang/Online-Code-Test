@@ -10,22 +10,30 @@ interface AssignmentFormProps {
 
 export function AssignmentForm({ token, candidates, problems }: AssignmentFormProps) {
   const [candidateInput, setCandidateInput] = useState("");
-  const [problemInput, setProblemInput] = useState("");
+  const [selectedProblemIds, setSelectedProblemIds] = useState<string[]>([]);
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const getCandidateLabel = (c: AuthUser) => `${c.name} (${c.email})`;
-  const getProblemLabel = (p: ProblemSummary) => `${p.title} - ${p.difficulty.toUpperCase()}`;
+  const activeProblems = problems.filter((problem) => !problem.archivedAt);
+
+  function toggleProblem(problemId: string) {
+    setSelectedProblemIds((current) =>
+      current.includes(problemId)
+        ? current.filter((id) => id !== problemId)
+        : [...current, problemId]
+    );
+  }
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const candidate = candidates.find(c => getCandidateLabel(c) === candidateInput);
-    const problem = problems.find(p => getProblemLabel(p) === problemInput);
 
-    if (!candidate || !problem) {
-      setError("Please select a valid candidate and problem from the dropdown list.");
+    if (!candidate || selectedProblemIds.length === 0) {
+      setError("Please select a valid candidate and at least one problem.");
       return;
     }
 
@@ -36,14 +44,14 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
     try {
       await createAssignment(token, {
         candidateId: candidate.id,
-        problemId: problem.id
+        problemIds: selectedProblemIds,
+        durationMinutes
       });
       
-      setSuccess(`Assigned "${problem.title}" to ${candidate.name} successfully!`);
+      setSuccess(`Assigned ${selectedProblemIds.length} problem${selectedProblemIds.length === 1 ? "" : "s"} to ${candidate.name} for ${durationMinutes} minutes.`);
       
-      // Optionally reset form
       setCandidateInput("");
-      setProblemInput("");
+      setSelectedProblemIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create assignment");
     } finally {
@@ -78,24 +86,42 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
         </label>
 
         <label className="field">
-          <span>Problem</span>
-          <input 
-            type="text" 
-            list="problem-list"
-            placeholder="Type to search or select a problem..." 
-            value={problemInput}
-            onChange={(e) => setProblemInput(e.target.value)}
+          <span>Time Limit (minutes)</span>
+          <input
+            max={480}
+            min={1}
+            onChange={(e) => setDurationMinutes(Number(e.target.value || 0))}
+            type="number"
+            value={durationMinutes}
           />
-          <datalist id="problem-list">
-            {problems.map((p) => (
-              <option key={p.id} value={getProblemLabel(p)} />
-            ))}
-          </datalist>
         </label>
+
+        <div className="field">
+          <span>Problems</span>
+          <div className="problem-checkbox-list">
+            {activeProblems.length === 0 ? (
+              <div className="empty-state">No active problems available.</div>
+            ) : (
+              activeProblems.map((problem) => (
+                <label className="problem-checkbox-row" key={problem.id}>
+                  <input
+                    checked={selectedProblemIds.includes(problem.id)}
+                    onChange={() => toggleProblem(problem.id)}
+                    type="checkbox"
+                  />
+                  <span>
+                    <strong>{problem.title}</strong>
+                    <small>{problem.id} · {problem.difficulty.toUpperCase()}</small>
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
 
         <button 
           className="primary-button submit-btn mt-md" 
-          disabled={assigning || !candidateInput || !problemInput} 
+          disabled={assigning || !candidateInput || selectedProblemIds.length === 0 || !Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 480}
           type="submit"
         >
           {assigning ? (

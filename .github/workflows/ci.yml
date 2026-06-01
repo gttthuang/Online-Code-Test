@@ -45,5 +45,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Linux Rollup native package
+        run: |
+          ARCH="$(node -p "process.arch")"
+          if [ "$ARCH" = "x64" ]; then
+            npm install --no-save @rollup/rollup-linux-x64-gnu@4.60.1
+          elif [ "$ARCH" = "arm64" ]; then
+            npm install --no-save @rollup/rollup-linux-arm64-gnu@4.60.1
+          else
+            echo "Unsupported Rollup native architecture: $ARCH"
+            exit 1
+          fi
+
       - name: Run CI verification
         run: npm run ci:verify

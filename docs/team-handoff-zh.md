@@ -1,6 +1,6 @@
 # 目前頁面進度、五人分工與交付標準
 
-這份文件是給組內 handoff 用的。
+這份文件是給組內 handoff 用的。它保留原本五人分工脈絡；目前實際 API 與啟動方式請以 `docs/api-contract.md`、`docs/local-development.md`、`docs/aws-deployment.md` 為準。
 
 前提：
 
@@ -16,7 +16,7 @@
 
 ## 目前已完成的頁面 / View
 
-注意：目前還不是正式多頁 router 架構，而是單一 app 根據登入角色切不同 workspace。
+注意：目前已經有正式 route 分流。登入後會依使用者 role 自動導向對應 workspace。
 
 ### 1. Login View
 
@@ -25,8 +25,9 @@
 - 可用 demo account 登入
 - 可直接輸入 email 登入
 - 登入後 session 會存到 browser
-- 頁面上會顯示 API health 狀態
 - 重新整理後若 session 還在，會直接回到登入後狀態
+- 登入頁不再顯示三種角色選項
+- 登入成功後會依角色導向 `/candidate`、`/interviewer` 或 `/problem-admin`
 
 目前檔案：
 
@@ -44,6 +45,8 @@
 - 可輸入程式碼並送出 submission
 - 送出後會輪詢 `queued -> running -> finished / failed`
 - 頁面上可看到 score、case 結果、error message
+- 可用 terminal/custom stdin run 測試目前程式，不會建立正式 submission
+- 可檢視每次 submission 的 code snapshot 與 testcase 結果
 
 目前檔案：
 
@@ -55,20 +58,26 @@
 
 - 可載入 problem list
 - 可建立 assignment，把 problem 指派給 candidate
-- 可查詢 candidate results
-- 基本 happy path 已可 demo
+- 可查詢 candidate results / submission history
+- 可寫 private notes / rubric / recommendation
+- 可用 terminal/custom stdin run 測試程式片段
 
 目前檔案：
 
 - `apps/web/src/views/InterviewerWorkspace.tsx`
 
-### 4. Problem Admin Workspace
+### 4. Admin Workspace
 
 目前已完成到：
 
 - 可載入 problem list
 - 可建立 problem
 - 建立後會寫進 PostgreSQL，重啟 backend 不會消失
+- 可批次匯入 `.in` / `.out` testcase pair
+- 可 preview problem
+- 可 archive / restore / force delete problem，刪除前會顯示 impact
+- 可建立 user 並設定 `candidate` / `interviewer` / `problem_admin`
+- 可查看全站 submission history
 
 目前檔案：
 
@@ -79,6 +88,8 @@
 目前已完成到：
 
 - 單一 app 可依角色切換 workspace
+- 已有正式 route 分流與 role guard
+- candidate / interviewer / admin 不會看到彼此 workspace
 - 有共用 API client
 - 有基本全域樣式
 - 可直接透過 Vite proxy 打 API
@@ -91,15 +102,12 @@
 
 ## 目前還沒完成的東西
 
-- 正式 routing
 - 更細的頁面拆分
-- 共用 layout / navigation
 - 表單驗證體驗優化
 - loading / empty / error state 統一
 - 更完整的 async 狀態處理
 - smoke test / E2E test
 - prettier 的資訊呈現
-- 真正 DB / worker 接上後的狀態同步調整
 
 ## 五人建議分工
 
@@ -212,9 +220,9 @@
 
 - 現在就可以開始
 - 主要依賴 `/admin/problems`、`/admin/assignments`、`/admin/candidates/:id/results`
-- 若 problem admin 新增更多題目，B 的畫面會更好 demo，但不影響先做
+- 若 admin 新增更多題目，B 的畫面會更好 demo，但不影響先做
 
-### 組員 C: Problem Admin Flow Owner
+### 組員 C: Admin Flow Owner
 
 > 就是負責所有出題主管會碰到的東西，也就是建題、看題、整理題目資料
 
@@ -232,7 +240,7 @@
 
 做到這樣算完成：
 
-- problem admin 登入後，可以完整走完：
+- admin 登入後，可以完整走完：
   - 看 problem list
   - 填 form
   - 建 problem
@@ -268,12 +276,13 @@
 
 主要負責內容：
 
+- route / role guard
 - app layout / navigation
-- `App.tsx` 的瘦身與整理
+- `App.tsx` 的 route shell 整理
 - 共用元件抽離
 - styles 結構整理
 - 共用 loading / empty / error 元件
-- 規劃後續 routing 或至少 workspace navigation
+- workspace navigation
 
 建議主要檔案：
 
@@ -286,6 +295,8 @@
 
 - A / B / C 不需要一直改 `App.tsx` 才能做自己的頁面
 - 至少有一層清楚的 app shell，讓使用者知道自己目前在哪個 workspace
+- `/login` 不直接露出三種角色入口
+- 不同 role route 會做 redirect / guard
 - 共用按鈕 / 表單區塊 / 卡片樣式有抽出來，不是三個頁面各寫一套
 - 至少把 loading、empty、error 的樣式做成共用模式
 - 若要新增一個新頁面，不需要先大改整個 app 結構
@@ -358,7 +369,7 @@
 - 至少驗過一次：
   - candidate flow
   - interviewer flow
-  - problem admin flow
+  - admin flow
 - 如果後端 async 狀態有小改動，E 要先確認前端顯示不會壞掉
 - 至少有一版本地可重現的 `docker compose up` 或等價啟動方式
 
@@ -392,7 +403,7 @@
 - 現在就可以開始，因為 repo 已經有可跑的 `apps/judge-worker`
 - 最好和 A、D 同步進行
 - A 把 candidate 畫面整理好之後，E 會更容易抽 async 顯示邏輯
-- 若你之後把 database polling worker 換成 Redis queue / sandbox worker，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
+- 若你之後調整 Redis queue retry 策略或 sandbox worker 行為，E 會是第一個要跟著驗證 submission 狀態是否還一致的人
 - E 做完會直接 cover spec 裡最容易漏掉的 async / scalability / deployment / test 幾塊
 
 ## Spec 對應檢查
@@ -408,7 +419,7 @@
   - A 負責 candidate 頁面
   - 你負責 submissions API
 - 出題主管可以建立題目
-  - C 負責 problem admin 頁面
+  - C 負責 admin 頁面
   - 你負責 problems API
 - 面試主管可以指定每位面試者的題目
   - B 負責 assignment / results 頁面
@@ -490,7 +501,7 @@
 
 1. 先讀 `docs/api-contract.md`
 2. 在本機跑 `npm run dev:api` 和 `npm run dev:web`
-3. 用 demo 帳號把目前 candidate / interviewer / problem admin 三種 flow 都走過一次
+3. 用 demo 帳號把目前 candidate / interviewer / admin 三種 flow 都走過一次
 4. 先由 D 開一個共用殼層整理 PR
 5. A / B / C 開始並行做各自 scene
 6. E 同步補 async 驗證、smoke test 和狀態整合
@@ -500,11 +511,11 @@
 現在不是從零開始做前端，而是：
 
 - 已經有一個能 login 的 app
-- 已經有 candidate / interviewer / problem admin 三種 workspace 的 MVP
+- 已經有 candidate / interviewer / admin 三種可 demo workspace
 - 五個人應該拆成：
   - candidate
   - interviewer
-  - problem admin
+  - admin
   - shared platform
   - async / integration / testing
 - 每個人都要把自己那塊做成「可 demo、可驗證、別人接得上」的程度

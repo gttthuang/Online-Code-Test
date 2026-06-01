@@ -1,12 +1,29 @@
-import type { JudgeJob } from "@oct/contracts";
+import { Queue } from "bullmq";
+import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
 
 export interface JudgeQueue {
   enqueue(job: JudgeJob): Promise<void>;
+  close?(): Promise<void>;
 }
 
-export class DatabaseJudgeQueue implements JudgeQueue {
-  async enqueue(_job: JudgeJob) {
-    // The API only persists queued submissions.
-    // A separate judge worker polls PostgreSQL and processes them.
+export class RedisJudgeQueue implements JudgeQueue {
+  constructor(private readonly queue: Queue<JudgeJob>) {}
+
+  async enqueue(job: JudgeJob) {
+    await this.queue.add("judge-submission", job, {
+      jobId: getJudgeJobId(job),
+      removeOnComplete: 500,
+      removeOnFail: 500
+    });
+  }
+
+  async close() {
+    await this.queue.close();
   }
 }
+
+export function createRedisJudgeQueue(queue: Queue<JudgeJob>) {
+  return new RedisJudgeQueue(queue);
+}
+
+export { judgeQueueName };

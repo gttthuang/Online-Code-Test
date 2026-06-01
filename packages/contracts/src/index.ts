@@ -15,6 +15,17 @@ export type SupportedLanguage = (typeof languages)[number];
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
 export type ProblemDifficulty = (typeof problemDifficulties)[number];
 
+export const reviewRecommendations = [
+  "strong_hire",
+  "hire",
+  "lean_hire",
+  "lean_no_hire",
+  "no_hire"
+] as const;
+export type ReviewRecommendation = (typeof reviewRecommendations)[number];
+
+export const judgeQueueName = "judge-submissions";
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -48,6 +59,16 @@ export interface CreateCandidateResponse {
   candidate: AuthUser;
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface CreateUserResponse {
+  user: AuthUser;
+}
+
 export interface ProblemSummary {
   id: string;
   title: string;
@@ -55,6 +76,7 @@ export interface ProblemSummary {
   timeLimitMs: number;
   memoryLimitKb: number;
   supportedLanguages: SupportedLanguage[];
+  archivedAt: string | null;
 }
 
 export interface ProblemDetail extends ProblemSummary {
@@ -84,6 +106,23 @@ export interface CreateProblemResponse {
   problem: ProblemSummary;
 }
 
+export interface ProblemLifecycleImpact {
+  problemId: string;
+  assignments: number;
+  candidateSubmissions: number;
+  previewSubmissions: number;
+  reviews: number;
+  canDeleteWithoutForce: boolean;
+}
+
+export interface ProblemArchiveRequest {
+  archived: boolean;
+}
+
+export interface ProblemArchiveResponse {
+  problem: ProblemSummary;
+}
+
 export interface AssignmentSummary {
   id: string;
   candidateId: string;
@@ -91,16 +130,38 @@ export interface AssignmentSummary {
   problemTitle: string;
   difficulty: ProblemDifficulty;
   assignedAt: string;
+  durationMinutes: number;
+  startedAt: string | null;
+  expiresAt: string | null;
   latestSubmissionStatus: SubmissionStatus | null;
 }
 
 export interface CreateAssignmentRequest {
   candidateId: string;
-  problemId: string;
+  problemId?: string;
+  problemIds?: string[];
+  durationMinutes?: number;
 }
 
 export interface CreateAssignmentResponse {
   assignment: AssignmentSummary;
+  assignments: AssignmentSummary[];
+}
+
+export type CandidateExamStatus = "not_started" | "started" | "expired";
+
+export interface CandidateExamSummary {
+  status: CandidateExamStatus;
+  assignmentCount: number;
+  durationMinutes: number | null;
+  startedAt: string | null;
+  expiresAt: string | null;
+  remainingSeconds: number | null;
+  assignments: AssignmentSummary[];
+}
+
+export interface StartCandidateExamResponse {
+  exam: CandidateExamSummary;
 }
 
 export interface CreateSubmissionRequest {
@@ -114,11 +175,52 @@ export interface CreateSubmissionResponse {
   status: SubmissionStatus;
 }
 
-export interface JudgeJob {
-  submissionId: string;
-  candidateId: string;
+export interface CreateCustomRunRequest {
   problemId: string;
   language: SupportedLanguage;
+  sourceCode: string;
+  stdin: string;
+}
+
+export interface CreateAdminCustomRunRequest extends CreateCustomRunRequest {
+  candidateId: string;
+}
+
+export interface CreateCustomRunResponse {
+  runId: string;
+  status: SubmissionStatus;
+}
+
+export interface CustomRunDetail {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  requestedBy: string;
+  language: SupportedLanguage;
+  sourceCode: string;
+  stdin: string;
+  status: SubmissionStatus;
+  stdout: string | null;
+  stderr: string | null;
+  errorType: JudgeFailureType | null;
+  errorMessage: string | null;
+  executionTimeMs: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type JudgeJob =
+  | {
+      kind?: "submission";
+      submissionId: string;
+    }
+  | {
+      kind: "custom_run";
+      runId: string;
+    };
+
+export function getJudgeJobId(job: JudgeJob) {
+  return job.kind === "custom_run" ? `custom-run-${job.runId}` : `submission-${job.submissionId}`;
 }
 
 export interface JudgeCaseResult {
@@ -159,6 +261,15 @@ export interface SubmissionDetail {
   result: JudgeResult | null;
 }
 
+export interface SubmissionHistoryItem extends SubmissionDetail {
+  candidateName: string;
+  candidateEmail: string;
+  candidateRole: UserRole;
+  problemTitle: string;
+  passedCases: number;
+  totalCases: number;
+}
+
 export interface CandidateResultItem {
   submissionId: string;
   problemId: string;
@@ -172,4 +283,37 @@ export interface CandidateResultItem {
 export interface CandidateResultsResponse {
   candidate: AuthUser;
   submissions: CandidateResultItem[];
+}
+
+export interface InterviewRubric {
+  problemSolving: number;
+  codeQuality: number;
+  communication: number;
+  testingDebugging: number;
+}
+
+export interface InterviewReview {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  problemTitle: string;
+  interviewerId: string;
+  interviewerName: string;
+  notes: string;
+  rubric: InterviewRubric;
+  recommendation: ReviewRecommendation;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertInterviewReviewRequest {
+  notes: string;
+  rubric: InterviewRubric;
+  recommendation: ReviewRecommendation;
+}
+
+export interface CandidateReviewContextResponse {
+  candidate: AuthUser;
+  assignments: AssignmentSummary[];
+  reviews: InterviewReview[];
 }
