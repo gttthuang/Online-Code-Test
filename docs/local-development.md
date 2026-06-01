@@ -33,6 +33,8 @@ npm run dev:web
 - Health check: `http://localhost:3000/healthz`
 - Stats: `http://localhost:3000/internal/stats`
 
+Vite 會把 `/auth`、`/me`、`/admin`、`/healthz`、`/internal` 和 WebSocket `/live` proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
+
 第一次啟動 worker 時，Docker 可能會先拉 `python` / `gcc` sandbox images。
 
 ## Demo 帳號
