@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   AssignmentSummary,
   AuthUser,
+  CandidateExamSummary,
   CandidateResultItem,
   CandidateResultsResponse,
   CandidateReviewContextResponse,
@@ -45,7 +46,9 @@ type AssignmentRow = {
   candidate_id: string;
   problem_id: string;
   assigned_by: string;
-  assigned_at: string;
+  assigned_at: string | Date;
+  duration_minutes: number;
+  started_at: string | Date | null;
 };
 
 type SubmissionRow = {
@@ -557,24 +560,82 @@ export class PostgresStore implements AppStore {
     return result.rows[0]?.exists ?? false;
   }
 
-  async createAssignment(candidateId: string, problemId: string, assignedBy: string): Promise<AssignmentSummary> {
-    const assignmentId = `assignment_${randomUUID()}`;
+  async createAssignment(
+    candidateId: string,
+    problemId: string,
+    assignedBy: string,
+    durationMinutes = 60
+  ): Promise<AssignmentSummary> {
+    const assignments = await this.createAssignments(candidateId, [problemId], assignedBy, durationMinutes);
+    return assignments[0];
+  }
+
+  async createAssignments(
+    candidateId: string,
+    problemIds: string[],
+    assignedBy: string,
+    durationMinutes: number
+  ): Promise<AssignmentSummary[]> {
+    const client = await this.pool.connect();
+    const assignmentIds = problemIds.map(() => `assignment_${randomUUID()}`);
     const assignedAt = new Date().toISOString();
 
-    await this.pool.query(
-      `
-        insert into assignments (id, candidate_id, problem_id, assigned_by, assigned_at)
-        values ($1, $2, $3, $4, $5::timestamptz)
-      `,
-      [assignmentId, candidateId, problemId, assignedBy, assignedAt]
-    );
+    try {
+      await client.query("begin");
+
+      await client.query(
+        `
+          update assignments
+          set duration_minutes = $2
+          where candidate_id = $1 and started_at is null
+        `,
+        [candidateId, durationMinutes]
+      );
+
+      for (const [index, problemId] of problemIds.entries()) {
+        await client.query(
+          `
+            insert into assignments (
+              id,
+              candidate_id,
+              problem_id,
+              assigned_by,
+              assigned_at,
+              duration_minutes
+            )
+            values ($1, $2, $3, $4, $5::timestamptz, $6)
+          `,
+          [assignmentIds[index], candidateId, problemId, assignedBy, assignedAt, durationMinutes]
+        );
+      }
+
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     const result = await this.pool.query<AssignmentRow>(
-      `select id, candidate_id, problem_id, assigned_by, assigned_at from assignments where id = $1`,
-      [assignmentId]
+      `
+        select
+          id,
+          candidate_id,
+          problem_id,
+          assigned_by,
+          assigned_at,
+          duration_minutes,
+          started_at
+        from assignments
+        where id = any($1::text[])
+        order by assigned_at asc, id asc
+      `,
+      [assignmentIds]
     );
 
-    return this.toAssignmentSummary(result.rows[0]);
+    const summaries = await Promise.all(result.rows.map((row) => this.toAssignmentSummary(row)));
+    return summaries;
   }
 
   async hasAssignment(candidateId: string, problemId: string): Promise<boolean> {
@@ -584,7 +645,14 @@ export class PostgresStore implements AppStore {
   async listAssignmentsForCandidate(candidateId: string): Promise<AssignmentSummary[]> {
     const result = await this.pool.query<AssignmentRow>(
       `
-        select id, candidate_id, problem_id, assigned_by, assigned_at
+        select
+          id,
+          candidate_id,
+          problem_id,
+          assigned_by,
+          assigned_at,
+          duration_minutes,
+          started_at
         from assignments
         where candidate_id = $1
         order by assigned_at asc
@@ -594,6 +662,29 @@ export class PostgresStore implements AppStore {
 
     const summaries = await Promise.all(result.rows.map((row) => this.toAssignmentSummary(row)));
     return summaries;
+  }
+
+  async getCandidateExam(candidateId: string): Promise<CandidateExamSummary> {
+    const assignments = await this.listAssignmentsForCandidate(candidateId);
+    return this.toCandidateExamSummary(assignments);
+  }
+
+  async startCandidateExam(candidateId: string): Promise<CandidateExamSummary> {
+    await this.pool.query(
+      `
+        with existing_start as (
+          select min(started_at) as started_at
+          from assignments
+          where candidate_id = $1 and started_at is not null
+        )
+        update assignments
+        set started_at = coalesce((select started_at from existing_start), now())
+        where candidate_id = $1 and started_at is null
+      `,
+      [candidateId]
+    );
+
+    return this.getCandidateExam(candidateId);
   }
 
   async createSubmission(candidateId: string, input: CreateSubmissionRequest): Promise<SubmissionDetail> {
@@ -1272,6 +1363,10 @@ export class PostgresStore implements AppStore {
 
     const problem = problemResult.rows[0];
     const latestSubmission = submissionResult.rows[0];
+    const startedAt = this.toIsoString(assignment.started_at);
+    const expiresAt = startedAt
+      ? new Date(new Date(startedAt).getTime() + assignment.duration_minutes * 60_000).toISOString()
+      : null;
 
     return {
       id: assignment.id,
@@ -1279,9 +1374,69 @@ export class PostgresStore implements AppStore {
       problemId: assignment.problem_id,
       problemTitle: problem?.title ?? "Unknown problem",
       difficulty: problem?.difficulty ?? "easy",
-      assignedAt: assignment.assigned_at,
+      assignedAt: this.toIsoString(assignment.assigned_at) ?? new Date().toISOString(),
+      durationMinutes: assignment.duration_minutes,
+      startedAt,
+      expiresAt,
       latestSubmissionStatus: latestSubmission?.status ?? null
     };
+  }
+
+  private toCandidateExamSummary(assignments: AssignmentSummary[]): CandidateExamSummary {
+    if (assignments.length === 0) {
+      return {
+        status: "not_started",
+        assignmentCount: 0,
+        durationMinutes: null,
+        startedAt: null,
+        expiresAt: null,
+        remainingSeconds: null,
+        assignments
+      };
+    }
+
+    const durationMinutes = Math.max(...assignments.map((assignment) => assignment.durationMinutes));
+    const startedTimes = assignments
+      .map((assignment) => assignment.startedAt ? new Date(assignment.startedAt).getTime() : null)
+      .filter((value): value is number => value !== null);
+
+    if (startedTimes.length === 0) {
+      return {
+        status: "not_started",
+        assignmentCount: assignments.length,
+        durationMinutes,
+        startedAt: null,
+        expiresAt: null,
+        remainingSeconds: null,
+        assignments
+      };
+    }
+
+    const startedAtMs = Math.min(...startedTimes);
+    const expiresAtMs = startedAtMs + durationMinutes * 60_000;
+    const remainingSeconds = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+
+    return {
+      status: remainingSeconds > 0 ? "started" : "expired",
+      assignmentCount: assignments.length,
+      durationMinutes,
+      startedAt: new Date(startedAtMs).toISOString(),
+      expiresAt: new Date(expiresAtMs).toISOString(),
+      remainingSeconds,
+      assignments
+    };
+  }
+
+  private toIsoString(value: string | Date | null): string | null {
+    if (value === null) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    return value;
   }
 
   private toProblemSummary(problem: ProblemRow | ProblemRecord): ProblemSummary {

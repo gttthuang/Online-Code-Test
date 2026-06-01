@@ -628,6 +628,54 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.exam-gate-page {
+  align-items: center;
+  justify-content: center;
+}
+
+.exam-start-card {
+  display: grid;
+  gap: 1rem;
+  max-width: 32rem;
+}
+
+.problem-checkbox-list {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 22rem;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.problem-checkbox-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 0.8rem;
+}
+
+.problem-checkbox-row input[type="checkbox"] {
+  height: 1rem;
+  margin-top: 0.2rem;
+  padding: 0;
+  width: 1rem;
+}
+
+.problem-checkbox-row span {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.problem-checkbox-row small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     width: 100vw;
@@ -853,6 +901,7 @@ textarea {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1220,7 +1269,7 @@ textarea {
 
 .submission-history-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr) auto;
+  grid-template-columns: minmax(0, 1.1fr) minmax(220px, auto) auto;
   gap: 0.8rem;
   align-items: center;
   border: 1px solid var(--line);
@@ -1242,6 +1291,11 @@ textarea {
 .submission-history-main {
   display: grid;
   gap: 0.25rem;
+}
+
+.submission-history-main strong,
+.submission-history-main span {
+  overflow-wrap: anywhere;
 }
 
 .submission-history-main span,
@@ -1271,6 +1325,32 @@ textarea {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
   padding: 1rem;
+}
+
+.submission-modal-backdrop {
+  padding: 1rem;
+}
+
+.submission-modal {
+  display: grid;
+  gap: 1rem;
+  max-height: min(86vh, 56rem);
+  overflow: auto;
+  width: min(1100px, calc(100vw - 2rem));
+}
+
+.submission-modal-meta {
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.submission-modal-grid {
+  align-items: start;
+}
+
+.submission-modal-code {
+  min-height: 26rem;
+  max-height: 50vh;
 }
 
 .submission-detail-grid {

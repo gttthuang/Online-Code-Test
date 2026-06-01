@@ -1,4 +1,5 @@
 import type { SubmissionHistoryItem } from "@oct/contracts";
+import { useState } from "react";
 import { Eye } from "lucide-react";
 
 interface SubmissionHistoryPanelProps {
@@ -16,7 +17,8 @@ export function SubmissionHistoryPanel({
   selectedId,
   submissions
 }: SubmissionHistoryPanelProps) {
-  const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? null;
+  const [activeSubmission, setActiveSubmission] = useState<SubmissionHistoryItem | null>(null);
+  const activeId = activeSubmission?.id ?? selectedId;
 
   if (loading) {
     return (
@@ -36,7 +38,7 @@ export function SubmissionHistoryPanel({
       <div className="submission-history-list">
         {submissions.map((submission) => (
           <div
-            className={submission.id === selectedId ? "submission-history-row submission-history-row-active" : "submission-history-row"}
+            className={submission.id === activeId ? "submission-history-row submission-history-row-active" : "submission-history-row"}
             key={submission.id}
           >
             <div className="submission-history-main">
@@ -54,7 +56,14 @@ export function SubmissionHistoryPanel({
               <span>{submission.passedCases} / {submission.totalCases} cases</span>
             </div>
 
-            <button className="secondary-button icon-button-text" onClick={() => onSelect(submission)} type="button">
+            <button
+              className="secondary-button icon-button-text"
+              onClick={() => {
+                setActiveSubmission(submission);
+                onSelect(submission);
+              }}
+              type="button"
+            >
               <Eye aria-hidden="true" size={15} />
               <span>View</span>
             </button>
@@ -62,41 +71,65 @@ export function SubmissionHistoryPanel({
         ))}
       </div>
 
-      {selectedSubmission ? (
-        <div className="submission-history-detail">
-          <div className="result-summary">
-            <strong>{selectedSubmission.problemTitle}</strong>
-            <span>{selectedSubmission.passedCases} / {selectedSubmission.totalCases} cases</span>
-          </div>
+      {activeSubmission ? (
+        <div className="modal-backdrop submission-modal-backdrop" onClick={() => setActiveSubmission(null)}>
+          <div className="modal modal-wide submission-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Submission Detail</p>
+                <h2>{activeSubmission.problemTitle}</h2>
+              </div>
+              <button className="chip-button" onClick={() => setActiveSubmission(null)} type="button">
+                Close
+              </button>
+            </div>
 
-          <div className="meta-row">
-            <span>{selectedSubmission.candidateName}</span>
-            <span>{selectedSubmission.language}</span>
-            <span>{selectedSubmission.status}</span>
-            <span>{selectedSubmission.score ?? "--"} / 100</span>
-          </div>
+            <div className="result-summary">
+              <strong>{activeSubmission.passedCases} / {activeSubmission.totalCases} cases</strong>
+              <span>{activeSubmission.score ?? "--"} / 100</span>
+            </div>
 
-          {selectedSubmission.result?.errorMessage ? (
-            <p className="error-text">{selectedSubmission.result.errorMessage}</p>
-          ) : null}
+            <div className="meta-row submission-modal-meta">
+              <span>{activeSubmission.candidateName}</span>
+              <span>{activeSubmission.language}</span>
+              <span>{new Date(activeSubmission.createdAt).toLocaleString()}</span>
+              <span className={`badge ${getStatusBadgeClass(activeSubmission.status)}`}>
+                {activeSubmission.status}
+              </span>
+            </div>
 
-          <div className="submission-detail-grid">
-            <pre className="code-snapshot">{selectedSubmission.sourceCode}</pre>
+            {activeSubmission.result?.errorMessage ? (
+              <p className="error-text">{activeSubmission.result.errorMessage}</p>
+            ) : null}
 
-            <div className="case-list">
-              {selectedSubmission.result?.cases.map((testCase) => (
-                <div className="case-item" key={testCase.testCaseId}>
-                  <div>
-                    <strong>{testCase.testCaseId}</strong>
-                    <small>
-                      {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
-                    </small>
-                  </div>
-                  <span className={testCase.passed ? "case-pass" : "case-fail"}>
-                    {testCase.passed ? "PASS" : "FAIL"}
-                  </span>
+            <div className="submission-detail-grid submission-modal-grid">
+              <div>
+                <p className="label-text">Code</p>
+                <pre className="code-snapshot submission-modal-code">{activeSubmission.sourceCode}</pre>
+              </div>
+
+              <div>
+                <p className="label-text">Result</p>
+                <div className="case-list">
+                  {activeSubmission.result?.cases.length ? (
+                    activeSubmission.result.cases.map((testCase) => (
+                      <div className="case-item" key={testCase.testCaseId}>
+                        <div>
+                          <strong>{testCase.testCaseId}</strong>
+                          <small>
+                            {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+                          </small>
+                        </div>
+                        <span className={testCase.passed ? "case-pass" : "case-fail"}>
+                          {testCase.passed ? "PASS" : "FAIL"}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">Judge result is not available yet.</div>
+                  )}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </div>

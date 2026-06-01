@@ -6,6 +6,7 @@ import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
 import { submissionValidation } from "../../core/validation.js";
+import { assertCandidateExamCanAccessProblem } from "../assignments/exam-access.js";
 
 const customRunFields = {
   problemId: z.string().min(1),
@@ -42,6 +43,7 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
 
     const body = customRunSchema.parse(request.body);
     await assertCanRunProblem(context, user.id, body.problemId, body.language);
+    await assertCandidateExamCanAccessProblem(context, user.id, body.problemId);
 
     const run = await context.store.createCustomRun({
       candidateId: user.id,

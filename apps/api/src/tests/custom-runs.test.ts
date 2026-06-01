@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getJudgeJobId } from "@oct/contracts";
 import type { CreateCustomRunResponse, CustomRunDetail } from "@oct/contracts";
 
-import { authHeader, createHarness, createWorker, destroyHarness, login } from "./helpers.js";
+import { authHeader, createHarness, createWorker, destroyHarness, login, startCandidateExam } from "./helpers.js";
 
 test("judge queue job ids are BullMQ-safe", () => {
   assert.equal(getJudgeJobId({ kind: "custom_run", runId: "run_123" }).includes(":"), false);
@@ -15,6 +15,7 @@ test("candidate can run custom stdin without creating a submission", async () =>
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
+    await startCandidateExam(harness.app, candidate.token);
     const response = await harness.app.inject({
       method: "POST",
       url: "/me/custom-runs",

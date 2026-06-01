@@ -7,6 +7,7 @@ import type {
   CreateProblemRequest,
   CreateProblemResponse,
   CreateSubmissionResponse,
+  StartCandidateExamResponse,
   CreateUserResponse,
   LoginResponse,
   SubmissionDetail
@@ -199,6 +200,8 @@ export async function createSubmission(
     sourceCode: string;
   }
 ) {
+  await startCandidateExam(app, candidateToken);
+
   const response = await app.inject({
     method: "POST",
     url: "/me/submissions",
@@ -208,6 +211,17 @@ export async function createSubmission(
 
   assert.equal(response.statusCode, 200);
   return response.json<CreateSubmissionResponse>();
+}
+
+export async function startCandidateExam(app: FastifyInstance, candidateToken: string) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/me/exam/start",
+    headers: authHeader(candidateToken)
+  });
+
+  assert.equal(response.statusCode, 200);
+  return response.json<StartCandidateExamResponse>().exam;
 }
 
 export async function fetchSubmission(app: FastifyInstance, candidateToken: string, submissionId: string) {

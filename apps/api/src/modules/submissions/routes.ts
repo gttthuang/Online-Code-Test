@@ -6,6 +6,7 @@ import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
 import { submissionValidation } from "../../core/validation.js";
+import { assertCandidateExamCanAccessProblem } from "../assignments/exam-access.js";
 
 const createSubmissionSchema = z.object({
   problemId: z.string().min(1),
@@ -48,9 +49,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
       throw new AppError(404, "problem_not_found", "Problem does not exist");
     }
 
-    if (!(await context.store.isProblemAssigned(user.id, body.problemId))) {
-      throw new AppError(403, "problem_not_assigned", "Candidate has not been assigned this problem");
-    }
+    await assertCandidateExamCanAccessProblem(context, user.id, body.problemId);
 
     if (!problem.supportedLanguages.includes(body.language)) {
       throw new AppError(400, "language_not_supported", "Problem does not support this language");

@@ -130,16 +130,38 @@ export interface AssignmentSummary {
   problemTitle: string;
   difficulty: ProblemDifficulty;
   assignedAt: string;
+  durationMinutes: number;
+  startedAt: string | null;
+  expiresAt: string | null;
   latestSubmissionStatus: SubmissionStatus | null;
 }
 
 export interface CreateAssignmentRequest {
   candidateId: string;
-  problemId: string;
+  problemId?: string;
+  problemIds?: string[];
+  durationMinutes?: number;
 }
 
 export interface CreateAssignmentResponse {
   assignment: AssignmentSummary;
+  assignments: AssignmentSummary[];
+}
+
+export type CandidateExamStatus = "not_started" | "started" | "expired";
+
+export interface CandidateExamSummary {
+  status: CandidateExamStatus;
+  assignmentCount: number;
+  durationMinutes: number | null;
+  startedAt: string | null;
+  expiresAt: string | null;
+  remainingSeconds: number | null;
+  assignments: AssignmentSummary[];
+}
+
+export interface StartCandidateExamResponse {
+  exam: CandidateExamSummary;
 }
 
 export interface CreateSubmissionRequest {

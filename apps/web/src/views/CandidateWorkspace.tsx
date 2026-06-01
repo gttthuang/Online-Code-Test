@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import type { AssignmentSummary, AuthUser, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import type { AssignmentSummary, AuthUser, CandidateExamSummary, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 
-import { createCustomRun, createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun } from "../lib/api";
+import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam } from "../lib/api";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
 
@@ -25,10 +25,15 @@ interface CandidateWorkspaceProps {
 
 export function CandidateWorkspace({ token, user, initialProblemId, onClose }: CandidateWorkspaceProps) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
-  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(initialProblemId ?? null);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    user.role === "problem_admin" ? initialProblemId ?? null : null
+  );
+  const [exam, setExam] = useState<CandidateExamSummary | null>(null);
+  const [examStarting, setExamStarting] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [problemLoading, setProblemLoading] = useState(false);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(user.role === "candidate");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [sourceCode, setSourceCode] = useState("print(42)");
   const [language, setLanguage] = useState<SupportedLanguage>("python");
@@ -53,8 +58,8 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
   const [fontSize, setFontSize] = useState<number>(14);
   const [tabSize, setTabSize] = useState<number>(4);
   const [keybinding, setKeybinding] = useState<string>("standard");
-  const showAssignmentDrawer = user.role === "candidate" && !initialProblemId;
   const isAdminPreview = user.role === "problem_admin";
+  const showAssignmentDrawer = user.role === "candidate" && !initialProblemId && exam?.status === "started";
 
   // === 編輯器與 Vim 實體參考 ===
   const editorRef = useRef<any>(null);
@@ -103,12 +108,11 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     };
   }, [keybinding]);
 
-  // --- API 相關邏輯保留不變 ---
   useEffect(() => {
     let cancelled = false;
 
-    if (initialProblemId) {
-      setSelectedProblemId(initialProblemId);
+    if (user.role === "problem_admin") {
+      setSelectedProblemId(initialProblemId ?? null);
       setAssignments([]);
       setAssignmentsLoading(false);
       return;
@@ -116,14 +120,24 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
 
     setAssignmentsLoading(true);
 
-    getAssignments(token)
-      .then((items) => {
+    setWorkspaceError(null);
+
+    getCandidateExam(token)
+      .then((nextExam) => {
         if (cancelled) return;
-        setAssignments(items);
-        if (initialProblemId) {
-          setSelectedProblemId(initialProblemId);
+        setExam(nextExam);
+        setRemainingSeconds(nextExam.remainingSeconds);
+
+        if (nextExam.status === "started") {
+          setAssignments(nextExam.assignments);
+          const initialAssignment = initialProblemId
+            ? nextExam.assignments.find((assignment) => assignment.problemId === initialProblemId)
+            : null;
+          setSelectedProblemId(initialAssignment?.problemId ?? nextExam.assignments[0]?.problemId ?? null);
         } else {
-          setSelectedProblemId(items[0]?.problemId ?? null);
+          setAssignments([]);
+          setSelectedProblemId(null);
+          setProblem(null);
         }
       })
       .catch((error) => {
@@ -137,7 +151,30 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     return () => {
       cancelled = true;
     };
-  }, [token, initialProblemId]);
+  }, [token, initialProblemId, user.role]);
+
+  useEffect(() => {
+    setRemainingSeconds(exam?.remainingSeconds ?? null);
+
+    if (user.role !== "candidate" || exam?.status !== "started") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((current) => current === null ? null : Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [exam?.remainingSeconds, exam?.status, user.role]);
+
+  useEffect(() => {
+    if (user.role === "candidate" && exam?.status === "started" && remainingSeconds === 0) {
+      setExam((current) => current ? { ...current, status: "expired", remainingSeconds: 0, assignments: [] } : current);
+      setAssignments([]);
+      setSelectedProblemId(null);
+      setProblem(null);
+    }
+  }, [exam?.status, remainingSeconds, user.role]);
 
   useEffect(() => {
     if (!selectedProblemId) {
@@ -324,9 +361,30 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
 
   function handleSelectHistoryItem(item: SubmissionHistoryItem) {
     setSubmission(item);
-    setSourceCode(item.sourceCode);
-    setLanguage(item.language);
     setRightTab("output");
+  }
+
+  async function handleStartExam() {
+    setExamStarting(true);
+    setWorkspaceError(null);
+
+    try {
+      const response = await startCandidateExam(token);
+      setExam(response.exam);
+      setRemainingSeconds(response.exam.remainingSeconds);
+
+      if (response.exam.status === "started") {
+        setAssignments(response.exam.assignments);
+        const initialAssignment = initialProblemId
+          ? response.exam.assignments.find((assignment) => assignment.problemId === initialProblemId)
+          : null;
+        setSelectedProblemId(initialAssignment?.problemId ?? response.exam.assignments[0]?.problemId ?? null);
+      }
+    } catch (error) {
+      setWorkspaceError(error instanceof Error ? error.message : "Failed to start exam");
+    } finally {
+      setExamStarting(false);
+    }
   }
 
   const handleColDividerDrag = (e: React.PointerEvent) => {
@@ -368,6 +426,45 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", onPointerUp);
   };
+
+  if (user.role === "candidate" && exam?.status !== "started") {
+    return (
+      <div className="fullscreen-wrapper">
+        <section className="workspace-container dashboard-page exam-gate-page">
+          <article className="status-card exam-start-card">
+            {assignmentsLoading ? (
+              <>
+                <p className="eyebrow">Candidate Exam</p>
+                <h1>Loading exam...</h1>
+              </>
+            ) : !exam || exam.assignmentCount === 0 ? (
+              <>
+                <p className="eyebrow">Candidate Exam</p>
+                <h1>No assignments yet</h1>
+                <p className="panel-copy">Your interviewer has not assigned problems to this account.</p>
+              </>
+            ) : exam.status === "expired" ? (
+              <>
+                <p className="eyebrow">Candidate Exam</p>
+                <h1>Time limit reached</h1>
+                <p className="panel-copy">This exam has expired. Submission and custom runs are locked.</p>
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">Candidate Exam</p>
+                <h1>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h1>
+                <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
+                <button className="primary-button" disabled={examStarting} onClick={handleStartExam} type="button">
+                  {examStarting ? "Starting..." : "Start Exam"}
+                </button>
+              </>
+            )}
+            {workspaceError ? <p className="error-text">{workspaceError}</p> : null}
+          </article>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="fullscreen-wrapper">
@@ -437,7 +534,10 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       {showAssignmentDrawer ? (
         <div className={`problem-drawer ${isSelectorOpen ? "open" : ""}`}>
           <div className="panel-header" style={{ marginBottom: '1rem' }}>
-            <h2>Assignments</h2>
+            <div>
+              <h2>Assignments</h2>
+              <p className="label-text">Remaining: {formatRemainingTime(remainingSeconds)}</p>
+            </div>
             <button className="chip-button" onClick={() => setIsSelectorOpen(false)} title="Close">
               ✕
             </button>
@@ -548,9 +648,12 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
           <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
-	                <div>
-	                  <h2>Code Editor</h2>
-	                </div>
+                <div>
+                  <h2>Code Editor</h2>
+                  {user.role === "candidate" ? (
+                    <p className="label-text">Remaining: {formatRemainingTime(remainingSeconds)}</p>
+                  ) : null}
+                </div>
                 <div className="editor-toolbar">
                   <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem", margin: 0 }}>
@@ -732,4 +835,22 @@ export function CandidateWorkspace({ token, user, initialProblemId, onClose }: C
       </section>
     </div>
   );
+}
+
+function formatExamDuration(durationMinutes: number | null) {
+  if (!durationMinutes) {
+    return "Not set";
+  }
+
+  return `${durationMinutes} minute${durationMinutes === 1 ? "" : "s"}`;
+}
+
+function formatRemainingTime(remainingSeconds: number | null) {
+  if (remainingSeconds === null) {
+    return "--:--";
+  }
+
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }

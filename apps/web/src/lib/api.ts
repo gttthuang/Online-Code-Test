@@ -1,6 +1,7 @@
 import type {
   AssignmentSummary,
   AuthUser,
+  CandidateExamSummary,
   CandidateResultsResponse,
   CandidateReviewContextResponse,
   CreateCandidateRequest,
@@ -187,6 +188,14 @@ export function getMe(token: string) {
 
 export function getAssignments(token: string) {
   return request<AssignmentSummary[]>("/me/assignments", undefined, token);
+}
+
+export function getCandidateExam(token: string) {
+  return request<CandidateExamSummary>("/me/exam", undefined, token);
+}
+
+export function startCandidateExam(token: string) {
+  return request<{ exam: CandidateExamSummary }>("/me/exam/start", { method: "POST" }, token);
 }
 
 export function getProblem(token: string, problemId: string) {

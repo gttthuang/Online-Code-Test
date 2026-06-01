@@ -1,6 +1,7 @@
 import type {
   AssignmentSummary,
   AuthUser,
+  CandidateExamSummary,
   CandidateResultsResponse,
   CandidateReviewContextResponse,
   CreateCustomRunRequest,
@@ -68,9 +69,22 @@ export interface AppStore {
   hasAnyAssignmentForCandidate(candidateId: string): Promise<boolean>;
   hasAnySubmissionByCandidate(candidateId: string): Promise<boolean>;
   isProblemAssigned(candidateId: string, problemId: string): Promise<boolean>;
-  createAssignment(candidateId: string, problemId: string, assignedBy: string): Promise<AssignmentSummary>;
+  createAssignment(
+    candidateId: string,
+    problemId: string,
+    assignedBy: string,
+    durationMinutes?: number
+  ): Promise<AssignmentSummary>;
+  createAssignments(
+    candidateId: string,
+    problemIds: string[],
+    assignedBy: string,
+    durationMinutes: number
+  ): Promise<AssignmentSummary[]>;
   hasAssignment(candidateId: string, problemId: string): Promise<boolean>;
   listAssignmentsForCandidate(candidateId: string): Promise<AssignmentSummary[]>;
+  getCandidateExam(candidateId: string): Promise<CandidateExamSummary>;
+  startCandidateExam(candidateId: string): Promise<CandidateExamSummary>;
   createSubmission(candidateId: string, input: CreateSubmissionRequest): Promise<SubmissionDetail>;
   createCustomRun(input: {
     candidateId: string;

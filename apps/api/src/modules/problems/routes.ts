@@ -6,6 +6,7 @@ import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
 import { problemValidation } from "../../core/validation.js";
+import { assertCandidateExamCanAccessProblem } from "../assignments/exam-access.js";
 
 const problemIdParamsSchema = z.object({
   problemId: z.string().min(1)
@@ -66,9 +67,7 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
 
     const params = problemIdParamsSchema.parse(request.params);
 
-    if (!(await context.store.isProblemAssigned(user.id, params.problemId))) {
-      throw new AppError(403, "problem_not_assigned", "Candidate has not been assigned this problem");
-    }
+    await assertCandidateExamCanAccessProblem(context, user.id, params.problemId);
 
     const problem = await context.store.getProblemDetail(params.problemId);
 

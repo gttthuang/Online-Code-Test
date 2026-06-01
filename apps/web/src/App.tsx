@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { AuthUser } from "@oct/contracts";
+import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
 import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PlusCircle, UserRoundCog } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { getAssignments, getMe, loginWithEmail } from "./lib/api";
+import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
 import { CandidateWorkspace } from "./views/CandidateWorkspace";
 import { InterviewerWorkspace } from "./views/InterviewerWorkspace";
@@ -60,8 +60,9 @@ function CandidateRoute({ session }: { session: SessionState }) {
 }
 
 function CandidateAssignmentsPage({ session }: { session: SessionState }) {
-  const [assignments, setAssignments] = useState<Awaited<ReturnType<typeof getAssignments>>>([]);
+  const [exam, setExam] = useState<CandidateExamSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,10 +71,10 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
     setLoading(true);
     setError(null);
 
-    getAssignments(session.token)
-      .then((items) => {
+    getCandidateExam(session.token)
+      .then((nextExam) => {
         if (!cancelled) {
-          setAssignments(items);
+          setExam(nextExam);
         }
       })
       .catch((nextError) => {
@@ -92,12 +93,28 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
     };
   }, [session.token]);
 
+  async function handleStartExam() {
+    setStarting(true);
+    setError(null);
+
+    try {
+      const response = await startCandidateExam(session.token);
+      setExam(response.exam);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Failed to start exam");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const assignments = exam?.assignments ?? [];
+
   return (
     <section className="workspace-container dashboard-page">
       <header className="workspace-header">
         <p className="eyebrow">Candidate Workspace</p>
-        <h1>Assignments</h1>
-        <p className="subtitle text-muted">Open an assigned problem to start coding.</p>
+        <h1>Exam</h1>
+        <p className="subtitle text-muted">Start the exam to unlock assigned problems and the timer.</p>
       </header>
 
       {error ? <p className="error-text">{error}</p> : null}
@@ -105,22 +122,62 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
       <div className="assignment-card-list">
         {loading ? (
           <div className="empty-state">Loading assignments...</div>
-        ) : assignments.length === 0 ? (
+        ) : !exam || exam.assignmentCount === 0 ? (
           <div className="empty-state">No assignments yet.</div>
+        ) : exam.status === "not_started" ? (
+          <article className="status-card exam-start-card">
+            <p className="eyebrow">Ready</p>
+            <h2>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h2>
+            <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
+            <button className="primary-button" disabled={starting} onClick={handleStartExam} type="button">
+              {starting ? "Starting..." : "Start Exam"}
+            </button>
+          </article>
+        ) : exam.status === "expired" ? (
+          <article className="status-card exam-start-card">
+            <p className="eyebrow">Expired</p>
+            <h2>Time limit reached</h2>
+            <p className="panel-copy">The assigned exam window has ended.</p>
+          </article>
         ) : (
-          assignments.map((assignment) => (
-            <Link className="assignment-card-link" key={assignment.id} to={`/candidate/problems/${assignment.problemId}`}>
-              <div>
-                <strong>{assignment.problemTitle}</strong>
-                <small>{assignment.problemId}</small>
-              </div>
-              <span className="role-badge">{assignment.difficulty}</span>
-            </Link>
-          ))
+          <>
+            <article className="status-card exam-start-card">
+              <p className="eyebrow">In Progress</p>
+              <h2>{formatRemainingTime(exam.remainingSeconds)} remaining</h2>
+              <p className="panel-copy">{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</p>
+            </article>
+            {assignments.map((assignment) => (
+              <Link className="assignment-card-link" key={assignment.id} to={`/candidate/problems/${assignment.problemId}`}>
+                <div>
+                  <strong>{assignment.problemTitle}</strong>
+                  <small>{assignment.problemId}</small>
+                </div>
+                <span className="role-badge">{assignment.difficulty}</span>
+              </Link>
+            ))}
+          </>
         )}
       </div>
     </section>
   );
+}
+
+function formatExamDuration(durationMinutes: number | null) {
+  if (!durationMinutes) {
+    return "Not set";
+  }
+
+  return `${durationMinutes} minute${durationMinutes === 1 ? "" : "s"}`;
+}
+
+function formatRemainingTime(remainingSeconds: number | null) {
+  if (remainingSeconds === null) {
+    return "--:--";
+  }
+
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function AppRoutes() {

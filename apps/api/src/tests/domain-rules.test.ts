@@ -9,7 +9,8 @@ import {
   createProblem,
   createSubmission,
   destroyHarness,
-  login
+  login,
+  startCandidateExam
 } from "./helpers.js";
 
 test("assignment creation rejects nonexistent candidate", async () => {
@@ -134,6 +135,7 @@ test("candidate cannot submit in a language the problem does not support", async
     await createAssignment(harness.app, interviewer.token, "candidate_alice", problem.id);
 
     const candidate = await login(harness.app, "alice.candidate@example.com");
+    await startCandidateExam(harness.app, candidate.token);
     const response = await harness.app.inject({
       method: "POST",
       url: "/me/submissions",
