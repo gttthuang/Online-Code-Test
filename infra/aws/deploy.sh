@@ -176,6 +176,10 @@ if [[ "${ENV_STATUS}" == "None" || -z "${ENV_STATUS}" ]]; then
     --option-settings "file://${TMP_DIR}/beanstalk-option-settings.json" \
     --region "${AWS_REGION}" >/dev/null
 else
+  if [[ "${ENV_STATUS}" != "Ready" ]]; then
+    wait_for_beanstalk_ready "${BEANSTALK_ENV_NAME}"
+  fi
+
   log_step "Updating Elastic Beanstalk environment"
   aws elasticbeanstalk update-environment \
     --environment-name "${BEANSTALK_ENV_NAME}" \
@@ -194,6 +198,7 @@ API_CNAME=$(aws elasticbeanstalk describe-environments \
   --region "${AWS_REGION}")
 
 log_step "Deploying ECS worker stack"
+wait_for_stack_stable "${WORKER_STACK_NAME}"
 aws cloudformation deploy \
   --stack-name "${WORKER_STACK_NAME}" \
   --template-file "${SCRIPT_DIR}/templates/worker.yaml" \
@@ -221,6 +226,7 @@ aws cloudformation deploy \
   --region "${AWS_REGION}"
 
 log_step "Deploying edge stack"
+wait_for_stack_stable "${EDGE_STACK_NAME}"
 delete_stack_if_rollback_complete "${EDGE_STACK_NAME}"
 aws cloudformation deploy \
   --stack-name "${EDGE_STACK_NAME}" \

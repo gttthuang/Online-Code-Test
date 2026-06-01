@@ -207,6 +207,28 @@ function stack_status() {
     --region "${AWS_REGION}" 2>/dev/null || true
 }
 
+function wait_for_stack_stable() {
+  local stack_name=$1
+  local status
+
+  status=$(stack_status "${stack_name}")
+
+  if [[ -z "${status}" ]]; then
+    return
+  fi
+
+  while [[ "${status}" == *"_IN_PROGRESS" ]]; do
+    echo "CloudFormation stack ${stack_name} status=${status}; waiting for it to become stable"
+    sleep 20
+    status=$(stack_status "${stack_name}")
+  done
+
+  if [[ "${status}" == *"ROLLBACK"* || "${status}" == *"FAILED"* ]]; then
+    echo "CloudFormation stack ${stack_name} is not deployable: ${status}" >&2
+    exit 1
+  fi
+}
+
 function delete_stack_if_rollback_complete() {
   local stack_name=$1
   local status

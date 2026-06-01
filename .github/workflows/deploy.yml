@@ -93,3 +93,12 @@ jobs:
           WORKER_MAX_SIZE: ${{ vars.WORKER_MAX_SIZE || '2' }}
           JUDGE_QUEUE_CONCURRENCY: ${{ vars.JUDGE_QUEUE_CONCURRENCY || '2' }}
         run: bash infra/aws/deploy.sh
+
+      - name: Smoke test AWS deployment
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
+          STAGE: ${{ vars.STAGE || 'dev' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          CANDIDATE_TOKEN: ${{ vars.SMOKE_CANDIDATE_TOKEN || 'candidate_alice' }}
+          SMOKE_PROBLEM_ID: ${{ vars.SMOKE_PROBLEM_ID || 'problem_reverse_string' }}
+        run: bash infra/aws/smoke-test.sh

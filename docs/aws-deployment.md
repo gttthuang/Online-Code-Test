@@ -145,6 +145,12 @@ bash infra/aws/deploy.sh
 bash infra/aws/status.sh
 ```
 
+部署後做 end-to-end smoke test：
+
+```bash
+bash infra/aws/smoke-test.sh
+```
+
 ## 這個腳本會做什麼
 
 `bash infra/aws/deploy.sh` 會依序：
@@ -157,6 +163,8 @@ bash infra/aws/status.sh
 6. 建立或更新 CloudFront + frontend bucket
 7. build web 並上傳到 S3
 8. 對 CloudFront 做 invalidation
+
+`bash infra/aws/smoke-test.sh` 會從 CloudFront 打 `/healthz`，確認 API 連得到 PostgreSQL / Redis，並建立一筆 candidate custom run，輪詢到 worker 實際執行完成。GitHub Actions 的 Deploy AWS workflow 也會在部署後自動跑同一支 script。
 
 ## 建立出的 AWS 資源
 
