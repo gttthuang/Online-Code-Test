@@ -229,9 +229,8 @@ bash infra/aws/smoke-test.sh
 - 這套腳本預設抓 default VPC 和 default subnets。
 - `RDS` / `ElastiCache` 會放在同一個 VPC 內，由 VPC CIDR 允許 API / worker 存取。
 - `Elastic Beanstalk` 目前是單一 API image，不負責跑 judge worker。
-- `CloudFront` 會對 `/auth/*`、`/me/*`、`/admin/*`、`/live/*`、`/healthz`、`/internal/*` 轉送到 API origin，其餘路徑回 frontend。
+- `CloudFront` 會對 `/auth/*`、`/me/*`、`/admin/*`、`/healthz`、`/internal/*` 轉送到 API origin，其餘路徑回 frontend。
 - frontend build 目前預設走 same-origin，相容於 CloudFront path-based routing。
-- WebSocket live room 使用 `/live/rooms`，需要 CloudFront `/live/*` behavior 才能在雲端正常連線。
 
 ## 目前仍然是第一版
 

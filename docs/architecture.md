@@ -25,7 +25,7 @@ Browser
 - login
 - 依角色導向不同 workspace route
 - candidate submission flow、custom stdin terminal、submission history
-- interviewer candidate management、assignment、live room、replay、notes / rubric
+- interviewer candidate management、assignment、notes / rubric、scratch terminal
 - admin problem authoring、batch testcase import、user management、submission review
 - 輪詢 submission / custom run 結果
 
@@ -61,7 +61,6 @@ Browser
 - problem APIs
 - submission APIs
 - custom run APIs
-- live room WebSocket / replay APIs
 - result APIs
 - local observability stats endpoint
 

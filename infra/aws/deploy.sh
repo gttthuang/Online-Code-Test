@@ -101,7 +101,7 @@ EOF
 VERSION_LABEL="${STAGE}-$(date +%Y%m%d%H%M%S)-${IMAGE_TAG}"
 (
   cd "${TMP_DIR}"
-  zip -q "${VERSION_LABEL}.zip" Dockerrun.aws.json
+  zip -qr "${VERSION_LABEL}.zip" Dockerrun.aws.json
 )
 
 aws s3 cp \

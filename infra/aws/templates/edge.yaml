@@ -161,18 +161,6 @@ Resources:
               - HEAD
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
             OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
-          - PathPattern: /live/*
-            TargetOriginId: ApiOrigin
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods:
-              - GET
-              - HEAD
-            CachedMethods:
-              - GET
-              - HEAD
-            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
-
 Outputs:
   FrontendBucketName:
     Value: !Ref FrontendBucket

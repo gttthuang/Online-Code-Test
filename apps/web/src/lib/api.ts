@@ -17,7 +17,6 @@ import type {
   CustomRunDetail,
   InterviewReview,
   LoginResponse,
-  LiveRoomReplayEvent,
   ProblemArchiveResponse,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -173,26 +172,6 @@ async function request<T>(path: string, init?: RequestInit, token?: string): Pro
 
 export function getHealth() {
   return request<HealthResponse>("/healthz");
-}
-
-export function getLiveRoomSocketUrl(token: string, candidateId: string, problemId: string) {
-  const baseUrl = apiBaseUrl || window.location.origin;
-  const url = new URL("/live/rooms", baseUrl);
-
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.searchParams.set("candidateId", candidateId);
-  url.searchParams.set("problemId", problemId);
-  url.searchParams.set("token", token);
-
-  return url.toString();
-}
-
-export function getLiveRoomReplay(token: string, candidateId: string, problemId: string) {
-  return request<{ events: LiveRoomReplayEvent[] }>(
-    `/admin/live/rooms/${candidateId}/${problemId}/replay`,
-    undefined,
-    token
-  );
 }
 
 export function loginWithEmail(email: string) {

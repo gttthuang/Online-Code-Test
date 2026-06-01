@@ -12,9 +12,6 @@ import type {
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
-  LiveRoomEventType,
-  LiveRoomReplayEvent,
-  LiveRoomSnapshot,
   ProblemDetail,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -106,22 +103,5 @@ export interface AppStore {
     recommendation: InterviewReview["recommendation"];
   }): Promise<InterviewReview | null>;
   deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean>;
-  getLiveRoomSnapshot(candidateId: string, problemId: string): Promise<LiveRoomSnapshot | null>;
-  upsertLiveRoomSnapshot(input: {
-    candidateId: string;
-    problemId: string;
-    language: LiveRoomSnapshot["language"];
-    sourceCode: string;
-    updatedBy: string;
-  }): Promise<LiveRoomSnapshot>;
-  createLiveRoomEvent(input: {
-    candidateId: string;
-    problemId: string;
-    actorId: string;
-    actorRole: AuthUser["role"];
-    eventType: LiveRoomEventType;
-    payload: unknown;
-  }): Promise<void>;
-  listLiveRoomEvents(candidateId: string, problemId: string): Promise<LiveRoomReplayEvent[]>;
   getInternalStats(): Promise<InternalStats>;
 }

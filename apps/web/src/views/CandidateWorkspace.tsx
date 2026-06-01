@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { AssignmentSummary, AuthUser, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 
 import { createCustomRun, createSubmission, getAssignments, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun } from "../lib/api";
-import { useLiveRoom } from "../lib/useLiveRoom";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
 
@@ -21,11 +20,10 @@ interface CandidateWorkspaceProps {
   token: string;
   user: AuthUser;
   initialProblemId?: string | null;
-  liveRoomCandidateId?: string | null;
   onClose?: () => void;
 }
 
-export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCandidateId: liveRoomCandidateIdOverride, onClose }: CandidateWorkspaceProps) {
+export function CandidateWorkspace({ token, user, initialProblemId, onClose }: CandidateWorkspaceProps) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(initialProblemId ?? null);
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
@@ -61,28 +59,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
   // === 編輯器與 Vim 實體參考 ===
   const editorRef = useRef<any>(null);
   const vimModeRef = useRef<any>(null);
-  const cursorSubscriptionRef = useRef<any>(null);
-  const suppressNextLiveBroadcastRef = useRef(false);
-  const activeLiveRoomCandidateId = isAdminPreview
-    ? null
-    : user.role === "candidate"
-      ? user.id
-      : liveRoomCandidateIdOverride ?? null;
-  const handleRemoteCodeUpdate = useCallback((snapshot: { sourceCode: string; language: SupportedLanguage; updatedBy: string | null }) => {
-    if (snapshot.updatedBy === user.id) {
-      return;
-    }
-
-    suppressNextLiveBroadcastRef.current = true;
-    setSourceCode(snapshot.sourceCode);
-    setLanguage(snapshot.language);
-  }, [user.id]);
-  const liveRoom = useLiveRoom({
-    token,
-    candidateId: activeLiveRoomCandidateId,
-    problemId: selectedProblemId,
-    onCodeUpdate: handleRemoteCodeUpdate
-  });
 
   // 輔助函式：將你的語言格式轉換為 Monaco 支援的格式
   const getMonacoLanguage = (lang: string) => {
@@ -94,10 +70,6 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
   // 當 Monaco 編輯器掛載完成時觸發
   const handleEditorMount = (editor: any) => {
     editorRef.current = editor;
-    cursorSubscriptionRef.current?.dispose?.();
-    cursorSubscriptionRef.current = editor.onDidChangeCursorPosition((event: { position: { lineNumber: number; column: number } }) => {
-      liveRoom.sendCursorUpdate(event.position.lineNumber, event.position.column);
-    });
     applyKeybinding(keybinding); // 初始化時套用按鍵綁定設定
   };
 
@@ -128,28 +100,8 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
       if (vimModeRef.current) {
         vimModeRef.current.dispose();
       }
-      cursorSubscriptionRef.current?.dispose?.();
     };
   }, [keybinding]);
-
-  useEffect(() => {
-    if (liveRoom.status !== "connected" || !selectedProblemId || isAdminPreview) {
-      return;
-    }
-
-    if (suppressNextLiveBroadcastRef.current) {
-      suppressNextLiveBroadcastRef.current = false;
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      liveRoom.sendCodeUpdate(language, sourceCode);
-    }, 350);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [isAdminPreview, language, liveRoom.sendCodeUpdate, liveRoom.status, selectedProblemId, sourceCode]);
 
   // --- API 相關邏輯保留不變 ---
   useEffect(() => {
@@ -596,16 +548,9 @@ export function CandidateWorkspace({ token, user, initialProblemId, liveRoomCand
           <div className="panel-flex-content" style={{ flex: topHeight, minHeight: "300px" }}>
             <article className="status-card panel-column" style={{ height: '100%' }}>
               <div className="panel-header">
-                <div>
-                  <h2>Code Editor</h2>
-                  {activeLiveRoomCandidateId && selectedProblemId ? (
-                    <div className={`live-room-strip live-room-${liveRoom.status}`}>
-                      <span>Live room: {liveRoom.status}</span>
-                      <span>{liveRoom.participants.length} participant(s)</span>
-                      {liveRoom.error ? <span>{liveRoom.error}</span> : null}
-                    </div>
-                  ) : null}
-                </div>
+	                <div>
+	                  <h2>Code Editor</h2>
+	                </div>
                 <div className="editor-toolbar">
                   <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <label className="field field-inline" style={{ flexDirection: "row", alignItems: "center", gap: "0.75rem", margin: 0 }}>

@@ -19,8 +19,8 @@
 也就是說，目前已經可以：
 
 - login
-- candidate 看 assignment / 題目 / live room / custom stdin terminal / submission history
-- interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、進 live shared room、看 replay、用 terminal 跑當前程式
+- candidate 看 assignment / 題目 / custom stdin terminal / submission history
+- interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、用 terminal 跑程式片段
 - admin 建題、批次匯入測資、preview、archive / force delete、管理 users、查看全站 submissions
 - worker 會在背景消化 queued submissions
 - API 可透過 `/internal/stats` 看目前 submission 狀態與 failure breakdown

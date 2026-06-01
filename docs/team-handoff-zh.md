@@ -45,7 +45,6 @@
 - 可輸入程式碼並送出 submission
 - 送出後會輪詢 `queued -> running -> finished / failed`
 - 頁面上可看到 score、case 結果、error message
-- 可使用 live room 與 interviewer 同步程式碼
 - 可用 terminal/custom stdin run 測試目前程式，不會建立正式 submission
 - 可檢視每次 submission 的 code snapshot 與 testcase 結果
 
@@ -60,10 +59,8 @@
 - 可載入 problem list
 - 可建立 assignment，把 problem 指派給 candidate
 - 可查詢 candidate results / submission history
-- 可進 live room 查看與編輯當前 candidate 程式碼
-- 可查看 live room replay
 - 可寫 private notes / rubric / recommendation
-- 可用 terminal/custom stdin run 測試當前 live room 程式碼
+- 可用 terminal/custom stdin run 測試程式片段
 
 目前檔案：
 

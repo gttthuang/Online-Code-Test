@@ -102,11 +102,6 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /admin/submissions/:submissionId`
 - `POST /admin/custom-runs`
 - `GET /admin/custom-runs/:runId`
-- `GET /admin/live/rooms/:candidateId/:problemId/replay`
-
-### Live Room
-
-- `WS /live/rooms?candidateId=:candidateId&problemId=:problemId&token=:token`
 
 ## 主要 Request / Response
 
@@ -739,7 +734,7 @@ Request:
 
 用途：
 
-- interviewer 在 live room 裡用 candidate / problem context 跑目前程式
+- interviewer / admin 用 candidate / problem context 跑程式片段
 - admin / interviewer 都不會因此建立正式 submission
 
 Request:
@@ -769,55 +764,6 @@ Response:
 
 - interviewer / admin 輪詢 custom run 結果
 - 回傳 shape 同 `GET /me/custom-runs/:runId`
-
-### `GET /admin/live/rooms/:candidateId/:problemId/replay`
-
-用途：
-
-- interviewer / admin 讀取 live room 事件時間線
-- 前端用 `code_update` 事件做 replay，不會回寫 live room snapshot
-
-Response:
-
-```json
-{
-  "events": [
-    {
-      "id": "live_event_123",
-      "candidateId": "candidate_alice",
-      "problemId": "problem_reverse_string",
-      "actorId": "candidate_alice",
-      "actorRole": "candidate",
-      "eventType": "code_update",
-      "payload": {
-        "language": "python",
-        "sourceCode": "print(input())"
-      },
-      "createdAt": "2026-04-14T12:00:00.000Z"
-    }
-  ]
-}
-```
-
-### `WS /live/rooms`
-
-連線 query：
-
-```text
-/live/rooms?candidateId=candidate_alice&problemId=problem_reverse_string&token=interviewer_bob
-```
-
-Client message:
-
-```json
-{
-  "type": "code_update",
-  "language": "python",
-  "sourceCode": "print(42)"
-}
-```
-
-Server message 會包含 `room_snapshot`、`presence_update`、`code_update`、`cursor_update`、`pong` 或 `error`。
 
 ## Judge 結果分類
 

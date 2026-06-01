@@ -16,7 +16,7 @@ SMOKE_LANGUAGE=${SMOKE_LANGUAGE:-python}
 SMOKE_SOURCE_CODE=${SMOKE_SOURCE_CODE:-'print(input()[::-1])'}
 SMOKE_STDIN=${SMOKE_STDIN:-abc}
 SMOKE_EXPECTED_STDOUT=${SMOKE_EXPECTED_STDOUT:-cba}
-export SMOKE_PROBLEM_ID SMOKE_LANGUAGE SMOKE_SOURCE_CODE SMOKE_STDIN
+export BASE_URL CANDIDATE_TOKEN SMOKE_PROBLEM_ID SMOKE_LANGUAGE SMOKE_SOURCE_CODE SMOKE_STDIN
 
 if [[ -z "${BASE_URL}" ]]; then
   cloudfront_domain=$(stack_output "${APP_NAME}-${STAGE}-edge" CloudFrontDomainName)
@@ -64,6 +64,7 @@ run_json=$(curl -sS --fail --max-time 20 \
 run_id=$(printf '%s' "${run_json}" | json_value "data => data.runId")
 echo "Created custom run ${run_id}"
 
+custom_run_passed=false
 for attempt in {1..30}; do
   detail_json=$(curl -sS --fail --max-time 20 \
     "${BASE_URL}/me/custom-runs/${run_id}" \
@@ -79,12 +80,16 @@ for attempt in {1..30}; do
       exit 1
     fi
 
-    echo "Smoke test passed"
-    exit 0
+    custom_run_passed=true
+    break
   fi
 
   sleep 2
 done
 
-echo "Custom run ${run_id} did not finish in time" >&2
-exit 1
+if [[ "${custom_run_passed}" != "true" ]]; then
+  echo "Custom run ${run_id} did not finish in time" >&2
+  exit 1
+fi
+
+echo "Smoke test passed"

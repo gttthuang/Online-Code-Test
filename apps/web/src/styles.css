@@ -1309,12 +1309,20 @@ textarea {
   margin: 0;
 }
 
-.live-room-card {
-  background:
-    linear-gradient(135deg, rgba(255, 248, 234, 0.92), rgba(232, 245, 238, 0.76));
+.scratch-run-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-.live-room-strip {
+.scratch-run-terminal {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.run-status-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -1323,56 +1331,25 @@ textarea {
   font-size: 0.78rem;
 }
 
-.live-room-strip span {
+.run-status-strip span {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.65);
   padding: 0.2rem 0.5rem;
 }
 
-.live-room-connected span:first-child {
+.run-status-ok span:first-child {
   border-color: rgba(31, 136, 61, 0.35);
   color: var(--success);
 }
 
-.live-room-error span:first-child {
+.run-status-error span:first-child {
   border-color: rgba(196, 68, 68, 0.35);
   color: var(--danger);
 }
 
-.live-room-editor {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.live-room-replay {
-  display: grid;
-  gap: 0.75rem;
-  border-top: 1px solid var(--line);
-  padding-top: 1rem;
-}
-
 .compact-panel-header {
   align-items: center;
-}
-
-.replay-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: center;
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-
-.replay-controls span {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.replay-editor {
-  background: rgba(255, 255, 255, 0.72);
 }
 
 .terminal-output-grid {
