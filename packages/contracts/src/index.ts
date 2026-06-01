@@ -267,6 +267,19 @@ export interface LiveRoomSnapshot {
   updatedAt: string;
 }
 
+export type LiveRoomEventType = "join" | "leave" | "code_update" | "cursor_update";
+
+export interface LiveRoomReplayEvent {
+  id: string;
+  candidateId: string;
+  problemId: string;
+  actorId: string;
+  actorRole: UserRole;
+  eventType: LiveRoomEventType;
+  payload: unknown;
+  createdAt: string;
+}
+
 export type LiveRoomClientMessage =
   | {
       type: "code_update";

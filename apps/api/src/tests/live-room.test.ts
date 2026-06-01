@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import WebSocket from "ws";
-import type { LiveRoomServerMessage } from "@oct/contracts";
+import type { LiveRoomReplayEvent, LiveRoomServerMessage } from "@oct/contracts";
 import type { FastifyInstance } from "fastify";
 
 import { createHarness, destroyHarness, login } from "./helpers.js";
@@ -68,6 +68,23 @@ test("candidate and interviewer can share live room code updates", async () => {
       assert.equal(snapshot.rows[0].language, "python");
       assert.equal(snapshot.rows[0].updated_by, "candidate_alice");
       assert.equal(Number(events.rows[0].count), 1);
+
+      const replayResponse = await harness.app.inject({
+        method: "GET",
+        url: "/admin/live/rooms/candidate_alice/problem_reverse_string/replay",
+        headers: {
+          authorization: `Bearer ${interviewer.token}`
+        }
+      });
+      const replay = replayResponse.json<{ events: LiveRoomReplayEvent[] }>();
+      const codeUpdate = replay.events.find((event) => event.eventType === "code_update");
+
+      assert.equal(replayResponse.statusCode, 200);
+      assert.ok(codeUpdate);
+      assert.deepEqual(codeUpdate?.payload, {
+        language: "python",
+        sourceCode: "print('shared room')"
+      });
     } finally {
       candidateSocket.close();
       interviewerSocket.close();
@@ -95,6 +112,16 @@ test("live rooms reject candidates outside their own assignment", async () => {
       if (error.type === "error") {
         assert.equal(error.code, "forbidden");
       }
+
+      const replayResponse = await harness.app.inject({
+        method: "GET",
+        url: "/admin/live/rooms/candidate_bob/problem_reverse_string/replay",
+        headers: {
+          authorization: `Bearer ${candidate.token}`
+        }
+      });
+
+      assert.equal(replayResponse.statusCode, 403);
     } finally {
       socket.close();
     }

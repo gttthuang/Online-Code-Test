@@ -7,11 +7,18 @@ import { languages } from "@oct/contracts";
 import type { AuthUser, LiveRoomClientMessage, LiveRoomParticipant, LiveRoomServerMessage } from "@oct/contracts";
 
 import type { AppContext } from "../../core/app-context.js";
+import { requireRole, requireUser } from "../../core/auth.js";
+import { AppError } from "../../core/errors.js";
 
 const roomQuerySchema = z.object({
   candidateId: z.string().min(1),
   problemId: z.string().min(1),
   token: z.string().min(1)
+});
+
+const roomReplayParamsSchema = z.object({
+  candidateId: z.string().min(1),
+  problemId: z.string().min(1)
 });
 
 const clientMessageSchema: z.ZodType<LiveRoomClientMessage> = z.discriminatedUnion("type", [
@@ -210,6 +217,21 @@ class LiveRoomHub {
 
 export async function registerLiveRoomRoutes(app: FastifyInstance, context: AppContext) {
   const hub = new LiveRoomHub(context);
+
+  app.get("/admin/live/rooms/:candidateId/:problemId/replay", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["interviewer", "problem_admin"]);
+
+    const params = roomReplayParamsSchema.parse(request.params);
+
+    if (!(await canJoinLiveRoom(context, user, params.candidateId, params.problemId))) {
+      throw new AppError(403, "live_room_replay_forbidden", "You do not have access to this live room replay");
+    }
+
+    return {
+      events: await context.store.listLiveRoomEvents(params.candidateId, params.problemId)
+    };
+  });
 
   app.get("/live/rooms", { websocket: true }, (socket, request) => {
     let client: LiveRoomClient | null = null;

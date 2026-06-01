@@ -12,6 +12,7 @@ import type {
   CandidateReviewContextResponse,
   InterviewReview,
   LoginResponse,
+  LiveRoomReplayEvent,
   ProblemArchiveResponse,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -181,6 +182,14 @@ export function getLiveRoomSocketUrl(token: string, candidateId: string, problem
   url.searchParams.set("token", token);
 
   return url.toString();
+}
+
+export function getLiveRoomReplay(token: string, candidateId: string, problemId: string) {
+  return request<{ events: LiveRoomReplayEvent[] }>(
+    `/admin/live/rooms/${candidateId}/${problemId}/replay`,
+    undefined,
+    token
+  );
 }
 
 export function loginWithEmail(email: string) {

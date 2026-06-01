@@ -10,6 +10,8 @@ import type {
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
+  LiveRoomEventType,
+  LiveRoomReplayEvent,
   LiveRoomSnapshot,
   ProblemDetail,
   ProblemLifecycleImpact,
@@ -108,8 +110,9 @@ export interface AppStore {
     problemId: string;
     actorId: string;
     actorRole: AuthUser["role"];
-    eventType: "join" | "leave" | "code_update" | "cursor_update";
+    eventType: LiveRoomEventType;
     payload: unknown;
   }): Promise<void>;
+  listLiveRoomEvents(candidateId: string, problemId: string): Promise<LiveRoomReplayEvent[]>;
   getInternalStats(): Promise<InternalStats>;
 }

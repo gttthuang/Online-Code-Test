@@ -13,6 +13,8 @@ import type {
   InterviewReview,
   JudgeFailureType,
   JudgeResult,
+  LiveRoomEventType,
+  LiveRoomReplayEvent,
   LiveRoomSnapshot,
   ProblemDetail,
   ProblemLifecycleImpact,
@@ -92,6 +94,17 @@ type LiveRoomSnapshotRow = {
   source_code: string;
   updated_by: string | null;
   updated_at: string;
+};
+
+type LiveRoomEventRow = {
+  id: string;
+  candidate_id: string;
+  problem_id: string;
+  actor_id: string;
+  actor_role: AuthUser["role"];
+  event_type: LiveRoomEventType;
+  payload: unknown;
+  created_at: string;
 };
 
 type SubmissionCaseRow = {
@@ -974,7 +987,7 @@ export class PostgresStore implements AppStore {
     problemId: string;
     actorId: string;
     actorRole: AuthUser["role"];
-    eventType: "join" | "leave" | "code_update" | "cursor_update";
+    eventType: LiveRoomEventType;
     payload: unknown;
   }): Promise<void> {
     await this.pool.query(
@@ -1001,6 +1014,37 @@ export class PostgresStore implements AppStore {
         JSON.stringify(input.payload)
       ]
     );
+  }
+
+  async listLiveRoomEvents(candidateId: string, problemId: string): Promise<LiveRoomReplayEvent[]> {
+    const result = await this.pool.query<LiveRoomEventRow>(
+      `
+        select
+          id,
+          candidate_id,
+          problem_id,
+          actor_id,
+          actor_role,
+          event_type,
+          payload,
+          created_at
+        from live_room_events
+        where candidate_id = $1 and problem_id = $2
+        order by created_at asc, id asc
+      `,
+      [candidateId, problemId]
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      candidateId: row.candidate_id,
+      problemId: row.problem_id,
+      actorId: row.actor_id,
+      actorRole: row.actor_role,
+      eventType: row.event_type,
+      payload: row.payload,
+      createdAt: row.created_at
+    }));
   }
 
   async getInternalStats(): Promise<InternalStats> {

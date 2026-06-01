@@ -91,6 +91,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       "GET /admin/submissions",
       "POST /admin/submissions/preview",
       "GET /admin/submissions/:submissionId",
+      "GET /admin/live/rooms/:candidateId/:problemId/replay",
       "WS /live/rooms"
     ]
   }));

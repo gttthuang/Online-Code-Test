@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { reviewRecommendations } from "@oct/contracts";
-import type { AuthUser, CandidateReviewContextResponse, InterviewReview, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
-import { deleteCandidateReview, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
+import type { AuthUser, CandidateReviewContextResponse, InterviewReview, LiveRoomReplayEvent, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import { deleteCandidateReview, getCandidateReviewContext, getCandidateSubmissionHistory, getLiveRoomReplay, saveCandidateReview } from "../../lib/api";
 import { useLiveRoom } from "../../lib/useLiveRoom";
 import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
 import Editor from "@monaco-editor/react";
@@ -251,6 +251,10 @@ function LiveRoomPanel({
 }) {
   const [sourceCode, setSourceCode] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("python");
+  const [replayEvents, setReplayEvents] = useState<LiveRoomReplayEvent[]>([]);
+  const [selectedReplayIndex, setSelectedReplayIndex] = useState(0);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState<string | null>(null);
   const suppressNextLiveBroadcastRef = useRef(false);
   const liveRoom = useLiveRoom({
     token,
@@ -262,6 +266,11 @@ function LiveRoomPanel({
       setLanguage(snapshot.language);
     }
   });
+  const codeReplayEvents = replayEvents.filter(isReplayCodeUpdateEvent);
+  const selectedReplayEvent = codeReplayEvents[selectedReplayIndex] ?? null;
+  const selectedReplayPayload = selectedReplayEvent && isReplayCodeUpdatePayload(selectedReplayEvent.payload)
+    ? selectedReplayEvent.payload
+    : null;
 
   useEffect(() => {
     if (!problemId || liveRoom.status !== "connected") {
@@ -281,6 +290,33 @@ function LiveRoomPanel({
       window.clearTimeout(timer);
     };
   }, [language, liveRoom.sendCodeUpdate, liveRoom.status, problemId, sourceCode]);
+
+  useEffect(() => {
+    setReplayEvents([]);
+    setSelectedReplayIndex(0);
+    setReplayError(null);
+  }, [candidate.id, problemId]);
+
+  async function handleLoadReplay() {
+    if (!problemId) {
+      return;
+    }
+
+    setReplayLoading(true);
+    setReplayError(null);
+
+    try {
+      const response = await getLiveRoomReplay(token, candidate.id, problemId);
+      const codeEvents = response.events.filter(isReplayCodeUpdateEvent);
+
+      setReplayEvents(response.events);
+      setSelectedReplayIndex(Math.max(codeEvents.length - 1, 0));
+    } catch (err) {
+      setReplayError(err instanceof Error ? err.message : "Failed to load replay");
+    } finally {
+      setReplayLoading(false);
+    }
+  }
 
   return (
     <section className="review-editor live-room-card">
@@ -321,6 +357,66 @@ function LiveRoomPanel({
           theme="light"
           value={sourceCode}
         />
+      </div>
+
+      <div className="live-room-replay">
+        <div className="panel-header compact-panel-header">
+          <div>
+            <p className="eyebrow">Replay</p>
+            <h3>Code timeline</h3>
+          </div>
+          <button className="chip-button" disabled={!problemId || replayLoading} onClick={handleLoadReplay} type="button">
+            {replayLoading ? "Loading..." : "Load Replay"}
+          </button>
+        </div>
+
+        {replayError ? <p className="error-text">{replayError}</p> : null}
+
+        {codeReplayEvents.length > 0 && selectedReplayPayload ? (
+          <>
+            <div className="replay-controls">
+              <button
+                className="chip-button"
+                disabled={selectedReplayIndex <= 0}
+                onClick={() => setSelectedReplayIndex((index) => Math.max(index - 1, 0))}
+                type="button"
+              >
+                Previous
+              </button>
+              <span>
+                {selectedReplayIndex + 1} / {codeReplayEvents.length}
+              </span>
+              <button
+                className="chip-button"
+                disabled={selectedReplayIndex >= codeReplayEvents.length - 1}
+                onClick={() => setSelectedReplayIndex((index) => Math.min(index + 1, codeReplayEvents.length - 1))}
+                type="button"
+              >
+                Next
+              </button>
+              <small>{selectedReplayEvent ? new Date(selectedReplayEvent.createdAt).toLocaleString() : ""}</small>
+            </div>
+
+            <div className="live-room-editor replay-editor">
+              <Editor
+                height="220px"
+                language={selectedReplayPayload.language === "cpp" ? "cpp" : selectedReplayPayload.language}
+                options={{
+                  minimap: { enabled: false },
+                  readOnly: true,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on"
+                }}
+                theme="light"
+                value={selectedReplayPayload.sourceCode}
+              />
+            </div>
+          </>
+        ) : replayEvents.length > 0 ? (
+          <p className="helper-text">This room has presence or cursor events, but no code update yet.</p>
+        ) : (
+          <p className="helper-text">Load replay to inspect recorded code updates without changing the live room.</p>
+        )}
       </div>
     </section>
   );
@@ -456,4 +552,24 @@ function toReviewForm(review: InterviewReview): ReviewFormState {
     rubric: review.rubric,
     recommendation: review.recommendation
   };
+}
+
+function isReplayCodeUpdateEvent(event: LiveRoomReplayEvent) {
+  return event.eventType === "code_update" && isReplayCodeUpdatePayload(event.payload);
+}
+
+function isReplayCodeUpdatePayload(payload: unknown): payload is {
+  language: SupportedLanguage;
+  sourceCode: string;
+} {
+  const language = (payload as { language?: unknown } | null)?.language;
+
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    "language" in payload &&
+    "sourceCode" in payload &&
+    (language === "python" || language === "cpp") &&
+    typeof (payload as { sourceCode?: unknown }).sourceCode === "string"
+  );
 }
