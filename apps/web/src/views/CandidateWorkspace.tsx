@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import type { AssignmentSummary, AuthUser, CandidateExamSummary, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 
-import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam } from "../lib/api";
+import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam, createAdminCustomRun, getAdminCustomRun } from "../lib/api";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import "./candidate.css";
 
@@ -468,13 +468,41 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     };
   }, [submission, token, user.role]);
 
+  // useEffect(() => {
+  //   if (!customRun || !["queued", "running"].includes(customRun.status)) return;
+  //   let cancelled = false;
+  //   let timer: ReturnType<typeof setTimeout>;
+  //   const poll = async () => {
+  //     try {
+  //       const nextRun = await getCustomRun(token, customRun.id);
+
+  //       if (cancelled) return;
+  //       setCustomRun(nextRun);
+  //       if (["queued", "running"].includes(nextRun.status)) {
+  //         timer = globalThis.setTimeout(poll, 800);
+  //       }
+  //     } catch (error) {
+  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll custom run");
+  //     }
+  //   };
+
+  //   timer = globalThis.setTimeout(poll, 500);
+
+  //   return () => {
+  //     cancelled = true;
+  //     globalThis.clearTimeout(timer);
+  //   };
+  // }, [customRun?.id, customRun?.status, token]);
   useEffect(() => {
     if (!customRun || !["queued", "running"].includes(customRun.status)) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+    
     const poll = async () => {
       try {
-        const nextRun = await getCustomRun(token, customRun.id);
+        // 🚀 關鍵修改 1：根據角色決定要用哪一個輪詢 API 函式
+        const api = user.role === "problem_admin" ? getAdminCustomRun : getCustomRun;
+        const nextRun = await api(token, customRun.id);
 
         if (cancelled) return;
         setCustomRun(nextRun);
@@ -492,7 +520,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       cancelled = true;
       globalThis.clearTimeout(timer);
     };
-  }, [customRun?.id, customRun?.status, token]);
+  }, [customRun?.id, customRun?.status, token, user.role]);
 
   async function handleSubmit() {
     if (!problem) return;
@@ -526,20 +554,76 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     }
   }
 
+  // async function handleCustomRun() {
+  //   if (!problem || user.role !== "candidate") return;
+
+  //   setCustomRunLoading(true);
+  //   setWorkspaceError(null);
+  //   setRightTab("terminal");
+
+  //   try {
+  //     const created = await createCustomRun(token, {
+  //       problemId: problem.id,
+  //       language,
+  //       sourceCode,
+  //       stdin: customInput
+  //     });
+  //     const now = new Date().toISOString();
+
+  //     setCustomRun({
+  //       id: created.runId,
+  //       candidateId: user.id,
+  //       problemId: problem.id,
+  //       requestedBy: user.id,
+  //       language,
+  //       sourceCode,
+  //       stdin: customInput,
+  //       status: created.status,
+  //       stdout: null,
+  //       stderr: null,
+  //       errorType: null,
+  //       errorMessage: null,
+  //       executionTimeMs: null,
+  //       createdAt: now,
+  //       updatedAt: now
+  //     });
+  //   } catch (error) {
+  //     setWorkspaceError(error instanceof Error ? error.message : "Failed to run custom input");
+  //   } finally {
+  //     setCustomRunLoading(false);
+  //   }
+  // }
   async function handleCustomRun() {
-    if (!problem || user.role !== "candidate") return;
+    // 1. 放行 candidate 與 problem_admin
+    if (!problem || (user.role !== "candidate" && user.role !== "problem_admin")) return;
 
     setCustomRunLoading(true);
     setWorkspaceError(null);
     setRightTab("terminal");
 
     try {
-      const created = await createCustomRun(token, {
-        problemId: problem.id,
-        language,
-        sourceCode,
-        stdin: customInput
-      });
+      let created;
+
+      // 🚀 2. 關鍵分流：根據身分呼叫不同的後端 API 函式
+      if (user.role === "problem_admin") {
+        // 呼叫管理員專用 API，並且依後端 Schema 要求，強行把 candidateId 帶入自己的 id
+        created = await createAdminCustomRun(token, {
+          problemId: problem.id,
+          language,
+          sourceCode,
+          stdin: customInput,
+          candidateId: user.id 
+        });
+      } else {
+        // 考生走原本的常規 API
+        created = await createCustomRun(token, {
+          problemId: problem.id,
+          language,
+          sourceCode,
+          stdin: customInput
+        });
+      }
+
       const now = new Date().toISOString();
 
       setCustomRun({
@@ -560,6 +644,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
         updatedAt: now
       });
     } catch (error) {
+      console.error("Terminal 執行發生錯誤:", error);
       setWorkspaceError(error instanceof Error ? error.message : "Failed to run custom input");
     } finally {
       setCustomRunLoading(false);
@@ -1075,7 +1160,7 @@ function RightTabContent({
 
         <button
           className="secondary-button"
-          disabled={customRunLoading || !hasProblem || role !== "candidate"}
+          disabled={customRunLoading || !hasProblem || (role !== "candidate" && role !== "problem_admin")}
           onClick={onCustomRun}
           title={role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
           type="button"
