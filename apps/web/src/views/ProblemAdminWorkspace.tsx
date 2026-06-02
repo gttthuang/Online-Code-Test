@@ -474,7 +474,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             />
           </label>
           <label className="field">
-            <span>Constraints (限制條件)</span>
+            <span>Constraints</span>
             <textarea
               className="text-block"
               value={form.constraints}
@@ -532,7 +532,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
           {/* 3. 新增：範例結果解釋 */}
           <label className="field">
-            <span>Sample Explanation (範例說明)</span>
+            <span>Sample Explanation</span>
             <textarea 
               className="text-block"
               value={form.sampleExplanation} 
