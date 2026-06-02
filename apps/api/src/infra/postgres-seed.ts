@@ -29,9 +29,14 @@ export async function seedPostgres(pool: Pool) {
           supported_languages,
           sample_input,
           sample_output,
-          created_by
+          created_by,
+          constraints,
+          input_spec,
+          output_spec,
+          sample_explanation,
+          template_code
         )
-        values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10)
+        values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10, $11, $12, $13, $14, $15)
         on conflict (id) do nothing
       `,
       [
@@ -44,7 +49,12 @@ export async function seedPostgres(pool: Pool) {
         problem.supportedLanguages,
         problem.sampleInput,
         problem.sampleOutput,
-        problem.createdBy
+        problem.createdBy,
+        (problem as any).constraints ?? null,
+        (problem as any).inputSpec ?? null,
+        (problem as any).outputSpec ?? null,
+        (problem as any).sampleExplanation ?? null,
+        (problem as any).templateCode ?? null
       ]
     );
 

@@ -20,12 +20,26 @@ interface TestCaseState {
   label?: string;
 }
 
+// interface ProblemFormState {
+//   title: string;
+//   description: string;
+//   difficulty: ProblemDifficulty;
+//   sampleInput: string;
+//   sampleOutput: string;
+//   timeLimitMs: number;
+//   memoryLimitKb: number;
+// }
+
 interface ProblemFormState {
   title: string;
   description: string;
+  constraints: string; // 新增：限制條件
+  inputSpec: string;   // 新增：輸入說明
+  outputSpec: string;  // 新增：輸出說明
   difficulty: ProblemDifficulty;
   sampleInput: string;
   sampleOutput: string;
+  sampleExplanation: string; // 新增：範例解釋
   timeLimitMs: number;
   memoryLimitKb: number;
 }
@@ -43,7 +57,11 @@ const initialFormState: ProblemFormState = {
   sampleInput: "5",
   sampleOutput: "1 2 fizz 4 buzz",
   timeLimitMs: 1000,
-  memoryLimitKb: 65536
+  memoryLimitKb: 65536,
+  constraints: "", // 新增：限制條件
+  inputSpec: "",   // 新增：輸入說明
+  outputSpec: "",  // 新增：輸出說明
+  sampleExplanation: ""
 };
 
 const roleLabels = {
@@ -182,6 +200,10 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       formData.append("supportedLanguages", JSON.stringify(["python", "cpp"]));
       formData.append("sampleInput", form.sampleInput);
       formData.append("sampleOutput", form.sampleOutput);
+      formData.append("constraints", form.constraints);
+      formData.append("inputSpec", form.inputSpec);
+      formData.append("outputSpec", form.outputSpec);
+      formData.append("sampleExplanation", form.sampleExplanation);
 
       completeTestcases
         .forEach((testcase, index) => {
@@ -442,28 +464,80 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
     if (activeTab === "description") {
       return (
-        <label className="field">
-          <span>Description</span>
-          <textarea
-            className="text-block"
-            onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-            value={form.description}
-          />
-        </label>
+        <>
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              className="text-block"
+              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+              value={form.description}
+            />
+          </label>
+          <label className="field">
+            <span>Constraints (限制條件)</span>
+            <textarea
+              className="text-block"
+              value={form.constraints}
+              onChange={(e) => setForm(curr => ({ ...curr, constraints: e.target.value }))}
+              placeholder="例如：1 <= n <= 10^5"
+            />
+          </label>
+        </>
       );
     }
 
+    // if (activeTab === "sample") {
+    //   return (
+        
+        // <div className="sample-grid">
+        //   <label className="field">
+        //     <span>Sample Input</span>
+        //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
+        //   </label>
+
+        //   <label className="field">
+        //     <span>Sample Output</span>
+        //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
+        //   </label>
+        // </div>
+    //   );
+    // }
     if (activeTab === "sample") {
       return (
-        <div className="sample-grid">
-          <label className="field">
-            <span>Sample Input</span>
-            <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
-          </label>
+        <div className="sample-grid-container">
+          {/* 1. 新增：輸入與輸出規格說明 */}
+          <div className="specs-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <label className="field">
+              <span>Input Specification</span>
+              <textarea value={form.inputSpec} onChange={(e) => setForm(curr => ({ ...curr, inputSpec: e.target.value }))} />
+            </label>
+            <label className="field">
+              <span>Output Specification</span>
+              <textarea value={form.outputSpec} onChange={(e) => setForm(curr => ({ ...curr, outputSpec: e.target.value }))} />
+            </label>
+          </div>
 
+          {/* 2. 原有的 Sample Input / Output */}
+          <div className="sample-grid">
+            <label className="field">
+              <span>Sample Input</span>
+              <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
+            </label>
+
+            <label className="field">
+              <span>Sample Output</span>
+              <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
+            </label>
+          </div>
+
+          {/* 3. 新增：範例結果解釋 */}
           <label className="field">
-            <span>Sample Output</span>
-            <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
+            <span>Sample Explanation (範例說明)</span>
+            <textarea 
+              className="text-block"
+              value={form.sampleExplanation} 
+              onChange={(e) => setForm(curr => ({ ...curr, sampleExplanation: e.target.value }))} 
+            />
           </label>
         </div>
       );

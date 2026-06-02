@@ -49,7 +49,12 @@ const createProblemSchema = z.object({
   sampleOutput: z.string().max(problemValidation.sampleTextMaxChars),
   hiddenTestCases: z.array(hiddenTestCaseSchema)
     .min(problemValidation.hiddenTestCaseCount.min)
-    .max(problemValidation.hiddenTestCaseCount.max)
+    .max(problemValidation.hiddenTestCaseCount.max),
+  constraints: z.string().optional().nullable(),
+  inputSpec: z.string().optional().nullable(),
+  outputSpec: z.string().optional().nullable(),
+  sampleExplanation: z.string().optional().nullable(),
+  templateCode: z.string().optional().nullable()
 }).superRefine((value, ctx) => {
   if (new Set(value.supportedLanguages).size !== value.supportedLanguages.length) {
     ctx.addIssue({
@@ -233,6 +238,11 @@ async function parseCreateProblemRequest(request: FastifyRequest) {
     supportedLanguages,
     sampleInput: fields.get("sampleInput"),
     sampleOutput: fields.get("sampleOutput"),
-    hiddenTestCases
+    hiddenTestCases,
+    constraints: fields.get("constraints"),
+    inputSpec: fields.get("inputSpec"),
+    outputSpec: fields.get("outputSpec"),
+    sampleExplanation: fields.get("sampleExplanation"),
+    templateCode: fields.get("templateCode")
   });
 }

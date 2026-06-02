@@ -83,6 +83,13 @@ export interface ProblemDetail extends ProblemSummary {
   description: string;
   sampleInput: string;
   sampleOutput: string;
+  // --- 以下是新增的具體欄位 ---
+  constraints?: string;
+  inputSpec?: string;
+  outputSpec?: string;
+  sampleExplanation?: string;
+  // 這行告訴 TypeScript：除了上面那些，這個物件可以有任何字串鍵值的欄位
+  [key: string]: any;
 }
 
 export interface HiddenTestCaseInput {
