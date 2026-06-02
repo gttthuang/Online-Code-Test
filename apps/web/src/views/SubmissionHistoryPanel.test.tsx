@@ -102,11 +102,10 @@ describe("SubmissionHistoryPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /view/i }));
 
     const modal = container.querySelector(".submission-modal") as HTMLElement;
-    fireEvent.click(modal); // stopPropagation -> stays open
+    fireEvent.click(modal); // clicking the modal body keeps it open
     expect(screen.getByText("Submission Detail")).toBeInTheDocument();
 
-    const backdrop = container.querySelector(".submission-modal-backdrop") as HTMLElement;
-    fireEvent.click(backdrop);
+    fireEvent.click(screen.getByRole("button", { name: "Close submission detail" }));
     expect(screen.queryByText("Submission Detail")).not.toBeInTheDocument();
   });
 

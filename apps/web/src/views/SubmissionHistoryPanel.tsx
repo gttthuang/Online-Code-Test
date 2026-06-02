@@ -72,8 +72,14 @@ export function SubmissionHistoryPanel({
       </div>
 
       {activeSubmission ? (
-        <div className="modal-backdrop submission-modal-backdrop" onClick={() => setActiveSubmission(null)}>
-          <div className="modal modal-wide submission-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop submission-modal-backdrop">
+          <button
+            aria-label="Close submission detail"
+            className="modal-overlay-button"
+            onClick={() => setActiveSubmission(null)}
+            type="button"
+          />
+          <div className="modal modal-wide submission-modal">
             <div className="panel-header">
               <div>
                 <p className="eyebrow">Submission Detail</p>

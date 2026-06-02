@@ -958,6 +958,21 @@ textarea {
   border-radius: 16px;
   width: 320px;
   box-shadow: var(--shadow);
+  position: relative;
+  z-index: 1;
+}
+
+/* Full-cover, keyboard-accessible overlay used to dismiss a modal by
+   clicking outside it (replaces a click handler on the backdrop div). */
+.modal-overlay-button {
+  position: absolute;
+  inset: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  z-index: 0;
 }
 
 .modal-wide {

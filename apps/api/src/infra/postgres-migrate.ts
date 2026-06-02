@@ -14,7 +14,7 @@ export async function runPostgresMigrations(pool: Pool) {
 
   const migrationFiles = (await readdir(migrationsDirectory))
     .filter((file) => file.endsWith(".sql"))
-    .sort();
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
 
   const appliedMigrations = await pool.query<{ version: string }>(
     `
