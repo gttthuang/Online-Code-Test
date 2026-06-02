@@ -77,32 +77,98 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
     return run;
   });
 
+  // app.post("/admin/custom-runs", async (request) => {
+  //   const user = await requireUser(request, context);
+  //   requireRole(user, ["interviewer", "problem_admin"]);
+
+  //   const body = adminCustomRunSchema.parse(request.body);
+  //   await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
+  //   await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
+
+  //   const run = await context.store.createCustomRun({
+  //     candidateId: body.candidateId,
+  //     problemId: body.problemId,
+  //     requestedBy: user.id,
+  //     run: body
+  //   });
+
+  //   await context.judgeQueue.enqueue({
+  //     kind: "custom_run",
+  //     runId: run.id
+  //   });
+
+  //   return {
+  //     runId: run.id,
+  //     status: run.status
+  //   };
+  // });
   app.post("/admin/custom-runs", async (request) => {
-    const user = await requireUser(request, context);
-    requireRole(user, ["interviewer", "problem_admin"]);
+    try {
+      const user = await requireUser(request, context);
+      requireRole(user, ["interviewer", "problem_admin"]);
 
-    const body = adminCustomRunSchema.parse(request.body);
-    await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
-    await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
+      // 這裡 body.candidateId 現在已經是前端傳過來的真實 currentUserId 了！
+      const body = adminCustomRunSchema.parse(request.body);
+      
+      const isProblemAdmin = user.role === "problem_admin";
+      let finalCandidateId = body.candidateId;
 
-    const run = await context.store.createCustomRun({
-      candidateId: body.candidateId,
-      problemId: body.problemId,
-      requestedBy: user.id,
-      run: body
-    });
+      if (!isProblemAdmin) {
+        // 常規考生流程
+        await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
+        await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
+      } else {
+        // 管理員預覽流程：安全起見，如果前端不小心還是傳了 "admin-preview"，我們就保底用目前登入的 user.id
+        if (finalCandidateId === "admin-preview") {
+          finalCandidateId = user.id;
+        }
+        
+        const problem = await context.store.getProblem(body.problemId);
+        if (!problem) {
+          const error = new Error("Problem does not exist") as any;
+          error.statusCode = 404;
+          error.code = "problem_not_found";
+          throw error;
+        }
+      }
 
-    await context.judgeQueue.enqueue({
-      kind: "custom_run",
-      runId: run.id
-    });
+      // 🎯 這裡直接傳入安全、合法的 finalCandidateId，再也沒有 findUsers 的事了！
+      const run = await context.store.createCustomRun({
+        candidateId: finalCandidateId, 
+        problemId: body.problemId,
+        requestedBy: user.id, 
+        run: body
+      });
 
-    return {
-      runId: run.id,
-      status: run.status
-    };
+      await context.judgeQueue.enqueue({
+        kind: "custom_run",
+        runId: run.id
+      });
+
+      return {
+        runId: run.id,
+        status: run.status
+      };
+
+    } catch (error) {
+      request.log.error(error, "🔴 Custom Run 路由發生致命錯誤");
+      throw error;
+    }
   });
+  // app.get("/admin/custom-runs/:runId", async (request) => {
+  //   const user = await requireUser(request, context);
+  //   requireRole(user, ["interviewer", "problem_admin"]);
 
+  //   const params = runIdParamsSchema.parse(request.params);
+  //   const run = await context.store.getCustomRun(params.runId);
+
+  //   if (!run) {
+  //     throw new AppError(404, "custom_run_not_found", "Custom run does not exist");
+  //   }
+
+  //   await assertCanViewCandidateProblem(context, user, run.candidateId, run.problemId);
+  //   return run;
+  // });
   app.get("/admin/custom-runs/:runId", async (request) => {
     const user = await requireUser(request, context);
     requireRole(user, ["interviewer", "problem_admin"]);
@@ -114,7 +180,13 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
       throw new AppError(404, "custom_run_not_found", "Custom run does not exist");
     }
 
-    await assertCanViewCandidateProblem(context, user, run.candidateId, run.problemId);
+    // 🚀 關鍵修正：如果是管理員在預覽，直接跳過常規考生的權限檢查
+    const isProblemAdmin = user.role === "problem_admin";
+    if (!isProblemAdmin) {
+      // 只有當不是最高管理員時（例如一般面試官），才需要嚴格檢查指派關係
+      await assertCanViewCandidateProblem(context, user, run.candidateId, run.problemId);
+    }
+
     return run;
   });
 }

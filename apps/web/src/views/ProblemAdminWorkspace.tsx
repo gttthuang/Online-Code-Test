@@ -733,7 +733,8 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             initialProblemId={previewProblemId}
             token={token}
             user={{
-              id: "admin-preview",
+              // id: "admin-preview",
+              id: currentUserId,
               name: "Admin",
               role: "problem_admin",
               email: "admin-preview@example.com"
