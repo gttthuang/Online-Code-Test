@@ -11,3 +11,4 @@ sonar-project.properties
 infra/aws/deploy.env
 deploy-*.zip
 .scannerwork/
+coverage/

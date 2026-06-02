@@ -399,7 +399,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     api(token, selectedProblemId)
       .then((nextProblem: ProblemDetail) => {
         if (cancelled) return;
-        // console.log("🔥 [DEBUG] API 回傳的原始資料物件:", nextProblem);
         setProblem(nextProblem);
         setCustomInput(nextProblem.sampleInput);
         setCustomRun(null);

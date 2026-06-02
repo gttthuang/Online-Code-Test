@@ -12,8 +12,9 @@
     "dev:worker": "npm run dev --workspace @oct/judge-worker",
     "build:web": "npm run build --workspace @oct/web",
     "test:api": "npm run test --workspace @oct/api",
+    "test:web": "npm run test --workspace @oct/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "ci:verify": "npm run typecheck && npm run test:api && npm run build:web",
+    "ci:verify": "npm run typecheck && npm run test:api && npm run test:web && npm run build:web",
     "sonar-scanner": "npx sonarqube-scanner"
   },
   "devDependencies": {

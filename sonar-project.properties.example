@@ -2,7 +2,7 @@ sonar.projectKey=online-code-test
 sonar.projectName=Online Code Test
 
 sonar.sources=apps,packages
-sonar.exclusions=**/node_modules/**,**/dist/**,**/*.test.ts,**/*.spec.ts
+sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/test-setup.ts
 
 sonar.typescript.lcov.reportPaths=apps/api/coverage/lcov.info,apps/web/coverage/lcov.info
 
