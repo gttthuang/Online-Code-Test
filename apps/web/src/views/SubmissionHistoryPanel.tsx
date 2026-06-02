@@ -44,15 +44,15 @@ export function SubmissionHistoryPanel({
             <div className="submission-history-main">
               <strong>{submission.problemTitle}</strong>
               <span>{new Date(submission.createdAt).toLocaleString()}</span>
-              <small>{submission.id}</small>
+              {/* <small>{submission.id}</small> */}
             </div>
 
             <div className="submission-history-meta">
-              <span className={`badge ${getStatusBadgeClass(submission.status)}`}>
-                {submission.status}
-              </span>
+              {(() => {
+                const verdict = getSubmissionVerdict(submission);
+                return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
+              })()}
               <span>{submission.language}</span>
-              <span>{submission.score ?? "--"} / 100</span>
               <span>{submission.passedCases} / {submission.totalCases} cases</span>
             </div>
 
@@ -93,9 +93,10 @@ export function SubmissionHistoryPanel({
               <span>{activeSubmission.candidateName}</span>
               <span>{activeSubmission.language}</span>
               <span>{new Date(activeSubmission.createdAt).toLocaleString()}</span>
-              <span className={`badge ${getStatusBadgeClass(activeSubmission.status)}`}>
-                {activeSubmission.status}
-              </span>
+              {(() => {
+                const verdict = getSubmissionVerdict(activeSubmission);
+                return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
+              })()}
             </div>
 
             {activeSubmission.result?.errorMessage ? (
@@ -138,15 +139,41 @@ export function SubmissionHistoryPanel({
   );
 }
 
-function getStatusBadgeClass(status: SubmissionHistoryItem["status"]) {
-  switch (status) {
-    case "finished":
-      return "badge-success";
-    case "failed":
-      return "badge-error";
-    case "running":
-      return "badge-warning";
+interface SubmissionVerdict {
+  label: string;
+  className: string;
+}
+
+function getSubmissionVerdict(submission: SubmissionHistoryItem): SubmissionVerdict {
+  // Judge still queued or running -> Pending (yellow/orange)
+  if (submission.status === "queued" || submission.status === "running") {
+    return { label: "Pending", className: "badge-warning" };
+  }
+
+  // Judge ran to completion -> Accepted if every case passed, otherwise Wrong Answer
+  if (submission.status === "finished") {
+    if (submission.totalCases > 0 && submission.passedCases === submission.totalCases) {
+      return { label: "Accepted", className: "badge-success" };
+    }
+    return { label: "Wrong Answer", className: "badge-error" };
+  }
+
+  // Judge failed -> map the failure type to a specific verdict (all red)
+  return { label: getFailureLabel(submission.result?.errorType), className: "badge-error" };
+}
+
+function getFailureLabel(errorType: NonNullable<SubmissionHistoryItem["result"]>["errorType"]): string {
+  switch (errorType) {
+    case "time_limit_exceeded":
+      return "Time Limit Exceeded";
+    case "runtime_error":
+      return "Runtime Error";
+    case "compile_error":
+      return "Compile Error";
+    case "sandbox_error":
+    case "system_error":
+      return "System Error";
     default:
-      return "badge-outline";
+      return "Failed";
   }
 }
