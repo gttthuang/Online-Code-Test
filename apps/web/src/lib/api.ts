@@ -126,7 +126,7 @@ function formatErrorDetails(details: unknown): string | null {
 }
 
 function formatValidationField(field: string) {
-  return validationFieldLabels[field] ?? field.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+  return validationFieldLabels[field] ?? field.replaceAll(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
 }
 
 function formatValidationMessage(message: unknown) {

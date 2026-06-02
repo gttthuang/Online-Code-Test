@@ -105,6 +105,7 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
               activeProblems.map((problem) => (
                 <label className="problem-checkbox-row" key={problem.id}>
                   <input
+                    aria-label={problem.title}
                     checked={selectedProblemIds.includes(problem.id)}
                     onChange={() => toggleProblem(problem.id)}
                     type="checkbox"
