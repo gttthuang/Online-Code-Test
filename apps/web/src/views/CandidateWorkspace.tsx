@@ -9,6 +9,9 @@ import "./candidate.css";
 import Editor from "@monaco-editor/react";
 import { initVimMode } from "monaco-vim";
 
+type LeftTab = "description" | "submissions";
+type RightTab = "testcases" | "terminal" | "output";
+
 interface CandidateWorkspaceProps {
   readonly token: string;
   readonly user: AuthUser;
@@ -90,23 +93,33 @@ interface SettingsModalProps {
 
 function SettingsModal({ fontSize, tabSize, keybinding, onFontSizeChange, onTabSizeChange, onKeybindingChange, onClose }: SettingsModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    dialog?.showModal();
-    return () => dialog?.close();
-  }, []);
+    if (!dialog) return;
 
-  // Close on backdrop click (when click target is the dialog itself, not its inner content)
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
+    dialog.showModal();
+
+    // Close on backdrop click (target is the dialog itself, not its inner content).
+    // Attached imperatively rather than via an onClick prop so the native <dialog>
+    // keeps its built-in keyboard (Escape) handling and stays accessible.
+    const handleBackdropClick = (event: MouseEvent) => {
+      if (event.target === dialog) onCloseRef.current();
+    };
+
+    dialog.addEventListener("click", handleBackdropClick);
+    return () => {
+      dialog.removeEventListener("click", handleBackdropClick);
+      dialog.close();
+    };
+  }, []);
 
   return (
     <dialog
       ref={dialogRef}
       className="settings-modal-dialog"
-      onClick={handleBackdropClick}
       onClose={onClose}
     >
       <div className="settings-modal">
@@ -227,7 +240,6 @@ function AssignmentDrawer({ isOpen, assignments, assignmentsLoading, selectedPro
 // --- CandidateWorkspace ---
 
 export function CandidateWorkspace({ token, user, initialProblemId }: CandidateWorkspaceProps) {
-  const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
     user.role === "problem_admin" ? initialProblemId ?? null : null
   );
@@ -245,14 +257,13 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   const [historyLoading, setHistoryLoading] = useState(false);
   const [submissionLoading, setSubmissionLoading] = useState(false);
 
-  const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
-  const [rightTab, setRightTab] = useState<"testcases" | "terminal" | "output">("testcases");
+  const [leftTab, setLeftTab] = useState<LeftTab>("description");
+  const [rightTab, setRightTab] = useState<RightTab>("testcases");
   const [customInput, setCustomInput] = useState("");
   const [customRun, setCustomRun] = useState<CustomRunDetail | null>(null);
   const [customRunLoading, setCustomRunLoading] = useState(false);
 
   // UI control state
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [leftWidth, setLeftWidth] = useState(40);
   const [topHeight, setTopHeight] = useState(60);
 
@@ -263,7 +274,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   const [keybinding, setKeybinding] = useState<string>("standard");
 
   const isAdminPreview = user.role === "problem_admin";
-  const showAssignmentDrawer = user.role === "candidate" && !initialProblemId && exam?.status === "started";
 
   // === Editor and Vim instance references ===
   const editorRef = useRef<any>(null);
@@ -317,7 +327,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
 
     if (user.role === "problem_admin") {
       setSelectedProblemId(initialProblemId ?? null);
-      setAssignments([]);
       setAssignmentsLoading(false);
       return;
     }
@@ -332,13 +341,11 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
         setRemainingSeconds(nextExam.remainingSeconds);
 
         if (nextExam.status === "started") {
-          setAssignments(nextExam.assignments);
           const initialAssignment = initialProblemId
             ? nextExam.assignments.find((assignment) => assignment.problemId === initialProblemId)
             : null;
           setSelectedProblemId(initialAssignment?.problemId ?? nextExam.assignments[0]?.problemId ?? null);
         } else {
-          setAssignments([]);
           setSelectedProblemId(null);
           setProblem(null);
         }
@@ -373,7 +380,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   useEffect(() => {
     if (user.role === "candidate" && exam?.status === "started" && remainingSeconds === 0) {
       setExam((current) => current ? { ...current, status: "expired", remainingSeconds: 0, assignments: [] } : current);
-      setAssignments([]);
       setSelectedProblemId(null);
       setProblem(null);
     }
@@ -575,7 +581,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       setRemainingSeconds(response.exam.remainingSeconds);
 
       if (response.exam.status === "started") {
-        setAssignments(response.exam.assignments);
         const initialAssignment = initialProblemId
           ? response.exam.assignments.find((assignment) => assignment.problemId === initialProblemId)
           : null;
@@ -640,146 +645,34 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     );
   }
 
-  let consoleTitle = "Console";
-  if (rightTab === "output" && submission) {
-    consoleTitle = submission.status;
-  } else if (rightTab === "terminal" && customRun) {
-    consoleTitle = customRun.status;
-  }
+  const consoleTitle = getConsoleTitle(rightTab, submission, customRun);
 
-  let leftPanelContent: JSX.Element;
-  if (leftTab === "description") {
-    if (problem) {
-      leftPanelContent = (
-        <>
-          <div className="meta-row">
-            <span>Difficulty: {problem.difficulty}</span>
-            <span>Time: {problem.timeLimitMs} ms</span>
-            <span>Memory: {problem.memoryLimitKb} KB</span>
-          </div>
-          <p className="panel-copy">{problem.description}</p>
-          <div className="sample-grid">
-            <div>
-              <p className="label-text">Sample Input</p>
-              <pre>{problem.sampleInput}</pre>
-            </div>
-            <div>
-              <p className="label-text">Sample Output</p>
-              <pre>{problem.sampleOutput}</pre>
-            </div>
-          </div>
-        </>
-      );
-    } else {
-      leftPanelContent = (
-        <div className="empty-state">
-          {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
-        </div>
-      );
-    }
-  } else {
-    leftPanelContent = (
-      <SubmissionHistoryPanel
-        emptyMessage={isAdminPreview ? "No preview submissions yet." : "No submissions yet."}
-        loading={historyLoading}
-        onSelect={handleSelectHistoryItem}
-        selectedId={submission?.id}
-        submissions={submissionHistory}
-      />
-    );
-  }
+  const leftPanelContent = (
+    <LeftPanel
+      historyLoading={historyLoading}
+      initialProblemId={initialProblemId}
+      isAdminPreview={isAdminPreview}
+      leftTab={leftTab}
+      onSelectHistoryItem={handleSelectHistoryItem}
+      problem={problem}
+      selectedSubmissionId={submission?.id ?? null}
+      submissionHistory={submissionHistory}
+    />
+  );
 
-  let outputContent: JSX.Element;
-  if (submission) {
-    outputContent = (
-      <div className="result-stack">
-        {submission.result?.errorMessage ? (
-          <p className="error-text">{submission.result.errorMessage}</p>
-        ) : null}
-        <div className="case-list">
-          {submission.result?.cases.map((testCase) => (
-            <div className="case-item" key={testCase.testCaseId}>
-              <div>
-                <strong>{testCase.testCaseId}</strong>
-                <small>
-                  {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
-                </small>
-              </div>
-              <span className={testCase.passed ? "case-pass" : "case-fail"}>
-                {testCase.passed ? "PASS" : "FAIL"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  } else {
-    outputContent = (
-      <div className="empty-state">
-        Submit code to see judge output.
-      </div>
-    );
-  }
-
-  let terminalCustomRunOutput: JSX.Element;
-  if (customRun) {
-    terminalCustomRunOutput = (
-      <div className="terminal-output-grid">
-        {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
-        <div>
-          <p className="label-text">stdout</p>
-          <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
-        </div>
-        <div>
-          <p className="label-text">stderr</p>
-          <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
-        </div>
-        {customRun.executionTimeMs === null ? null : <small>{customRun.executionTimeMs} ms</small>}
-      </div>
-    );
-  } else {
-    terminalCustomRunOutput = (
-      <div className="empty-state">Run custom input to see stdout and stderr.</div>
-    );
-  }
-
-  let rightTabContent: JSX.Element;
-  if (rightTab === "testcases") {
-    rightTabContent = (
-      <div className="problem-stack">
-        <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
-      </div>
-    );
-  } else if (rightTab === "terminal") {
-    rightTabContent = (
-      <div className="problem-stack">
-        <label className="field">
-          <span>Standard Input</span>
-          <textarea
-            disabled={user.role !== "candidate"}
-            onChange={(event) => setCustomInput(event.target.value)}
-            placeholder="Input passed to stdin"
-            rows={5}
-            value={customInput}
-          />
-        </label>
-
-        <button
-          className="secondary-button"
-          disabled={customRunLoading || !problem || user.role !== "candidate"}
-          onClick={handleCustomRun}
-          title={user.role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
-          type="button"
-        >
-          {customRunLoading ? "Starting..." : "Run Custom Input"}
-        </button>
-
-        {terminalCustomRunOutput}
-      </div>
-    );
-  } else {
-    rightTabContent = outputContent;
-  }
+  const rightTabContent = (
+    <RightTabContent
+      customInput={customInput}
+      customRun={customRun}
+      customRunLoading={customRunLoading}
+      hasProblem={Boolean(problem)}
+      onCustomInputChange={setCustomInput}
+      onCustomRun={handleCustomRun}
+      rightTab={rightTab}
+      role={user.role}
+      submission={submission}
+    />
+  );
 
   return (
     <div className="fullscreen-wrapper">
@@ -794,23 +687,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
           onFontSizeChange={setFontSize}
           onKeybindingChange={setKeybinding}
           onTabSizeChange={setTabSize}
-        />
-      )}
-
-      {/* Sidebar drawer: problem selector */}
-      {showAssignmentDrawer && (
-        <AssignmentDrawer
-          assignments={assignments}
-          assignmentsLoading={assignmentsLoading}
-          isOpen={isSelectorOpen}
-          remainingSeconds={remainingSeconds}
-          selectedProblemId={selectedProblemId}
-          onClose={() => setIsSelectorOpen(false)}
-          onOpen={() => setIsSelectorOpen(true)}
-          onSelectProblem={(problemId) => {
-            setSelectedProblemId(problemId);
-            setIsSelectorOpen(false);
-          }}
         />
       )}
 
@@ -974,6 +850,194 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       </section>
     </div>
   );
+}
+
+function getConsoleTitle(
+  rightTab: RightTab,
+  submission: SubmissionDetail | null,
+  customRun: CustomRunDetail | null
+) {
+  if (rightTab === "output" && submission) {
+    return submission.status;
+  }
+  if (rightTab === "terminal" && customRun) {
+    return customRun.status;
+  }
+  return "Console";
+}
+
+interface LeftPanelProps {
+  readonly leftTab: LeftTab;
+  readonly problem: ProblemDetail | null;
+  readonly initialProblemId?: string | null;
+  readonly isAdminPreview: boolean;
+  readonly historyLoading: boolean;
+  readonly submissionHistory: SubmissionHistoryItem[];
+  readonly selectedSubmissionId: string | null;
+  readonly onSelectHistoryItem: (item: SubmissionHistoryItem) => void;
+}
+
+function LeftPanel({
+  leftTab,
+  problem,
+  initialProblemId,
+  isAdminPreview,
+  historyLoading,
+  submissionHistory,
+  selectedSubmissionId,
+  onSelectHistoryItem
+}: LeftPanelProps) {
+  if (leftTab !== "description") {
+    return (
+      <SubmissionHistoryPanel
+        emptyMessage={isAdminPreview ? "No preview submissions yet." : "No submissions yet."}
+        loading={historyLoading}
+        onSelect={onSelectHistoryItem}
+        selectedId={selectedSubmissionId}
+        submissions={submissionHistory}
+      />
+    );
+  }
+
+  if (!problem) {
+    return (
+      <div className="empty-state">
+        {initialProblemId ? "Loading problem..." : "Open the assignments menu on the left to select a problem."}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="meta-row">
+        <span>Difficulty: {problem.difficulty}</span>
+        <span>Time: {problem.timeLimitMs} ms</span>
+        <span>Memory: {problem.memoryLimitKb} KB</span>
+      </div>
+      <p className="panel-copy">{problem.description}</p>
+      <div className="sample-grid">
+        <div>
+          <p className="label-text">Sample Input</p>
+          <pre>{problem.sampleInput}</pre>
+        </div>
+        <div>
+          <p className="label-text">Sample Output</p>
+          <pre>{problem.sampleOutput}</pre>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SubmissionOutput({ submission }: { readonly submission: SubmissionDetail | null }) {
+  if (!submission) {
+    return <div className="empty-state">Submit code to see judge output.</div>;
+  }
+
+  return (
+    <div className="result-stack">
+      {submission.result?.errorMessage ? <p className="error-text">{submission.result.errorMessage}</p> : null}
+      <div className="case-list">
+        {submission.result?.cases.map((testCase) => (
+          <div className="case-item" key={testCase.testCaseId}>
+            <div>
+              <strong>{testCase.testCaseId}</strong>
+              <small>
+                {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+              </small>
+            </div>
+            <span className={testCase.passed ? "case-pass" : "case-fail"}>{testCase.passed ? "PASS" : "FAIL"}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TerminalOutput({ customRun }: { readonly customRun: CustomRunDetail | null }) {
+  if (!customRun) {
+    return <div className="empty-state">Run custom input to see stdout and stderr.</div>;
+  }
+
+  const stdoutFallback = ["queued", "running"].includes(customRun.status) ? "Running..." : "";
+
+  return (
+    <div className="terminal-output-grid">
+      {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
+      <div>
+        <p className="label-text">stdout</p>
+        <pre className="terminal-pre">{customRun.stdout ?? stdoutFallback}</pre>
+      </div>
+      <div>
+        <p className="label-text">stderr</p>
+        <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
+      </div>
+      {customRun.executionTimeMs === null ? null : <small>{customRun.executionTimeMs} ms</small>}
+    </div>
+  );
+}
+
+interface RightTabContentProps {
+  readonly rightTab: RightTab;
+  readonly submission: SubmissionDetail | null;
+  readonly customRun: CustomRunDetail | null;
+  readonly hasProblem: boolean;
+  readonly customInput: string;
+  readonly customRunLoading: boolean;
+  readonly role: AuthUser["role"];
+  readonly onCustomInputChange: (value: string) => void;
+  readonly onCustomRun: () => void;
+}
+
+function RightTabContent({
+  rightTab,
+  submission,
+  customRun,
+  hasProblem,
+  customInput,
+  customRunLoading,
+  role,
+  onCustomInputChange,
+  onCustomRun
+}: RightTabContentProps) {
+  if (rightTab === "testcases") {
+    return (
+      <div className="problem-stack">
+        <p className="panel-copy">Hidden testcases will be evaluated upon submission.</p>
+      </div>
+    );
+  }
+
+  if (rightTab === "terminal") {
+    return (
+      <div className="problem-stack">
+        <label className="field">
+          <span>Standard Input</span>
+          <textarea
+            disabled={role !== "candidate"}
+            onChange={(event) => onCustomInputChange(event.target.value)}
+            placeholder="Input passed to stdin"
+            rows={5}
+            value={customInput}
+          />
+        </label>
+
+        <button
+          className="secondary-button"
+          disabled={customRunLoading || !hasProblem || role !== "candidate"}
+          onClick={onCustomRun}
+          title={role === "candidate" ? "Run current code with custom stdin" : "Custom runs are available to candidates."}
+          type="button"
+        >
+          {customRunLoading ? "Starting..." : "Run Custom Input"}
+        </button>
+
+        <TerminalOutput customRun={customRun} />
+      </div>
+    );
+  }
+
+  return <SubmissionOutput submission={submission} />;
 }
 
 function formatExamDuration(durationMinutes: number | null) {

@@ -107,7 +107,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const [lifecycleBusyId, setLifecycleBusyId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const previewProblemId = location.pathname.match(/^\/problem-admin\/problems\/([^/]+)\/preview$/)?.[1] ?? null;
+  const previewProblemId = /^\/problem-admin\/problems\/([^/]+)\/preview$/.exec(location.pathname)?.[1] ?? null;
   const activeSection = location.pathname.includes("/submissions")
     ? "submissions"
     : location.pathname.includes("/users")

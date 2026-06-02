@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/scripts/migrate.ts",
     "test": "node --import tsx --test src/tests/**/*.test.ts",
+    "test:coverage": "c8 --reporter=lcovonly --reporter=text --reports-dir=coverage --src=src node --import tsx --test src/tests/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "zod": "^3"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.5"
+    "@types/pg": "^8.15.5",
+    "c8": "^10"
   }
 }

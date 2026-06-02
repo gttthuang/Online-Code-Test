@@ -10,3 +10,4 @@ sonar-project.properties
 *.env.production
 infra/aws/deploy.env
 deploy-*.zip
+.scannerwork/
