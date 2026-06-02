@@ -797,23 +797,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
         />
       )}
 
-      {/* Sidebar drawer: problem selector */}
-      {showAssignmentDrawer && (
-        <AssignmentDrawer
-          assignments={assignments}
-          assignmentsLoading={assignmentsLoading}
-          isOpen={isSelectorOpen}
-          remainingSeconds={remainingSeconds}
-          selectedProblemId={selectedProblemId}
-          onClose={() => setIsSelectorOpen(false)}
-          onOpen={() => setIsSelectorOpen(true)}
-          onSelectProblem={(problemId) => {
-            setSelectedProblemId(problemId);
-            setIsSelectorOpen(false);
-          }}
-        />
-      )}
-
       {/* Main two-column workspace */}
       <section className="workspace-container">
 

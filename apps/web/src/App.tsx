@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
-import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PlusCircle, UserRoundCog } from "lucide-react";
+import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, UserRoundCog } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
@@ -368,34 +368,58 @@ function ProtectedWorkspace({
 function WorkspaceFrame({ children, onLogout, session }: { children: ReactNode; onLogout: () => void; session: SessionState }) {
   const location = useLocation();
   const navItems = workspaceNav[session.user.role];
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <main className="app-shell routed-app-shell">
-      <aside className="app-sidebar">
-        <div className="brand-lockup">
-          <div className="brand-mark">OCT</div>
-          <div>
-            <strong>Online Code Test</strong>
-            <span>{workspaceCopy[session.user.role]}</span>
+    <main className={sidebarOpen ? "app-shell routed-app-shell" : "app-shell routed-app-shell routed-app-shell-no-sidebar"}>
+      {sidebarOpen ? (
+        <aside className="app-sidebar">
+          <div className="sidebar-head">
+            <div className="brand-lockup">
+              <div className="brand-mark">OCT</div>
+              <div>
+                <strong>Online Code Test</strong>
+                <span>{workspaceCopy[session.user.role]}</span>
+              </div>
+            </div>
+            <button
+              className="sidebar-toggle"
+              onClick={() => setSidebarOpen(false)}
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+              type="button"
+            >
+              <PanelLeftClose aria-hidden="true" size={18} />
+            </button>
           </div>
-        </div>
 
-        <nav className="sidebar-nav" aria-label="Workspace navigation">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              location.pathname === item.path ||
-              (item.path !== roleHomePath[session.user.role] && location.pathname.startsWith(item.path));
+          <nav className="sidebar-nav" aria-label="Workspace navigation">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                location.pathname === item.path ||
+                (item.path !== roleHomePath[session.user.role] && location.pathname.startsWith(item.path));
 
-            return (
-              <NavLink className={isActive ? "sidebar-link sidebar-link-active" : "sidebar-link"} key={item.path} to={item.path}>
-                <Icon aria-hidden="true" size={17} />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-      </aside>
+              return (
+                <NavLink className={isActive ? "sidebar-link sidebar-link-active" : "sidebar-link"} key={item.path} to={item.path}>
+                  <Icon aria-hidden="true" size={17} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </aside>
+      ) : (
+        <button
+          className="sidebar-expand"
+          onClick={() => setSidebarOpen(true)}
+          title="Expand sidebar"
+          aria-label="Expand sidebar"
+          type="button"
+        >
+          <PanelLeftOpen aria-hidden="true" size={18} />
+        </button>
+      )}
 
       <section className="app-main-region">
         <header className="app-topbar">

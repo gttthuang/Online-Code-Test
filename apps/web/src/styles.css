@@ -123,6 +123,14 @@ textarea {
   background: var(--bg);
 }
 
+.routed-app-shell-no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.routed-app-shell-no-sidebar .app-topbar {
+  padding-left: 3.6rem;
+}
+
 .app-sidebar {
   display: flex;
   flex-direction: column;
@@ -131,6 +139,42 @@ textarea {
   border-right: 1px solid var(--line);
   background: #ffffff;
   padding: 1rem;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-toggle,
+.sidebar-expand {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.sidebar-toggle:hover,
+.sidebar-expand:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sidebar-expand {
+  position: fixed;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 30;
 }
 
 .brand-lockup {
