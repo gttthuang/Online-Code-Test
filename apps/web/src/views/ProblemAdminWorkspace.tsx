@@ -693,24 +693,58 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     );
   }
 
+  // if (previewProblemId) {
+  //   return (
+  //     <div className="candidate-workspace-container fullscreen-preview">
+  //       <button className="chip-button preview-back-button" onClick={() => navigate("/problem-admin/problems")} type="button">
+  //         Back
+  //       </button>
+
+  //       <CandidateWorkspace
+  //         key={previewProblemId}
+  //         initialProblemId={previewProblemId}
+  //         token={token}
+  //         user={{
+  //           id: "admin-preview",
+  //           name: "Admin",
+  //           role: "problem_admin",
+  //           email: "admin-preview@example.com"
+  //         }}
+  //       />
+  //     </div>
+  //   );
+  // }
   if (previewProblemId) {
     return (
-      <div className="candidate-workspace-container fullscreen-preview">
-        <button className="chip-button preview-back-button" onClick={() => navigate("/problem-admin/problems")} type="button">
-          Back
-        </button>
+      <div className="fullscreen-preview-container">
+        {/* 上側工具列 */}
+        <div className="preview-top-bar">
+          <button 
+            className="chip-button" 
+            onClick={() => navigate("/problem-admin/problems")} 
+            type="button"
+          >
+            ← Back to Inventory
+          </button>
+          <span className="preview-mode-badge">
+            【Admin Preview Mode】
+          </span>
+        </div>
 
-        <CandidateWorkspace
-          key={previewProblemId}
-          initialProblemId={previewProblemId}
-          token={token}
-          user={{
-            id: "admin-preview",
-            name: "Admin",
-            role: "problem_admin",
-            email: "admin-preview@example.com"
-          }}
-        />
+        {/* 下方內容區 */}
+        <div className="preview-workspace-body">
+          <CandidateWorkspace
+            key={previewProblemId}
+            initialProblemId={previewProblemId}
+            token={token}
+            user={{
+              id: "admin-preview",
+              name: "Admin",
+              role: "problem_admin",
+              email: "admin-preview@example.com"
+            }}
+          />
+        </div>
       </div>
     );
   }
