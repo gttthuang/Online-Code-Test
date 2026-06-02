@@ -20,16 +20,6 @@ interface TestCaseState {
   label?: string;
 }
 
-// interface ProblemFormState {
-//   title: string;
-//   description: string;
-//   difficulty: ProblemDifficulty;
-//   sampleInput: string;
-//   sampleOutput: string;
-//   timeLimitMs: number;
-//   memoryLimitKb: number;
-// }
-
 interface ProblemFormState {
   title: string;
   description: string;
