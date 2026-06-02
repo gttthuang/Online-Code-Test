@@ -1007,6 +1007,49 @@ textarea {
   overflow: hidden;
 }
 
+/* 全螢幕預覽容器 */
+.fullscreen-preview-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  background-color: #ffffff;
+}
+
+/* 上側工具列 */
+.preview-top-bar {
+  padding: 12px 20px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 工具列中的返回按鈕自訂樣式（可選額外微調） */
+.preview-top-bar .chip-button {
+  cursor: pointer;
+}
+
+/* 工具列中的提示文字 */
+.preview-mode-badge {
+  margin-left: 15px;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 下方內容工作區 */
+.preview-workspace-body {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
 /* --- Premium Admin Theme Styles --- */
 
 .fade-in {
