@@ -502,7 +502,7 @@ async function cleanupContainer(containerName: string) {
 }
 
 function normalizeOutput(output: string) {
-  return output.replace(/\r\n/g, "\n").trim();
+  return output.replaceAll("\r\n", "\n").trim();
 }
 
 function formatCompileError(stderr: string) {

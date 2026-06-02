@@ -63,9 +63,13 @@ const roleLabels = {
 
 const hiddenTestcaseMaxCount = 50;
 
+function createTestcaseId() {
+  return `testcase_${globalThis.crypto.randomUUID()}`;
+}
+
 function createEmptyTestcase(): TestCaseState {
   return {
-    id: globalThis.crypto?.randomUUID?.() ?? `testcase_${Date.now()}_${Math.random()}`,
+    id: createTestcaseId(),
     input: null,
     output: null
   };
@@ -73,7 +77,7 @@ function createEmptyTestcase(): TestCaseState {
 
 function createImportedTestcase(input: File, output: File, label: string): TestCaseState {
   return {
-    id: globalThis.crypto?.randomUUID?.() ?? `testcase_${label}_${Date.now()}_${Math.random()}`,
+    id: createTestcaseId(),
     input,
     output,
     label
@@ -545,7 +549,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </div>
 
           <label className="chip-button file-chip-button">
-            Select .in/.out files
+            <span>Select .in/.out files</span>
             <input
               accept=".in,.out"
               multiple
@@ -577,13 +581,13 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             </div>
 
             <label>
-              Input (.in)
+              <span>Input (.in)</span>
               <input accept=".in" onChange={(event) => updateTestcase(index, { input: event.target.files?.[0] ?? null })} type="file" />
               {testcase.input ? <small className="upload-success">Uploaded: {testcase.input.name}</small> : null}
             </label>
 
             <label>
-              Output (.out)
+              <span>Output (.out)</span>
               <input accept=".out" onChange={(event) => updateTestcase(index, { output: event.target.files?.[0] ?? null })} type="file" />
               {testcase.output ? <small className="upload-success">Uploaded: {testcase.output.name}</small> : null}
             </label>
