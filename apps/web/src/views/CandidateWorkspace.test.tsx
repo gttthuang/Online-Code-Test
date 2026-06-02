@@ -337,7 +337,10 @@ describe("CandidateWorkspace — admin preview", () => {
     expect(mocked.getAdminProblem).toHaveBeenCalledWith("t", "problem_1");
 
     fireEvent.click(screen.getByRole("button", { name: "Terminal" }));
-    expect(screen.getByRole("button", { name: "Run Custom Input" })).toBeDisabled();
+    const runCustomButton = screen.getByRole("button", { name: "Run Custom Input" });
+    expect(runCustomButton).toBeEnabled();
+    fireEvent.click(runCustomButton);
+    await waitFor(() => expect(mocked.createAdminCustomRun).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole("button", { name: "Run & Submit Code" }));
     await waitFor(() => expect(mocked.createPreviewSubmission).toHaveBeenCalled());
