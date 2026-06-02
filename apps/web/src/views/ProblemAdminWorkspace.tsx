@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
-import type { AuthUser, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, SubmissionStatus, UserRole } from "@oct/contracts";
+import type { AuthUser, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
-import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
+import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
+import type { VerdictKind } from "./SubmissionHistoryPanel";
 
 interface ProblemAdminWorkspaceProps {
   currentUserId: string;
@@ -129,12 +130,12 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const activeSection = location.pathname.includes("/submissions")
     ? "submissions"
     : location.pathname.includes("/users")
-    ? "users"
-    : location.pathname.includes("/new")
-    ? "new"
-    : location.pathname.includes("/problems")
-      ? "problems"
-      : "dashboard";
+      ? "users"
+      : location.pathname.includes("/new")
+        ? "new"
+        : location.pathname.includes("/problems")
+          ? "problems"
+          : "dashboard";
 
   const confirmProblem = problems.find((problem) => problem.id === confirmId);
   const difficultyCounts = useMemo(
@@ -488,18 +489,18 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
     // if (activeTab === "sample") {
     //   return (
-        
-        // <div className="sample-grid">
-        //   <label className="field">
-        //     <span>Sample Input</span>
-        //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
-        //   </label>
 
-        //   <label className="field">
-        //     <span>Sample Output</span>
-        //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
-        //   </label>
-        // </div>
+    // <div className="sample-grid">
+    //   <label className="field">
+    //     <span>Sample Input</span>
+    //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
+    //   </label>
+
+    //   <label className="field">
+    //     <span>Sample Output</span>
+    //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
+    //   </label>
+    // </div>
     //   );
     // }
     if (activeTab === "sample") {
@@ -533,10 +534,10 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           {/* 3. 新增：範例結果解釋 */}
           <label className="field">
             <span>Sample Explanation</span>
-            <textarea 
+            <textarea
               className="text-block"
-              value={form.sampleExplanation} 
-              onChange={(e) => setForm(curr => ({ ...curr, sampleExplanation: e.target.value }))} 
+              value={form.sampleExplanation}
+              onChange={(e) => setForm(curr => ({ ...curr, sampleExplanation: e.target.value }))}
             />
           </label>
         </div>
@@ -719,9 +720,9 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       <div className="fullscreen-preview-container">
         {/* 上側工具列 */}
         <div className="preview-top-bar">
-          <button 
-            className="chip-button" 
-            onClick={() => navigate("/problem-admin/problems")} 
+          <button
+            className="chip-button"
+            onClick={() => navigate("/problem-admin/problems")}
             type="button"
           >
             ← Back to Inventory
@@ -1069,7 +1070,7 @@ function AdminSubmissionHistory({ token }: { token: string }) {
   const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">("all");
+  const [verdictFilter, setVerdictFilter] = useState<VerdictKind | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1102,10 +1103,10 @@ function AdminSubmissionHistory({ token }: { token: string }) {
   }, [token]);
 
   const filteredSubmissions = submissions.filter((submission) => {
-    const matchesStatus = statusFilter === "all" || submission.status === statusFilter;
+    const matchesVerdict = verdictFilter === "all" || getSubmissionVerdict(submission).kind === verdictFilter;
     const normalizedQuery = query.trim().toLowerCase();
 
-    if (!matchesStatus) {
+    if (!matchesVerdict) {
       return false;
     }
 
@@ -1142,13 +1143,12 @@ function AdminSubmissionHistory({ token }: { token: string }) {
         </label>
 
         <label className="field">
-          <span>Status</span>
-          <select onChange={(event) => setStatusFilter(event.target.value as SubmissionStatus | "all")} value={statusFilter}>
+          <span>Verdict</span>
+          <select onChange={(event) => setVerdictFilter(event.target.value as VerdictKind | "all")} value={verdictFilter}>
             <option value="all">All</option>
-            <option value="queued">queued</option>
-            <option value="running">running</option>
-            <option value="finished">finished</option>
-            <option value="failed">failed</option>
+            {verdictFilterOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </label>
       </div>

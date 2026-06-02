@@ -139,41 +139,66 @@ export function SubmissionHistoryPanel({
   );
 }
 
-interface SubmissionVerdict {
+export type VerdictKind =
+  | "pending"
+  | "accepted"
+  | "wrong_answer"
+  | "time_limit_exceeded"
+  | "runtime_error"
+  | "compile_error"
+  | "system_error"
+  | "failed";
+
+export interface SubmissionVerdict {
+  kind: VerdictKind;
   label: string;
   className: string;
 }
 
-function getSubmissionVerdict(submission: SubmissionHistoryItem): SubmissionVerdict {
+export function getSubmissionVerdict(submission: SubmissionHistoryItem): SubmissionVerdict {
   // Judge still queued or running -> Pending (yellow/orange)
   if (submission.status === "queued" || submission.status === "running") {
-    return { label: "Pending", className: "badge-warning" };
+    return { kind: "pending", label: "Pending", className: "badge-warning" };
   }
 
   // Judge ran to completion -> Accepted if every case passed, otherwise Wrong Answer
   if (submission.status === "finished") {
     if (submission.totalCases > 0 && submission.passedCases === submission.totalCases) {
-      return { label: "Accepted", className: "badge-success" };
+      return { kind: "accepted", label: "Accepted", className: "badge-success" };
     }
-    return { label: "Wrong Answer", className: "badge-error" };
+    return { kind: "wrong_answer", label: "Wrong Answer", className: "badge-error" };
   }
 
   // Judge failed -> map the failure type to a specific verdict (all red)
-  return { label: getFailureLabel(submission.result?.errorType), className: "badge-error" };
+  const failure = getFailureVerdict(submission.result?.errorType);
+  return { ...failure, className: "badge-error" };
 }
 
-function getFailureLabel(errorType: NonNullable<SubmissionHistoryItem["result"]>["errorType"]): string {
+function getFailureVerdict(
+  errorType: NonNullable<SubmissionHistoryItem["result"]>["errorType"]
+): { kind: VerdictKind; label: string } {
   switch (errorType) {
     case "time_limit_exceeded":
-      return "Time Limit Exceeded";
+      return { kind: "time_limit_exceeded", label: "Time Limit Exceeded" };
     case "runtime_error":
-      return "Runtime Error";
+      return { kind: "runtime_error", label: "Runtime Error" };
     case "compile_error":
-      return "Compile Error";
+      return { kind: "compile_error", label: "Compile Error" };
     case "sandbox_error":
     case "system_error":
-      return "System Error";
+      return { kind: "system_error", label: "System Error" };
     default:
-      return "Failed";
+      return { kind: "failed", label: "Failed" };
   }
 }
+
+// Verdict options offered in filter dropdowns, in the order they should appear.
+export const verdictFilterOptions: ReadonlyArray<{ value: VerdictKind; label: string }> = [
+  { value: "accepted", label: "Accepted" },
+  { value: "wrong_answer", label: "Wrong Answer" },
+  { value: "time_limit_exceeded", label: "Time Limit Exceeded" },
+  { value: "runtime_error", label: "Runtime Error" },
+  { value: "compile_error", label: "Compile Error" },
+  { value: "system_error", label: "System Error" },
+  { value: "pending", label: "Pending" }
+];
