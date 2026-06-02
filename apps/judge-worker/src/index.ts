@@ -1,44 +1,36 @@
 import "dotenv/config";
 
-import { Queue, Worker } from "bullmq";
-import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
+import {Queue, Worker} from "bullmq";
+import {getJudgeJobId, judgeQueueName, type JudgeJob} from "@oct/contracts";
 
-import { createPostgresPool } from "./postgres.js";
-import { createRedisConnection } from "./redis.js";
-import { config } from "./config.js";
-import { logError, logInfo } from "./logger.js";
-import { JudgeWorker } from "./worker.js";
+import {createPostgresPool} from "./postgres.js";
+import {createRedisConnection} from "./redis.js";
+import {config} from "./config.js";
+import {logError, logInfo} from "./logger.js";
+import {JudgeWorker} from "./worker.js";
 
 const pool = createPostgresPool(config.postgres);
-const worker = new JudgeWorker(
-  pool,
-  config.heartbeatIntervalMs,
-  config.staleThresholdMs,
-  config.sandbox
-);
+const worker = new JudgeWorker(pool, config.heartbeatIntervalMs,
+                               config.staleThresholdMs, config.sandbox);
 const redisConnection = createRedisConnection(config.redis);
-const recoveryQueue = new Queue<JudgeJob>(judgeQueueName, {
-  connection: redisConnection
-});
-const queueWorker = new Worker<JudgeJob>(
-  judgeQueueName,
-  async (job) => {
-    if (job.data.kind === "custom_run") {
-      await worker.processCustomRunById(job.data.runId);
-      return;
-    }
-
-    await worker.processSubmissionById(job.data.submissionId);
-  },
-  {
-    connection: redisConnection,
-    concurrency: config.queueConcurrency
+const recoveryQueue =
+    new Queue<JudgeJob>(judgeQueueName, {connection : redisConnection as any});
+const queueWorker = new Worker<JudgeJob>(judgeQueueName, async (job) => {
+  if (job.data.kind === "custom_run") {
+    await worker.processCustomRunById(job.data.runId);
+    return;
   }
-);
+
+  await worker.processSubmissionById(job.data.submissionId);
+}, {
+  connection : redisConnection as any,
+  concurrency : config.queueConcurrency
+});
 const recoveryTimer = setInterval(() => {
   void recoverAndRequeue().catch((error) => {
     logError("worker_recovery_error", {
-      message: error instanceof Error ? error.message : "judge worker recovery failed"
+      message : error instanceof Error ? error.message
+                                       : "judge worker recovery failed"
     });
   });
 }, config.staleThresholdMs);
@@ -60,19 +52,17 @@ async function shutdown() {
 }
 
 async function enqueueSubmission(submissionId: string) {
-  await enqueueJob({ kind: "submission", submissionId });
+  await enqueueJob({kind : "submission", submissionId});
 }
 
 async function enqueueCustomRun(runId: string) {
-  await enqueueJob({ kind: "custom_run", runId });
+  await enqueueJob({kind : "custom_run", runId});
 }
 
 async function enqueueJob(job: JudgeJob) {
-  await recoveryQueue.add("judge-submission", job, {
-    jobId: getJudgeJobId(job),
-    removeOnComplete: 500,
-    removeOnFail: 500
-  });
+  await recoveryQueue.add(
+      "judge-submission", job,
+      {jobId : getJudgeJobId(job), removeOnComplete : 500, removeOnFail : 500});
 }
 
 async function syncQueuedSubmissions() {
@@ -83,9 +73,8 @@ async function syncQueuedSubmissions() {
   }
 
   if (queuedSubmissionIds.length > 0) {
-    logInfo("queued_submissions_reenqueued", {
-      count: queuedSubmissionIds.length
-    });
+    logInfo("queued_submissions_reenqueued",
+            {count : queuedSubmissionIds.length});
   }
 }
 
@@ -97,9 +86,7 @@ async function syncQueuedCustomRuns() {
   }
 
   if (queuedRunIds.length > 0) {
-    logInfo("queued_custom_runs_reenqueued", {
-      count: queuedRunIds.length
-    });
+    logInfo("queued_custom_runs_reenqueued", {count : queuedRunIds.length});
   }
 }
 
@@ -115,15 +102,13 @@ async function recoverAndRequeue() {
   }
 
   if (recovered.submissionIds.length > 0) {
-    logInfo("recovered_submissions_reenqueued", {
-      count: recovered.submissionIds.length
-    });
+    logInfo("recovered_submissions_reenqueued",
+            {count : recovered.submissionIds.length});
   }
 
   if (recovered.customRunIds.length > 0) {
-    logInfo("recovered_custom_runs_reenqueued", {
-      count: recovered.customRunIds.length
-    });
+    logInfo("recovered_custom_runs_reenqueued",
+            {count : recovered.customRunIds.length});
   }
 }
 
@@ -138,19 +123,20 @@ process.on("SIGTERM", async () => {
 });
 
 logInfo("worker_started", {
-  heartbeatIntervalMs: config.heartbeatIntervalMs,
-  staleThresholdMs: config.staleThresholdMs,
-  queueMode: "redis-bullmq",
-  queueName: judgeQueueName,
-  queueConcurrency: config.queueConcurrency,
-  postgres: `${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`,
-  redis: `${config.redis.host}:${config.redis.port}/${config.redis.db}`,
-  sandbox: {
-    pythonImage: config.sandbox.pythonImage,
-    cppImage: config.sandbox.cppImage,
-    memoryLimitMb: config.sandbox.memoryLimitMb,
-    cpuLimit: config.sandbox.cpuLimit,
-    pidsLimit: config.sandbox.pidsLimit
+  heartbeatIntervalMs : config.heartbeatIntervalMs,
+  staleThresholdMs : config.staleThresholdMs,
+  queueMode : "redis-bullmq",
+  queueName : judgeQueueName,
+  queueConcurrency : config.queueConcurrency,
+  postgres : `${config.postgres.host}:${config.postgres.port}/${
+      config.postgres.database}`,
+  redis : `${config.redis.host}:${config.redis.port}/${config.redis.db}`,
+  sandbox : {
+    pythonImage : config.sandbox.pythonImage,
+    cppImage : config.sandbox.cppImage,
+    memoryLimitMb : config.sandbox.memoryLimitMb,
+    cpuLimit : config.sandbox.cpuLimit,
+    pidsLimit : config.sandbox.pidsLimit
   }
 });
 
@@ -160,7 +146,8 @@ try {
   await syncQueuedCustomRuns();
 } catch (error) {
   logError("worker_startup_error", {
-    message: error instanceof Error ? error.message : "judge worker failed to start"
+    message : error instanceof Error ? error.message
+                                     : "judge worker failed to start"
   });
   await shutdown();
   process.exit(1);
