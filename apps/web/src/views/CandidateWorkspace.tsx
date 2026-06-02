@@ -8,39 +8,6 @@ import "./candidate.css";
 // Import Monaco Editor and Vim mode
 import Editor from "@monaco-editor/react";
 import { initVimMode } from "monaco-vim";
-// 1. 系統/元數據排除清單：這些欄位不參與自動描述迴圈（因為它們有專屬的 UI 位置）
-const systemFieldBlacklist = new Set([
-  "id",
-  "title",
-  "difficulty",
-  "timeLimitMs",
-  "memoryLimitKb",
-  "supportedLanguages",
-  "sampleInput",        // 獨立渲染在對照框中
-  "sampleOutput",       // 獨立渲染在對照框中
-  "description",        // 獨立渲染在最頂部
-  "sampleExplanation",  // 獨立渲染在最底部
-  "createdAt",
-  "updatedAt",
-  "archivedAt"
-]);
-// 2. 欄位自動轉換標題器
-const formatKeyToLabel = (key: string): string => {
-  // 中文標題對照表：如果沒對照到，會自動將小駝峰轉換為大寫標題 (例如 inputSpec -> Input Spec)
-  const chineseLabels: Record<string, string> = {
-    constraints: "Constraints",
-    inputSpec: "Input Specification",
-    outputSpec: "Output Specification",
-    sampleExplanation: "Sample Explanation"
-  };
-
-  if (chineseLabels[key]) return chineseLabels[key];
-
-  // 自動化 Fallback：小駝峰 (e.g. solutionHint) -> 大寫單字 (Solution Hint)
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (str) => str.toUpperCase());
-};
 
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";
