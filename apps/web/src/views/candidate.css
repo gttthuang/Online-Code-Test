@@ -218,3 +218,19 @@
 .vim-status-bar:empty {
     display: none;
 }
+
+/* 適用於所有擴展欄位的區塊外殼 */
+.problem-extended-section {
+  margin-bottom: 20px !important;
+}
+
+/* 內文維持專案原樣 */
+.problem-extended-content {
+  white-space: pre-wrap !important;
+}
+
+/* 建立一個強效加粗變黑工具，用來疊加在原本的 label-text 上 */
+.make-label-bold-black {
+  font-weight: 700 !important;
+  color: #111827 !important;
+}

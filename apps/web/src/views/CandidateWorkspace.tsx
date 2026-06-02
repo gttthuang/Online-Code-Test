@@ -8,6 +8,39 @@ import "./candidate.css";
 // Import Monaco Editor and Vim mode
 import Editor from "@monaco-editor/react";
 import { initVimMode } from "monaco-vim";
+// 1. 系統/元數據排除清單：這些欄位不參與自動描述迴圈（因為它們有專屬的 UI 位置）
+const systemFieldBlacklist = new Set([
+  "id",
+  "title",
+  "difficulty",
+  "timeLimitMs",
+  "memoryLimitKb",
+  "supportedLanguages",
+  "sampleInput",        // 獨立渲染在對照框中
+  "sampleOutput",       // 獨立渲染在對照框中
+  "description",        // 獨立渲染在最頂部
+  "sampleExplanation",  // 獨立渲染在最底部
+  "createdAt",
+  "updatedAt",
+  "archivedAt"
+]);
+// 2. 欄位自動轉換標題器
+const formatKeyToLabel = (key: string): string => {
+  // 中文標題對照表：如果沒對照到，會自動將小駝峰轉換為大寫標題 (例如 inputSpec -> Input Spec)
+  const chineseLabels: Record<string, string> = {
+    constraints: "Constraints",
+    inputSpec: "Input Specification",
+    outputSpec: "Output Specification",
+    sampleExplanation: "Sample Explanation"
+  };
+
+  if (chineseLabels[key]) return chineseLabels[key];
+
+  // 自動化 Fallback：小駝峰 (e.g. solutionHint) -> 大寫單字 (Solution Hint)
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (str) => str.toUpperCase());
+};
 
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";
@@ -399,6 +432,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     api(token, selectedProblemId)
       .then((nextProblem: ProblemDetail) => {
         if (cancelled) return;
+        // console.log("🔥 [DEBUG] API 回傳的原始資料物件:", nextProblem);
         setProblem(nextProblem);
         setCustomInput(nextProblem.sampleInput);
         setCustomRun(null);
@@ -909,22 +943,73 @@ function LeftPanel({
 
   return (
     <>
+      {/* A. 頂部 Meta 資訊 */}
       <div className="meta-row">
         <span>Difficulty: {problem.difficulty}</span>
         <span>Time: {problem.timeLimitMs} ms</span>
         <span>Memory: {problem.memoryLimitKb} KB</span>
       </div>
-      <p className="panel-copy">{problem.description}</p>
-      <div className="sample-grid">
+
+      {/* B. 頂部：主要的題目描述 */}
+      {problem.description && (
+        <p className="panel-copy" style={{ whiteSpace: "pre-wrap", marginBottom: "25px" }}>
+          {problem.description}
+        </p>
+      )}
+
+      {/* 2. 獨立區塊：Input Specification (輸入說明) */}
+      {typeof (problem as any).inputSpec === "string" && (problem as any).inputSpec.trim() !== "" && (
+        <div className="problem-extended-section">
+          <p className="label-text make-label-bold-black">Input Specification:</p>
+          <p className="panel-copy problem-extended-content">
+            {(problem as any).inputSpec}
+          </p>
+        </div>
+      )}
+
+      {/* 3. 獨立區塊：Output Specification (輸出說明) */}
+      {typeof (problem as any).outputSpec === "string" && (problem as any).outputSpec.trim() !== "" && (
+        <div className="problem-extended-section">
+          <p className="label-text make-label-bold-black">Output Specification:</p>
+          <p className="panel-copy problem-extended-content">
+            {(problem as any).outputSpec}
+          </p>
+        </div>
+      )}
+
+      {/* D. 中間：對照式的 Sample Input / Output 區塊 */}
+      {/* 💡 透過 marginBottom: "0px" 確保它跟下面的 Explanation 完美黏在一起 */}
+      <div className="sample-grid" style={{ marginTop: "15px", marginBottom: "0px" }}>
         <div>
-          <p className="label-text">Sample Input</p>
+          <p className="label-text make-label-bold-black">Sample Input</p>
           <pre>{problem.sampleInput}</pre>
         </div>
         <div>
-          <p className="label-text">Sample Output</p>
+          <p className="label-text make-label-bold-black">Sample Output</p>
           <pre>{problem.sampleOutput}</pre>
         </div>
       </div>
+
+      {/* E. 底部：範例解釋說明 */}
+      {/* 💡 透過 marginTop: "4px" 消除間距，達到無縫接軌的效果 */}
+      {typeof (problem as any).sampleExplanation === "string" && (problem as any).sampleExplanation.trim() !== "" && (
+        <div className="sample-grid" style={{ marginTop: "4px", marginBottom: "30px" }}>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <p className="label-text make-label-bold-black">Sample Explanation:</p>
+            <pre style={{ whiteSpace: "pre-wrap" }}>{(problem as any).sampleExplanation}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* 1. 獨立區塊：Constraints (限制條件) */}
+      {typeof (problem as any).constraints === "string" && (problem as any).constraints.trim() !== "" && (
+        <div className="problem-extended-section">
+          <p className="label-text make-label-bold-black">Constraints:</p>
+          <p className="panel-copy problem-extended-content">
+            {(problem as any).constraints}
+          </p>
+        </div>
+      )}
     </>
   );
 }

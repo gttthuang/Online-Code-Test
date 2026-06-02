@@ -39,6 +39,12 @@ type ProblemRow = {
   sample_output: string;
   created_by: string;
   archived_at: string | null;
+  // ------
+  constraints: string | null;
+  input_spec: string | null;
+  output_spec: string | null;
+  sample_explanation: string | null;
+  template_code: string | null;
 };
 
 type AssignmentRow = {
@@ -245,7 +251,12 @@ export class PostgresStore implements AppStore {
           sample_input,
           sample_output,
           created_by,
-          archived_at
+          archived_at,
+          constraints as "constraints",
+          input_spec as "inputSpec",
+          output_spec as "outputSpec",
+          sample_explanation as "sampleExplanation",
+          template_code as "templateCode"
         from problems
         where id = $1
       `,
@@ -308,9 +319,10 @@ export class PostgresStore implements AppStore {
             supported_languages,
             sample_input,
             sample_output,
-            created_by
+            created_by,
+            constraints, input_spec, output_spec, sample_explanation, template_code
           )
-          values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10)
+          values ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10, $11, $12, $13, $14, $15)
         `,
         [
           problemId,
@@ -322,7 +334,12 @@ export class PostgresStore implements AppStore {
           input.supportedLanguages,
           input.sampleInput,
           input.sampleOutput,
-          createdBy
+          createdBy,
+          (input as any).constraints,
+          (input as any).inputSpec,
+          (input as any).outputSpec,
+          (input as any).sampleExplanation,
+          (input as any).templateCode
         ]
       );
 
@@ -1457,7 +1474,12 @@ export class PostgresStore implements AppStore {
       ...this.toProblemSummary(problem),
       description: problem.description,
       sampleInput: "sample_input" in problem ? problem.sample_input : problem.sampleInput,
-      sampleOutput: "sample_output" in problem ? problem.sample_output : problem.sampleOutput
+      sampleOutput: "sample_output" in problem ? problem.sample_output : problem.sampleOutput,
+      constraints: "constraints" in problem ? problem.constraints : (problem as any).constraints,
+      inputSpec: "input_spec" in problem ? problem.input_spec : (problem as any).inputSpec,
+      outputSpec: "output_spec" in problem ? problem.output_spec : (problem as any).outputSpec,
+      sampleExplanation: "sample_explanation" in problem ? problem.sample_explanation : (problem as any).sampleExplanation,
+      templateCode: "template_code" in problem ? problem.template_code : (problem as any).templateCode
     };
   }
 

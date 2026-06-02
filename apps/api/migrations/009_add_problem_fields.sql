@@ -1,0 +1,5 @@
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS constraints TEXT;
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS input_spec TEXT;
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS output_spec TEXT;
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS sample_explanation TEXT;
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS template_code TEXT;
