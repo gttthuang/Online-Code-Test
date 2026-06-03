@@ -807,29 +807,36 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
 
                 {/* Monaco Editor and Vim status bar container */}
                 <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden" }}>
-                  <Editor
-                    height="100%"
-                    language={getMonacoLanguage(language)}
-                    value={sourceCode}
-                    theme="light"
-                    onChange={(value = "") => {
-                      setSourceCode(value);
-                      // Persist on edit so the draft survives closing/refreshing the tab.
-                      if (user.role === "candidate" && selectedProblemId) {
-                        saveDraft(user.id, selectedProblemId, language, value);
-                      }
-                    }}
-                    onMount={handleEditorMount}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: fontSize,
-                      tabSize: tabSize,
-                      detectIndentation: false, // disable auto-detection, force custom tabSize
-                      scrollBeyondLastLine: false,
-                      wordWrap: "on",
-                      padding: { top: 8 }
-                    }}
-                  />
+                  {/* The editor takes the remaining space (flex: 1) rather than a fixed
+                      100% height, so the vim status bar below can claim its own height
+                      without overflowing and pushing the editor. automaticLayout lets
+                      Monaco re-measure when the bar toggles or the panel is resized. */}
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    <Editor
+                      height="100%"
+                      language={getMonacoLanguage(language)}
+                      value={sourceCode}
+                      theme="light"
+                      onChange={(value = "") => {
+                        setSourceCode(value);
+                        // Persist on edit so the draft survives closing/refreshing the tab.
+                        if (user.role === "candidate" && selectedProblemId) {
+                          saveDraft(user.id, selectedProblemId, language, value);
+                        }
+                      }}
+                      onMount={handleEditorMount}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: fontSize,
+                        tabSize: tabSize,
+                        detectIndentation: false, // disable auto-detection, force custom tabSize
+                        scrollBeyondLastLine: false,
+                        wordWrap: "on",
+                        automaticLayout: true,
+                        padding: { top: 8 }
+                      }}
+                    />
+                  </div>
                   {/* Vim-specific status bar */}
                   <div id="vim-status-bar" className="vim-status-bar" />
                 </div>
