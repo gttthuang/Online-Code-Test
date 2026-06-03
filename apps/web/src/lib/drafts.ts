@@ -12,7 +12,7 @@ function draftKey(userId: string, problemId: string, language: string): string {
 }
 
 function readStore(): DraftStore {
-  const raw = window.localStorage.getItem(DRAFTS_STORAGE_KEY);
+  const raw = globalThis.localStorage.getItem(DRAFTS_STORAGE_KEY);
 
   if (!raw) {
     return {};
@@ -28,7 +28,7 @@ function readStore(): DraftStore {
 
 function writeStore(store: DraftStore) {
   try {
-    window.localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(store));
+    globalThis.localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(store));
   } catch {
     // Storage may be unavailable or over quota; losing a draft is preferable to
     // crashing the editor, so swallow the error.

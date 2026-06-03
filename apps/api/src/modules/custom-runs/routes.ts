@@ -77,31 +77,6 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
     return run;
   });
 
-  // app.post("/admin/custom-runs", async (request) => {
-  //   const user = await requireUser(request, context);
-  //   requireRole(user, ["interviewer", "problem_admin"]);
-
-  //   const body = adminCustomRunSchema.parse(request.body);
-  //   await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
-  //   await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
-
-  //   const run = await context.store.createCustomRun({
-  //     candidateId: body.candidateId,
-  //     problemId: body.problemId,
-  //     requestedBy: user.id,
-  //     run: body
-  //   });
-
-  //   await context.judgeQueue.enqueue({
-  //     kind: "custom_run",
-  //     runId: run.id
-  //   });
-
-  //   return {
-  //     runId: run.id,
-  //     status: run.status
-  //   };
-  // });
   app.post("/admin/custom-runs", async (request) => {
     try {
       const user = await requireUser(request, context);
@@ -113,16 +88,12 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
       const isProblemAdmin = user.role === "problem_admin";
       let finalCandidateId = body.candidateId;
 
-      if (!isProblemAdmin) {
-        // 常規考生流程
-        await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
-        await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
-      } else {
+      if (isProblemAdmin) {
         // 管理員預覽流程：安全起見，如果前端不小心還是傳了 "admin-preview"，我們就保底用目前登入的 user.id
         if (finalCandidateId === "admin-preview") {
           finalCandidateId = user.id;
         }
-        
+
         const problem = await context.store.getProblem(body.problemId);
         if (!problem) {
           const error = new Error("Problem does not exist") as any;
@@ -130,6 +101,10 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
           error.code = "problem_not_found";
           throw error;
         }
+      } else {
+        // 常規考生流程
+        await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
+        await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
       }
 
       // 🎯 這裡直接傳入安全、合法的 finalCandidateId，再也沒有 findUsers 的事了！
@@ -155,20 +130,6 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
       throw error;
     }
   });
-  // app.get("/admin/custom-runs/:runId", async (request) => {
-  //   const user = await requireUser(request, context);
-  //   requireRole(user, ["interviewer", "problem_admin"]);
-
-  //   const params = runIdParamsSchema.parse(request.params);
-  //   const run = await context.store.getCustomRun(params.runId);
-
-  //   if (!run) {
-  //     throw new AppError(404, "custom_run_not_found", "Custom run does not exist");
-  //   }
-
-  //   await assertCanViewCandidateProblem(context, user, run.candidateId, run.problemId);
-  //   return run;
-  // });
   app.get("/admin/custom-runs/:runId", async (request) => {
     const user = await requireUser(request, context);
     requireRole(user, ["interviewer", "problem_admin"]);

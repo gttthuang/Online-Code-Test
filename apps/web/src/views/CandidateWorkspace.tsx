@@ -484,31 +484,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     };
   }, [submission, token, user.role]);
 
-  // useEffect(() => {
-  //   if (!customRun || !["queued", "running"].includes(customRun.status)) return;
-  //   let cancelled = false;
-  //   let timer: ReturnType<typeof setTimeout>;
-  //   const poll = async () => {
-  //     try {
-  //       const nextRun = await getCustomRun(token, customRun.id);
-
-  //       if (cancelled) return;
-  //       setCustomRun(nextRun);
-  //       if (["queued", "running"].includes(nextRun.status)) {
-  //         timer = globalThis.setTimeout(poll, 800);
-  //       }
-  //     } catch (error) {
-  //       if (!cancelled) setWorkspaceError(error instanceof Error ? error.message : "Failed to poll custom run");
-  //     }
-  //   };
-
-  //   timer = globalThis.setTimeout(poll, 500);
-
-  //   return () => {
-  //     cancelled = true;
-  //     globalThis.clearTimeout(timer);
-  //   };
-  // }, [customRun?.id, customRun?.status, token]);
   useEffect(() => {
     if (!customRun || !["queued", "running"].includes(customRun.status)) return;
     let cancelled = false;
@@ -570,45 +545,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     }
   }
 
-  // async function handleCustomRun() {
-  //   if (!problem || user.role !== "candidate") return;
-
-  //   setCustomRunLoading(true);
-  //   setWorkspaceError(null);
-  //   setRightTab("terminal");
-
-  //   try {
-  //     const created = await createCustomRun(token, {
-  //       problemId: problem.id,
-  //       language,
-  //       sourceCode,
-  //       stdin: customInput
-  //     });
-  //     const now = new Date().toISOString();
-
-  //     setCustomRun({
-  //       id: created.runId,
-  //       candidateId: user.id,
-  //       problemId: problem.id,
-  //       requestedBy: user.id,
-  //       language,
-  //       sourceCode,
-  //       stdin: customInput,
-  //       status: created.status,
-  //       stdout: null,
-  //       stderr: null,
-  //       errorType: null,
-  //       errorMessage: null,
-  //       executionTimeMs: null,
-  //       createdAt: now,
-  //       updatedAt: now
-  //     });
-  //   } catch (error) {
-  //     setWorkspaceError(error instanceof Error ? error.message : "Failed to run custom input");
-  //   } finally {
-  //     setCustomRunLoading(false);
-  //   }
-  // }
   async function handleCustomRun() {
     // 1. 放行 candidate 與 problem_admin
     if (!problem || (user.role !== "candidate" && user.role !== "problem_admin")) return;
@@ -876,12 +812,11 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
                     language={getMonacoLanguage(language)}
                     value={sourceCode}
                     theme="light"
-                    onChange={(value) => {
-                      const code = value ?? "";
-                      setSourceCode(code);
+                    onChange={(value = "") => {
+                      setSourceCode(value);
                       // Persist on edit so the draft survives closing/refreshing the tab.
                       if (user.role === "candidate" && selectedProblemId) {
-                        saveDraft(user.id, selectedProblemId, language, code);
+                        saveDraft(user.id, selectedProblemId, language, value);
                       }
                     }}
                     onMount={handleEditorMount}
