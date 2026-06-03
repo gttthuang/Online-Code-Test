@@ -657,7 +657,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
               <div className="problem-table-row" key={problem.id}>
                 <div>
                   <strong>{problem.title}</strong>
-                  <small>{problem.id}</small>
+                  {/* <small>{problem.id}</small> */}
                 </div>
 
                 <div className="submission-history-meta">
