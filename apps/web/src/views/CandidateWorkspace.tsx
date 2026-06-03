@@ -3,7 +3,7 @@ import type { AssignmentSummary, AuthUser, CandidateExamSummary, CustomRunDetail
 
 import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam, createAdminCustomRun, getAdminCustomRun } from "../lib/api";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
-import { loadDraft, saveDraft } from "../lib/drafts";
+import { loadDraft, saveDraft, loadEditorSettings, saveEditorSettings } from "../lib/drafts";
 import "./candidate.css";
 
 // Import Monaco Editor and Vim mode
@@ -282,6 +282,33 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   const [keybinding, setKeybinding] = useState<string>("standard");
 
   const isAdminPreview = user.role === "problem_admin";
+
+  // Restore the user's saved editor preferences once on load.
+  useEffect(() => {
+    const saved = loadEditorSettings(user.id);
+    if (!saved) return;
+    setFontSize(saved.fontSize);
+    setTabSize(saved.tabSize);
+    setKeybinding(saved.keybinding);
+  }, [user.id]);
+
+  // Persist editor preferences whenever the user changes one. Saving from the
+  // change handlers (rather than an effect on the values) avoids overwriting the
+  // stored settings with defaults before the restore effect above has run.
+  const handleFontSizeChange = (value: number) => {
+    setFontSize(value);
+    saveEditorSettings(user.id, { fontSize: value, tabSize, keybinding });
+  };
+
+  const handleTabSizeChange = (value: number) => {
+    setTabSize(value);
+    saveEditorSettings(user.id, { fontSize, tabSize: value, keybinding });
+  };
+
+  const handleKeybindingChange = (value: string) => {
+    setKeybinding(value);
+    saveEditorSettings(user.id, { fontSize, tabSize, keybinding: value });
+  };
 
   // === Editor and Vim instance references ===
   const editorRef = useRef<any>(null);
@@ -721,9 +748,9 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
           keybinding={keybinding}
           tabSize={tabSize}
           onClose={() => setIsSettingsOpen(false)}
-          onFontSizeChange={setFontSize}
-          onKeybindingChange={setKeybinding}
-          onTabSizeChange={setTabSize}
+          onFontSizeChange={handleFontSizeChange}
+          onKeybindingChange={handleKeybindingChange}
+          onTabSizeChange={handleTabSizeChange}
         />
       )}
 
@@ -807,29 +834,36 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
 
                 {/* Monaco Editor and Vim status bar container */}
                 <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden" }}>
-                  <Editor
-                    height="100%"
-                    language={getMonacoLanguage(language)}
-                    value={sourceCode}
-                    theme="light"
-                    onChange={(value = "") => {
-                      setSourceCode(value);
-                      // Persist on edit so the draft survives closing/refreshing the tab.
-                      if (user.role === "candidate" && selectedProblemId) {
-                        saveDraft(user.id, selectedProblemId, language, value);
-                      }
-                    }}
-                    onMount={handleEditorMount}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: fontSize,
-                      tabSize: tabSize,
-                      detectIndentation: false, // disable auto-detection, force custom tabSize
-                      scrollBeyondLastLine: false,
-                      wordWrap: "on",
-                      padding: { top: 8 }
-                    }}
-                  />
+                  {/* The editor takes the remaining space (flex: 1) rather than a fixed
+                      100% height, so the vim status bar below can claim its own height
+                      without overflowing and pushing the editor. automaticLayout lets
+                      Monaco re-measure when the bar toggles or the panel is resized. */}
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    <Editor
+                      height="100%"
+                      language={getMonacoLanguage(language)}
+                      value={sourceCode}
+                      theme="light"
+                      onChange={(value = "") => {
+                        setSourceCode(value);
+                        // Persist on edit so the draft survives closing/refreshing the tab.
+                        if (user.role === "candidate" && selectedProblemId) {
+                          saveDraft(user.id, selectedProblemId, language, value);
+                        }
+                      }}
+                      onMount={handleEditorMount}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: fontSize,
+                        tabSize: tabSize,
+                        detectIndentation: false, // disable auto-detection, force custom tabSize
+                        scrollBeyondLastLine: false,
+                        wordWrap: "on",
+                        automaticLayout: true,
+                        padding: { top: 8 }
+                      }}
+                    />
+                  </div>
                   {/* Vim-specific status bar */}
                   <div id="vim-status-bar" className="vim-status-bar" />
                 </div>

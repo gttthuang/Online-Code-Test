@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { clearDraft, loadDraft, saveDraft } from "./drafts";
+import { clearDraft, loadDraft, saveDraft, loadEditorSettings, saveEditorSettings } from "./drafts";
 
 const KEY = "oct-demo-drafts";
 
@@ -42,5 +42,34 @@ describe("draft storage", () => {
 
     expect(loadDraft("u1", "p1", "python")).toBeNull();
     expect(loadDraft("u1", "p1", "cpp")).toBe("cpp-code");
+  });
+});
+
+describe("editor settings storage", () => {
+  it("returns null when nothing is stored", () => {
+    expect(loadEditorSettings("u1")).toBeNull();
+  });
+
+  it("round-trips per-user settings", () => {
+    saveEditorSettings("u1", { fontSize: 18, tabSize: 2, keybinding: "vim" });
+    saveEditorSettings("u2", { fontSize: 12, tabSize: 8, keybinding: "standard" });
+
+    expect(loadEditorSettings("u1")).toEqual({ fontSize: 18, tabSize: 2, keybinding: "vim" });
+    expect(loadEditorSettings("u2")).toEqual({ fontSize: 12, tabSize: 8, keybinding: "standard" });
+  });
+
+  it("overwrites the previous settings for a user", () => {
+    saveEditorSettings("u1", { fontSize: 14, tabSize: 4, keybinding: "standard" });
+    saveEditorSettings("u1", { fontSize: 20, tabSize: 2, keybinding: "vim" });
+
+    expect(loadEditorSettings("u1")).toEqual({ fontSize: 20, tabSize: 2, keybinding: "vim" });
+  });
+
+  it("does not collide with code drafts in storage", () => {
+    saveDraft("u1", "p1", "python", "print(1)");
+    saveEditorSettings("u1", { fontSize: 16, tabSize: 4, keybinding: "vim" });
+
+    expect(loadDraft("u1", "p1", "python")).toBe("print(1)");
+    expect(loadEditorSettings("u1")).toEqual({ fontSize: 16, tabSize: 4, keybinding: "vim" });
   });
 });
