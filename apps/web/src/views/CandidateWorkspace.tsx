@@ -120,7 +120,12 @@ function SettingsModal({ fontSize, tabSize, keybinding, onFontSizeChange, onTabS
     <dialog
       ref={dialogRef}
       className="settings-modal-dialog"
-      onClose={onClose}
+      // Use onCancel (Escape key) rather than onClose: the cleanup below calls
+      // dialog.close(), which fires a native "close" event. Under React
+      // StrictMode the mount effect runs setup→cleanup→setup, so an onClose
+      // handler would flip isSettingsOpen back to false during that cleanup and
+      // the modal would close itself the instant it opened.
+      onCancel={onClose}
     >
       <div className="settings-modal">
         <h3>Editor Settings</h3>
