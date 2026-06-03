@@ -3,6 +3,7 @@ import type { AssignmentSummary, AuthUser, CandidateExamSummary, CustomRunDetail
 
 import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam, createAdminCustomRun, getAdminCustomRun } from "../lib/api";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
+import { loadDraft, saveDraft } from "../lib/drafts";
 import "./candidate.css";
 
 // Import Monaco Editor and Vim mode
@@ -11,6 +12,8 @@ import { initVimMode } from "monaco-vim";
 
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";
+
+const DEFAULT_SOURCE = "print(42)";
 
 interface CandidateWorkspaceProps {
   readonly token: string;
@@ -120,7 +123,12 @@ function SettingsModal({ fontSize, tabSize, keybinding, onFontSizeChange, onTabS
     <dialog
       ref={dialogRef}
       className="settings-modal-dialog"
-      onClose={onClose}
+      // Use onCancel (Escape key) rather than onClose: the cleanup below calls
+      // dialog.close(), which fires a native "close" event. Under React
+      // StrictMode the mount effect runs setup→cleanup→setup, so an onClose
+      // handler would flip isSettingsOpen back to false during that cleanup and
+      // the modal would close itself the instant it opened.
+      onCancel={onClose}
     >
       <div className="settings-modal">
         <h3>Editor Settings</h3>
@@ -250,7 +258,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   const [problemLoading, setProblemLoading] = useState(false);
   const [assignmentsLoading, setAssignmentsLoading] = useState(user.role === "candidate");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [sourceCode, setSourceCode] = useState("print(42)");
+  const [sourceCode, setSourceCode] = useState(DEFAULT_SOURCE);
   const [language, setLanguage] = useState<SupportedLanguage>("python");
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [submissionHistory, setSubmissionHistory] = useState<SubmissionHistoryItem[]>([]);
@@ -415,6 +423,14 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       cancelled = true;
     };
   }, [selectedProblemId, token, user.role]);
+
+  // Restore the candidate's locally saved draft when the active problem or
+  // language changes, falling back to the default starter code.
+  useEffect(() => {
+    if (user.role !== "candidate" || !selectedProblemId) return;
+    const saved = loadDraft(user.id, selectedProblemId, language);
+    setSourceCode(saved ?? DEFAULT_SOURCE);
+  }, [selectedProblemId, language, user.id, user.role]);
 
   useEffect(() => {
     if (!selectedProblemId) {
@@ -860,7 +876,14 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
                     language={getMonacoLanguage(language)}
                     value={sourceCode}
                     theme="light"
-                    onChange={(value) => setSourceCode(value || "")}
+                    onChange={(value) => {
+                      const code = value ?? "";
+                      setSourceCode(code);
+                      // Persist on edit so the draft survives closing/refreshing the tab.
+                      if (user.role === "candidate" && selectedProblemId) {
+                        saveDraft(user.id, selectedProblemId, language, code);
+                      }
+                    }}
                     onMount={handleEditorMount}
                     options={{
                       minimap: { enabled: false },

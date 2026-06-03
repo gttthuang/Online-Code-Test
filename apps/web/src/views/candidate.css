@@ -166,14 +166,17 @@
 }
 
 /* === 設定視窗 (Settings Modal) 樣式 === */
-.settings-overlay {
-    position: fixed;
-    inset: 0;
+/* Reset the native <dialog> chrome (default solid border, padding, white bg)
+   so only the inner .settings-modal panel is visible. */
+.settings-modal-dialog {
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: visible;
+}
+
+.settings-modal-dialog::backdrop {
     background: rgba(0, 0, 0, 0.5);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     backdrop-filter: blur(2px);
 }
 
