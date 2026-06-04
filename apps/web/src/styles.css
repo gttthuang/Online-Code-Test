@@ -788,22 +788,54 @@ textarea {
   }
 }
 
+/* 1. 外層容器：寬度不夠時，負責長出橫向捲軸 */
+.result-table2 {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  overflow-x: auto; 
+  padding-bottom: 8px; 
+}
+
+/* 2. 表格的每一行 */
 .problem-table-row {
   display: grid;
-  grid-template-columns: 1fr max-content auto auto 40px;
-  gap: 0.75rem;
+  
+  /* 💡 完美結合你的需求：
+     - minmax(300px, 1fr)：Title 最少要有 300px，大螢幕時會當 1fr 放大吃掉多餘空間。
+     - 2, 3, 4 欄全部都是 max-content。
+     - 40px：刪除按鈕。
+  */
+  grid-template-columns: minmax(200px, 1fr) max-content max-content max-content 40px;
+  
+  gap: 1.5rem; 
   align-items: center;
   padding: 0.9rem 1rem;
   border-radius: 18px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.65);
+  box-sizing: border-box; 
+  
+  /* 規定整行總寬度 */
+  width: 100%;
+  min-width: 850px; 
 }
 
-/* 💡 改成明確的 class 名稱，安全係數 100% */
+/* 3. 💡 關鍵：如何讓最後一個「x」按鈕在最右邊？
+   因為現在 Title (1fr) 變成了放大主力，右邊的 2, 3, 4 欄會全部黏在一起。
+   我們只要幫「第 4 欄（Archive 按鈕）」加上 margin-right: auto，
+   它就會產生一股隱形推力，把最後一個刪除按鈕隻身推到最右邊去！ */
+.problem-table-row > button:nth-last-child(2) {
+  margin-right: auto;
+}
+
+/* 4. Title 的外殼 */
 .problem-title-box {
-  min-width: 0; 
+  min-width: 0;
 }
 
+/* 5. Title 的文字本身 */
 .problem-title-box strong {
   display: block;       
   margin: 0;
@@ -813,9 +845,8 @@ textarea {
   
   white-space: nowrap;    
   overflow: hidden;       
-  text-overflow: ellipsis;
+  text-overflow: ellipsis; 
 }
-
 
 .dashboard-metrics {
   display: grid;

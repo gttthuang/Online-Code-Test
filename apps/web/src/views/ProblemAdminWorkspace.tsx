@@ -649,7 +649,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
         {inventoryError ? <p className="error-text">{inventoryError}</p> : null}
 
-        <div className="result-table">
+        <div className="result-table2">
           {problems.length === 0 ? (
             <div className="empty-state">No problems yet.</div>
           ) : (
