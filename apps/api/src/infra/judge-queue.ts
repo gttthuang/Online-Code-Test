@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { getJudgeJobId, judgeQueueName, type JudgeJob } from "@oct/contracts";
+import { getJudgeJobId, type JudgeJob } from "@oct/contracts";
 
 export interface JudgeQueue {
   enqueue(job: JudgeJob): Promise<void>;
@@ -26,4 +26,4 @@ export function createRedisJudgeQueue(queue: Queue<JudgeJob>) {
   return new RedisJudgeQueue(queue);
 }
 
-export { judgeQueueName };
+export { judgeQueueName } from "@oct/contracts";

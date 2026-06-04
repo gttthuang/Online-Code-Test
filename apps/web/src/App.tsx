@@ -54,13 +54,13 @@ const workspaceNav = {
   ]
 } satisfies Record<AuthUser["role"], Array<{ label: string; path: string; icon: typeof LayoutDashboard }>>;
 
-function CandidateRoute({ session }: { session: SessionState }) {
+function CandidateRoute({ session }: { readonly session: SessionState }) {
   const { problemId } = useParams();
 
   return <CandidateWorkspace initialProblemId={problemId ?? null} token={session.token} user={session.user} />;
 }
 
-function CandidateAssignmentsPage({ session }: { session: SessionState }) {
+function CandidateAssignmentsPage({ session }: { readonly session: SessionState }) {
   const [exam, setExam] = useState<CandidateExamSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -130,12 +130,12 @@ function CandidateAssignmentsList({
   loading,
   onStartExam,
   starting
-}: {
+}: Readonly<{
   exam: CandidateExamSummary | null;
   loading: boolean;
   onStartExam: () => void;
   starting: boolean;
-}) {
+}>) {
   if (loading) {
     return <div className="empty-state">Loading assignments...</div>;
   }
@@ -355,9 +355,9 @@ function LoginPage({
   isLoading,
   onLogin
 }: {
-  error: string | null;
-  isLoading: boolean;
-  onLogin: (email: string) => Promise<void>;
+  readonly error: string | null;
+  readonly isLoading: boolean;
+  readonly onLogin: (email: string) => Promise<void>;
 }) {
   return (
     <main className="app-shell login-shell">
@@ -372,10 +372,10 @@ function ProtectedWorkspace({
   onLogout,
   session
 }: {
-  children: ReactNode;
-  expectedRole: AuthUser["role"];
-  onLogout: () => void;
-  session: SessionState | null;
+  readonly children: ReactNode;
+  readonly expectedRole: AuthUser["role"];
+  readonly onLogout: () => void;
+  readonly session: SessionState | null;
 }) {
   if (!session) {
     return <Navigate replace to="/login" />;
@@ -392,7 +392,7 @@ function ProtectedWorkspace({
   );
 }
 
-function WorkspaceFrame({ children, onLogout, session }: { children: ReactNode; onLogout: () => void; session: SessionState }) {
+function WorkspaceFrame({ children, onLogout, session }: { readonly children: ReactNode; readonly onLogout: () => void; readonly session: SessionState }) {
   const location = useLocation();
   const navItems = workspaceNav[session.user.role];
   const [sidebarOpen, setSidebarOpen] = useState(true);

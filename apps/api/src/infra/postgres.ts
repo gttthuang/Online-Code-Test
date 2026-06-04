@@ -61,7 +61,7 @@ export async function pingPostgres(pool: Pool) {
 }
 
 function toIdentifier(value: string) {
-  if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+  if (!/^\w+$/.test(value)) {
     throw new Error(`Invalid postgres identifier: ${value}`);
   }
 

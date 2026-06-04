@@ -3,12 +3,12 @@ import { useState } from "react";
 import { Eye } from "lucide-react";
 
 interface SubmissionHistoryPanelProps {
-  emptyMessage: string;
-  loading?: boolean;
-  onSelect: (submission: SubmissionHistoryItem) => void;
-  selectedId?: string | null;
-  submissions: SubmissionHistoryItem[];
-  showCodeInline?: boolean;
+  readonly emptyMessage: string;
+  readonly loading?: boolean;
+  readonly onSelect: (submission: SubmissionHistoryItem) => void;
+  readonly selectedId?: string | null;
+  readonly submissions: SubmissionHistoryItem[];
+  readonly showCodeInline?: boolean;
 }
 
 export function SubmissionHistoryPanel({
