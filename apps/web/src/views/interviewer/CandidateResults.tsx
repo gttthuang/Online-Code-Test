@@ -227,6 +227,7 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
               onSelect={(submission) => setSelectedSubmissionId(submission.id)}
               selectedId={selectedSubmissionId}
               submissions={results.submissions}
+              showCodeInline={true}
             />
           </div>
         ) : (

@@ -20,7 +20,9 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
     ? "candidates"
     : location.pathname.includes("/results")
       ? "results"
-      : "dashboard";
+      : location.pathname.includes("/assign")
+        ? "assign"
+        : "dashboard";
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +72,12 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
 
             <CandidateResults token={token} candidates={candidates} />
           </div>
+        </section>
+      ) : null}
+
+      {activeSection === "assign" ? (
+        <section className="workspace-grid single-column-grid">
+          <AssignmentForm token={token} candidates={candidates} problems={problems} />
         </section>
       ) : null}
 
