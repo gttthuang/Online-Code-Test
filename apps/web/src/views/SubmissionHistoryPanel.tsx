@@ -8,6 +8,7 @@ interface SubmissionHistoryPanelProps {
   onSelect: (submission: SubmissionHistoryItem) => void;
   selectedId?: string | null;
   submissions: SubmissionHistoryItem[];
+  showCodeInline?: boolean;
 }
 
 export function SubmissionHistoryPanel({
@@ -15,7 +16,8 @@ export function SubmissionHistoryPanel({
   loading = false,
   onSelect,
   selectedId,
-  submissions
+  submissions,
+  showCodeInline
 }: SubmissionHistoryPanelProps) {
   const [activeSubmission, setActiveSubmission] = useState<SubmissionHistoryItem | null>(null);
   const activeId = activeSubmission?.id ?? selectedId;
@@ -37,36 +39,42 @@ export function SubmissionHistoryPanel({
     <div className="submission-history-layout">
       <div className="submission-history-list">
         {submissions.map((submission) => (
-          <div
-            className={submission.id === activeId ? "submission-history-row submission-history-row-active" : "submission-history-row"}
-            key={submission.id}
-          >
-            <div className="submission-history-main">
-              <strong>{submission.problemTitle}</strong>
-              <span>{new Date(submission.createdAt).toLocaleString()}</span>
-              {/* <small>{submission.id}</small> */}
-            </div>
-
-            <div className="submission-history-meta">
-              {(() => {
-                const verdict = getSubmissionVerdict(submission);
-                return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
-              })()}
-              <span>{submission.language}</span>
-              <span>{submission.passedCases} / {submission.totalCases} cases</span>
-            </div>
-
-            <button
-              className="secondary-button icon-button-text"
-              onClick={() => {
-                setActiveSubmission(submission);
-                onSelect(submission);
-              }}
-              type="button"
+          <div key={submission.id}>
+            <div
+              className={submission.id === activeId ? "submission-history-row submission-history-row-active" : "submission-history-row"}
             >
-              <Eye aria-hidden="true" size={15} />
-              <span>View</span>
-            </button>
+              <div className="submission-history-main">
+                <strong>{submission.problemTitle}</strong>
+                <span>{new Date(submission.createdAt).toLocaleString()}</span>
+                {/* <small>{submission.id}</small> */}
+              </div>
+
+              <div className="submission-history-meta">
+                {(() => {
+                  const verdict = getSubmissionVerdict(submission);
+                  return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
+                })()}
+                <span>{submission.language}</span>
+                <span>{submission.passedCases} / {submission.totalCases} cases</span>
+              </div>
+
+              <button
+                className="secondary-button icon-button-text"
+                onClick={() => {
+                  setActiveSubmission(submission);
+                  onSelect(submission);
+                }}
+                type="button"
+              >
+                <Eye aria-hidden="true" size={15} />
+                <span>View</span>
+              </button>
+            </div>
+            {showCodeInline && (
+              <div className="submission-history-code-inline mt-sm mb-lg">
+                <pre className="code-snapshot">{submission.sourceCode}</pre>
+              </div>
+            )}
           </div>
         ))}
       </div>

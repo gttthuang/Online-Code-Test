@@ -42,6 +42,7 @@ const workspaceNav = {
   interviewer: [
     { label: "Dashboard", path: "/interviewer", icon: LayoutDashboard },
     { label: "Candidates", path: "/interviewer/candidates", icon: UserRoundCog },
+    { label: "Assign", path: "/interviewer/assign", icon: ClipboardList },
     { label: "Results", path: "/interviewer/results", icon: Activity }
   ],
   problem_admin: [
