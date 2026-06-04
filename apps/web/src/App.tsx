@@ -108,8 +108,6 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
     }
   }
 
-  const assignments = exam?.assignments ?? [];
-
   return (
     <section className="workspace-container dashboard-page">
       <header className="workspace-header">
@@ -121,45 +119,73 @@ function CandidateAssignmentsPage({ session }: { session: SessionState }) {
       {error ? <p className="error-text">{error}</p> : null}
 
       <div className="assignment-card-list">
-        {loading ? (
-          <div className="empty-state">Loading assignments...</div>
-        ) : !exam || exam.assignmentCount === 0 ? (
-          <div className="empty-state">No assignments yet.</div>
-        ) : exam.status === "not_started" ? (
-          <article className="status-card exam-start-card">
-            <p className="eyebrow">Ready</p>
-            <h2>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h2>
-            <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
-            <button className="primary-button" disabled={starting} onClick={handleStartExam} type="button">
-              {starting ? "Starting..." : "Start Exam"}
-            </button>
-          </article>
-        ) : exam.status === "expired" ? (
-          <article className="status-card exam-start-card">
-            <p className="eyebrow">Expired</p>
-            <h2>Time limit reached</h2>
-            <p className="panel-copy">The assigned exam window has ended.</p>
-          </article>
-        ) : (
-          <>
-            <article className="status-card exam-start-card">
-              <p className="eyebrow">In Progress</p>
-              <h2>{formatRemainingTime(exam.remainingSeconds)} remaining</h2>
-              <p className="panel-copy">{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</p>
-            </article>
-            {assignments.map((assignment) => (
-              <Link className="assignment-card-link" key={assignment.id} to={`/candidate/problems/${assignment.problemId}`}>
-                <div>
-                  <strong>{assignment.problemTitle}</strong>
-                  <small>{assignment.problemId}</small>
-                </div>
-                <span className="role-badge">{assignment.difficulty}</span>
-              </Link>
-            ))}
-          </>
-        )}
+        <CandidateAssignmentsList exam={exam} loading={loading} onStartExam={handleStartExam} starting={starting} />
       </div>
     </section>
+  );
+}
+
+function CandidateAssignmentsList({
+  exam,
+  loading,
+  onStartExam,
+  starting
+}: {
+  exam: CandidateExamSummary | null;
+  loading: boolean;
+  onStartExam: () => void;
+  starting: boolean;
+}) {
+  if (loading) {
+    return <div className="empty-state">Loading assignments...</div>;
+  }
+
+  if (!exam || exam.assignmentCount === 0) {
+    return <div className="empty-state">No assignments yet.</div>;
+  }
+
+  if (exam.status === "not_started") {
+    return (
+      <article className="status-card exam-start-card">
+        <p className="eyebrow">Ready</p>
+        <h2>{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</h2>
+        <p className="panel-copy">Time limit: {formatExamDuration(exam.durationMinutes)}</p>
+        <button className="primary-button" disabled={starting} onClick={onStartExam} type="button">
+          {starting ? "Starting..." : "Start Exam"}
+        </button>
+      </article>
+    );
+  }
+
+  if (exam.status === "expired") {
+    return (
+      <article className="status-card exam-start-card">
+        <p className="eyebrow">Expired</p>
+        <h2>Time limit reached</h2>
+        <p className="panel-copy">The assigned exam window has ended.</p>
+      </article>
+    );
+  }
+
+  const assignments = exam.assignments ?? [];
+
+  return (
+    <>
+      <article className="status-card exam-start-card">
+        <p className="eyebrow">In Progress</p>
+        <h2>{formatRemainingTime(exam.remainingSeconds)} remaining</h2>
+        <p className="panel-copy">{exam.assignmentCount} assigned problem{exam.assignmentCount === 1 ? "" : "s"}</p>
+      </article>
+      {assignments.map((assignment) => (
+        <Link className="assignment-card-link" key={assignment.id} to={`/candidate/problems/${assignment.problemId}`}>
+          <div>
+            <strong>{assignment.problemTitle}</strong>
+            <small>{assignment.problemId}</small>
+          </div>
+          <span className="role-badge">{assignment.difficulty}</span>
+        </Link>
+      ))}
+    </>
   );
 }
 

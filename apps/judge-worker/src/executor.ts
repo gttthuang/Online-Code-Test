@@ -390,9 +390,10 @@ async function ensureDockerImage(image: string) {
     const pullResult = await runHostCommand("docker", ["pull", image], 180_000);
 
     if (pullResult.exitCode !== 0) {
+      const stderrDetail = pullResult.stderr ? ` (${pullResult.stderr.trim()})` : "";
       throw new ExecutionFailure(
         "sandbox_error",
-        `failed_to_pull_sandbox_image: ${image}${pullResult.stderr ? ` (${pullResult.stderr.trim()})` : ""}`
+        `failed_to_pull_sandbox_image: ${image}${stderrDetail}`
       );
     }
   }

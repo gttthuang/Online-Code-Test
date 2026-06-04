@@ -104,6 +104,22 @@ function getTestcaseFileParts(fileName: string) {
   return null;
 }
 
+function resolveActiveSection(pathname: string) {
+  if (pathname.includes("/submissions")) {
+    return "submissions";
+  }
+  if (pathname.includes("/users")) {
+    return "users";
+  }
+  if (pathname.includes("/new")) {
+    return "new";
+  }
+  if (pathname.includes("/problems")) {
+    return "problems";
+  }
+  return "dashboard";
+}
+
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
@@ -121,15 +137,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const location = useLocation();
   const navigate = useNavigate();
   const previewProblemId = /^\/problem-admin\/problems\/([^/]+)\/preview$/.exec(location.pathname)?.[1] ?? null;
-  const activeSection = location.pathname.includes("/submissions")
-    ? "submissions"
-    : location.pathname.includes("/users")
-      ? "users"
-      : location.pathname.includes("/new")
-        ? "new"
-        : location.pathname.includes("/problems")
-          ? "problems"
-          : "dashboard";
+  const activeSection = resolveActiveSection(location.pathname);
 
   const confirmProblem = problems.find((problem) => problem.id === confirmId);
   const difficultyCounts = useMemo(
@@ -323,7 +331,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     selectedFiles.forEach((file) => {
       const parts = getTestcaseFileParts(file.name);
 
-      if (!parts || !parts.stem.trim()) {
+      if (!parts?.stem.trim()) {
         errors.push(`${file.name} must end with .in or .out.`);
         return;
       }

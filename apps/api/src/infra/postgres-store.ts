@@ -1033,7 +1033,7 @@ export class PostgresStore implements AppStore {
   async getCandidateReviewContext(candidateId: string, interviewerId: string): Promise<CandidateReviewContextResponse | null> {
     const candidate = await this.getUserById(candidateId);
 
-    if (!candidate || candidate.role !== "candidate") {
+    if (candidate?.role !== "candidate") {
       return null;
     }
 

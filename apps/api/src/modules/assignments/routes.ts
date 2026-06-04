@@ -53,7 +53,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, context: Ap
     const candidate = await context.store.getUserById(body.candidateId);
     const problemIds = [...new Set([...(body.problemIds ?? []), ...(body.problemId ? [body.problemId] : [])])];
 
-    if (!candidate || candidate.role !== "candidate") {
+    if (candidate?.role !== "candidate") {
       throw new AppError(404, "candidate_not_found", "Candidate does not exist");
     }
 

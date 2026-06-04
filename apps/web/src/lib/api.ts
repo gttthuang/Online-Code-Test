@@ -443,9 +443,5 @@ export function getPreviewSubmission(
 }
 
 export function getAdminSubmission(token: string, submissionId: string) {
-  return request<SubmissionHistoryItem>(
-    `/admin/submissions/${submissionId}`,
-    undefined,
-    token
-  );
+  return getPreviewSubmission(token, submissionId);
 }
