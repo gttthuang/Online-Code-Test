@@ -789,25 +789,46 @@ textarea {
 }
 
 
+/* ==========================================================================
+   修正 Problem Builder & Inventory 顏色與防禦排版（完全還原原本半透明毛玻璃）
+   ========================================================================== */
+
+/* 1. 讓新開的網格維持 1.15 : 0.85 的比例，不打架 */
 .workspace-grid2 {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 1rem;
   margin-top: 1rem;
 }
-/* 填上這段：強迫兩邊的卡片乖乖聽比例的話，不准被內容撐開 */
 .workspace-grid2 > article,
 .status-card2 {
-  min-width: 0; /* 🚀 最關鍵的一行！告訴瀏覽器：內容再寬都不准撐開欄位 */
+  /* 複製原本 .status-card 的高級感配色 */
+  border: 1px solid var(--line);
+  background: var(--panel) !important;
+  backdrop-filter: blur(18px) !important;
+  box-shadow: var(--shadow) !important;
+  
+  /* 原本 status-card 的間距與圓角 */
+  padding: 1.4rem;
+  border-radius: 8px;
+
+  /* 同時保有防禦排版，絕對不被內容擠壓變形 */
+  min-width: 0; 
+  display: flex;
+  flex-direction: column;
 }
 
-/* 確保表單內部的雙欄排版不會打架 */
-.specs-row2, .sample-grid2 {
+/* 3. 確保表單內部的雙欄排版不會撐破外殼 */
+.specs-row2, 
+.sample-grid2 {
   min-width: 0; 
 }
-.specs-row2 textarea, .sample-grid2 textarea {
-  width: 100%; /* 讓輸入框自動縮小去適應外殼，而不是自己去撐大外殼 */
+
+.specs-row2 textarea, 
+.sample-grid2 textarea {
+  width: 100%; 
 }
+
 /* 1. 外層容器：完全改回乾淨的垂直排列，不開捲軸 */
 .result-table2 {
   display: flex;
