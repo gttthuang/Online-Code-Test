@@ -790,7 +790,6 @@ textarea {
 
 .problem-table-row {
   display: grid;
-  
   grid-template-columns: 1fr max-content auto auto 40px;
   gap: 0.75rem;
   align-items: center;
@@ -800,11 +799,12 @@ textarea {
   background: rgba(255, 255, 255, 0.65);
 }
 
-.problem-table-row > div:first-child {
+/* 💡 改成明確的 class 名稱，安全係數 100% */
+.problem-title-box {
   min-width: 0; 
 }
 
-.problem-table-row > div:first-child strong {
+.problem-title-box strong {
   display: block;       
   margin: 0;
   font-size: 1.1rem;
