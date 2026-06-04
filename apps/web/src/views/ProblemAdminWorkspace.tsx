@@ -655,9 +655,8 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           ) : (
             problems.map((problem) => (
               <div className="problem-table-row" key={problem.id}>
-                <div>
+                <div className="problem-title-box">
                   <strong>{problem.title}</strong>
-                  {/* <small>{problem.id}</small> */}
                 </div>
 
                 <div className="submission-history-meta">
