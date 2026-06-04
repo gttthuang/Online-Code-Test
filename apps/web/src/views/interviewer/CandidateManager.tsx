@@ -3,8 +3,8 @@ import type { AuthUser } from "@oct/contracts";
 import { getCandidates, createCandidate, deleteCandidate } from "../../lib/api";
 
 interface CandidateManagerProps {
-  token: string;
-  onCandidatesUpdated: (candidates: AuthUser[]) => void;
+  readonly token: string;
+  readonly onCandidatesUpdated: (candidates: AuthUser[]) => void;
 }
 
 export function CandidateManager({ token, onCandidatesUpdated }: CandidateManagerProps) {
@@ -58,7 +58,7 @@ export function CandidateManager({ token, onCandidatesUpdated }: CandidateManage
   };
 
   const handleDelete = async (candidateId: string) => {
-    if (!window.confirm("Are you sure you want to delete this candidate?")) return;
+    if (!globalThis.confirm("Are you sure you want to delete this candidate?")) return;
 
     setLoading(true);
     setError(null);
@@ -142,13 +142,14 @@ export function CandidateManager({ token, onCandidatesUpdated }: CandidateManage
             }}
           />
         </div>
-        {loading ? (
+        {loading && (
           <div className="skeleton-list">
             <div className="skeleton-item"></div>
             <div className="skeleton-item"></div>
             <div className="skeleton-item"></div>
           </div>
-        ) : filteredCandidates.length > 0 ? (
+        )}
+        {!loading && filteredCandidates.length > 0 && (
           <ul className="candidate-list">
             {filteredCandidates.map((c) => (
               <li key={c.id} className="candidate-item">
@@ -169,7 +170,8 @@ export function CandidateManager({ token, onCandidatesUpdated }: CandidateManage
               </li>
             ))}
           </ul>
-        ) : (
+        )}
+        {!loading && filteredCandidates.length === 0 && (
           <div className="empty-state">No candidates found matching "{searchQuery}".</div>
         )}
       </div>

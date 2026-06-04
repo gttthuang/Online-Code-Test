@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import type { Pool } from "pg";
 

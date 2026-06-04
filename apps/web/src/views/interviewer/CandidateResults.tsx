@@ -6,8 +6,8 @@ import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
 import Editor from "@monaco-editor/react";
 
 interface CandidateResultsProps {
-  token: string;
-  candidates: AuthUser[];
+  readonly token: string;
+  readonly candidates: AuthUser[];
 }
 
 type ReviewFormState = {
@@ -196,12 +196,13 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
       {error && <div className="toast toast-error">{error}</div>}
 
       <div className="results-container mt-lg">
-        {loading ? (
+        {loading && (
           <div className="skeleton-list">
             <div className="skeleton-card"></div>
             <div className="skeleton-card"></div>
           </div>
-        ) : results ? (
+        )}
+        {!loading && results && (
           <div className="review-results-layout">
             <ReviewEditor
               disabled={reviewSaving}
@@ -230,7 +231,8 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
               showCodeInline={true}
             />
           </div>
-        ) : (
+        )}
+        {!loading && !results && (
           <div className="empty-state">
             <p>Select a candidate to view their submission history.</p>
           </div>
@@ -245,9 +247,9 @@ function ScratchRunPanel({
   problemId,
   token
 }: {
-  candidate: AuthUser;
-  problemId: string;
-  token: string;
+  readonly candidate: AuthUser;
+  readonly problemId: string;
+  readonly token: string;
 }) {
   const [sourceCode, setSourceCode] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("python");
@@ -401,7 +403,7 @@ function ScratchRunPanel({
           <div className="terminal-output-grid">
             <div className={`run-status-strip run-status-${customRun.status === "failed" ? "error" : "ok"}`}>
               <span>{customRun.status}</span>
-              {customRun.executionTimeMs !== null ? <span>{customRun.executionTimeMs} ms</span> : null}
+              {customRun.executionTimeMs === null ? null : <span>{customRun.executionTimeMs} ms</span>}
             </div>
             {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
             <div>
@@ -433,16 +435,16 @@ function ReviewEditor({
   problemOptions,
   selectedProblemId
 }: {
-  disabled: boolean;
-  form: ReviewFormState;
-  hasSavedReview: boolean;
-  message: string | null;
-  onDelete: () => void;
-  onSave: (event: React.FormEvent<HTMLFormElement>) => void;
-  onSelectProblem: (problemId: string) => void;
-  onUpdate: (form: ReviewFormState) => void;
-  problemOptions: CandidateReviewContextResponse["assignments"];
-  selectedProblemId: string;
+  readonly disabled: boolean;
+  readonly form: ReviewFormState;
+  readonly hasSavedReview: boolean;
+  readonly message: string | null;
+  readonly onDelete: () => void;
+  readonly onSave: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onSelectProblem: (problemId: string) => void;
+  readonly onUpdate: (form: ReviewFormState) => void;
+  readonly problemOptions: CandidateReviewContextResponse["assignments"];
+  readonly selectedProblemId: string;
 }) {
   return (
     <form className="review-editor" onSubmit={onSave}>
@@ -532,9 +534,9 @@ function RubricSlider({
   onChange,
   value
 }: {
-  label: string;
-  onChange: (value: number) => void;
-  value: number;
+  readonly label: string;
+  readonly onChange: (value: number) => void;
+  readonly value: number;
 }) {
   return (
     <label className="rubric-slider">

@@ -1,9 +1,9 @@
 import { useState } from "react";
 
 interface LoginPanelProps {
-  isLoading: boolean;
-  error: string | null;
-  onLogin: (email: string) => Promise<void>;
+  readonly isLoading: boolean;
+  readonly error: string | null;
+  readonly onLogin: (email: string) => Promise<void>;
 }
 
 export function LoginPanel({ isLoading, error, onLogin }: LoginPanelProps) {

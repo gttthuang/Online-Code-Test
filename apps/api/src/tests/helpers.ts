@@ -272,7 +272,7 @@ async function dropDatabase(dbName: string) {
 }
 
 function quoteIdentifier(value: string) {
-  if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+  if (!/^\w+$/.test(value)) {
     throw new Error(`invalid_identifier:${value}`);
   }
 

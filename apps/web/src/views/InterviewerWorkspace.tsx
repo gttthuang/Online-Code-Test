@@ -8,7 +8,20 @@ import { AssignmentForm } from "./interviewer/AssignmentForm";
 import { CandidateResults } from "./interviewer/CandidateResults";
 
 interface InterviewerWorkspaceProps {
-  token: string;
+  readonly token: string;
+}
+
+function resolveActiveSection(pathname: string) {
+  if (pathname.includes("/candidates")) {
+    return "candidates";
+  }
+  if (pathname.includes("/results")) {
+    return "results";
+  }
+  if (pathname.includes("/assign")) {
+    return "assign";
+  }
+  return "dashboard";
 }
 
 export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
@@ -16,13 +29,7 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
   const [candidates, setCandidates] = useState<AuthUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
-  const activeSection = location.pathname.includes("/candidates")
-    ? "candidates"
-    : location.pathname.includes("/results")
-      ? "results"
-      : location.pathname.includes("/assign")
-        ? "assign"
-        : "dashboard";
+  const activeSection = resolveActiveSection(location.pathname);
 
   useEffect(() => {
     let cancelled = false;

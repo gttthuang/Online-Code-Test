@@ -10,8 +10,8 @@ import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } fr
 import type { VerdictKind } from "./SubmissionHistoryPanel";
 
 interface ProblemAdminWorkspaceProps {
-  currentUserId: string;
-  token: string;
+  readonly currentUserId: string;
+  readonly token: string;
 }
 
 interface TestCaseState {
@@ -149,9 +149,9 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     }),
     [problems]
   );
+  const lastTestcase = testcases.at(-1);
   const canAddNewTestCase =
-    testcases.length === 0 ||
-    Boolean(testcases[testcases.length - 1].input && testcases[testcases.length - 1].output);
+    testcases.length === 0 || Boolean(lastTestcase?.input && lastTestcase?.output);
 
   useEffect(() => {
     let cancelled = false;
@@ -612,7 +612,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           Add Testcase
         </button>
 
-        {!canAddNewTestCase ? <p className="helper-text">Please upload both input and output before adding the next testcase.</p> : null}
+        {canAddNewTestCase ? null : <p className="helper-text">Please upload both input and output before adding the next testcase.</p>}
       </div>
     );
   }
@@ -805,13 +805,13 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       </div>
 
       {notice ? (
-        <div className={`toast floating-toast toast-${notice.type}`} role="status">
+        <output className={`toast floating-toast toast-${notice.type}`}>
           <strong>{notice.title}</strong>
           <span>{notice.message}</span>
           <button className="toast-close-button" onClick={() => setNotice(null)} type="button">
             x
           </button>
-        </div>
+        </output>
       ) : null}
 
       {confirmId ? (
@@ -820,9 +820,10 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             <p>Delete problem</p>
             <p className="modal-target-title">{confirmProblem?.title}</p>
 
-            {confirmLoading ? (
+            {confirmLoading && (
               <div className="empty-state">Loading impact...</div>
-            ) : confirmImpact ? (
+            )}
+            {!confirmLoading && confirmImpact && (
               <div className="impact-grid">
                 <div>
                   <span>Assignments</span>
@@ -841,7 +842,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                   <strong>{confirmImpact.reviews}</strong>
                 </div>
               </div>
-            ) : null}
+            )}
 
             {confirmImpact && !confirmImpact.canDeleteWithoutForce ? (
               <label className="force-delete-check">
@@ -884,9 +885,9 @@ function UserManager({
   onNotice,
   token
 }: {
-  currentUserId: string;
-  onNotice: (notice: NoticeState) => void;
-  token: string;
+  readonly currentUserId: string;
+  readonly onNotice: (notice: NoticeState) => void;
+  readonly token: string;
 }) {
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [name, setName] = useState("");
@@ -1036,11 +1037,13 @@ function UserManager({
         </form>
 
         <div className="result-table user-table">
-          {loading ? (
+          {loading && (
             <div className="empty-state">Loading users...</div>
-          ) : users.length === 0 ? (
+          )}
+          {!loading && users.length === 0 && (
             <div className="empty-state">No users yet.</div>
-          ) : (
+          )}
+          {!loading && users.length > 0 && (
             users.map((user) => (
               <div className="user-table-row" key={user.id}>
                 <div className="candidate-info">
@@ -1069,7 +1072,7 @@ function UserManager({
   );
 }
 
-function AdminSubmissionHistory({ token }: { token: string }) {
+function AdminSubmissionHistory({ token }: { readonly token: string }) {
   const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [query, setQuery] = useState("");

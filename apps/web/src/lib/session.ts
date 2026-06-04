@@ -8,7 +8,7 @@ interface StoredSession {
 }
 
 export function loadStoredSession(): StoredSession | null {
-  const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  const raw = globalThis.localStorage.getItem(SESSION_STORAGE_KEY);
 
   if (!raw) {
     return null;
@@ -28,9 +28,9 @@ export function loadStoredSession(): StoredSession | null {
 }
 
 export function saveStoredSession(session: StoredSession) {
-  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  globalThis.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
 }
 
 export function clearStoredSession() {
-  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  globalThis.localStorage.removeItem(SESSION_STORAGE_KEY);
 }

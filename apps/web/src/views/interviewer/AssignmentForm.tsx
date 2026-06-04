@@ -3,9 +3,9 @@ import type { AuthUser, ProblemSummary } from "@oct/contracts";
 import { createAssignment } from "../../lib/api";
 
 interface AssignmentFormProps {
-  token: string;
-  candidates: AuthUser[];
-  problems: ProblemSummary[];
+  readonly token: string;
+  readonly candidates: AuthUser[];
+  readonly problems: ProblemSummary[];
 }
 
 export function AssignmentForm({ token, candidates, problems }: AssignmentFormProps) {
