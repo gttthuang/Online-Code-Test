@@ -15,9 +15,12 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
 
   const getCandidateLabel = (c: AuthUser) => `${c.name} (${c.email})`;
-  const activeProblems = problems.filter((problem) => !problem.archivedAt);
+  const activeProblems = problems.filter((problem) => 
+    !problem.archivedAt && (difficultyFilter === "all" || problem.difficulty === difficultyFilter)
+  );
 
   function toggleProblem(problemId: string) {
     setSelectedProblemIds((current) =>
@@ -97,7 +100,19 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
         </label>
 
         <div className="field">
-          <span>Problems</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span>Problems</span>
+            <select 
+              value={difficultyFilter} 
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              style={{ width: 'auto', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color, #ccc)' }}
+            >
+              <option value="all">All Difficulties</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
           <div className="problem-checkbox-list">
             {activeProblems.length === 0 ? (
               <div className="empty-state">No active problems available.</div>
