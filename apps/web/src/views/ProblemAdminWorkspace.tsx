@@ -509,7 +509,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       return (
         <div className="sample-grid-container">
           {/* 1. 新增：輸入與輸出規格說明 */}
-          <div className="specs-row2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div className="specs-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <label className="field">
               <span>Input Specification</span>
               <textarea value={form.inputSpec} onChange={(e) => setForm(curr => ({ ...curr, inputSpec: e.target.value }))} />
@@ -521,7 +521,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </div>
 
           {/* 2. 原有的 Sample Input / Output */}
-          <div className="sample-grid2">
+          <div className="sample-grid">
             <label className="field">
               <span>Sample Input</span>
               <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
@@ -618,7 +618,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
   function renderBuilderCard() {
     return (
-      <article className="status-card2 panel-column">
+      <article className="status-card panel-column">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Problem Builder</p>
@@ -647,7 +647,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
   function renderInventoryCard() {
     return (
-      <article className="status-card2 panel-column">
+      <article className="status-card panel-column">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Problem Inventory</p>
@@ -657,7 +657,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
 
         {inventoryError ? <p className="error-text">{inventoryError}</p> : null}
 
-        <div className="result-table2">
+        <div className="result-table">
           {problems.length === 0 ? (
             <div className="empty-state">No problems yet.</div>
           ) : (
@@ -780,7 +780,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </section>
 
         {activeSection === "dashboard" ? (
-          <section className="workspace-grid2">
+          <section className="workspace-grid">
             {renderBuilderCard()}
             {renderInventoryCard()}
           </section>
