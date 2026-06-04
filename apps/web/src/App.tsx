@@ -46,7 +46,7 @@ const workspaceNav = {
     { label: "Results", path: "/interviewer/results", icon: Activity }
   ],
   problem_admin: [
-    { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },
+    // { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },
     { label: "New Problem", path: "/problem-admin/new", icon: PlusCircle },
     { label: "Problems", path: "/problem-admin/problems", icon: Database },
     { label: "Submissions", path: "/problem-admin/submissions", icon: Activity },

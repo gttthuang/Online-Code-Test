@@ -117,7 +117,8 @@ function resolveActiveSection(pathname: string) {
   if (pathname.includes("/problems")) {
     return "problems";
   }
-  return "dashboard";
+  // return "dashboard";
+  return "problems"
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
@@ -779,12 +780,12 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </article>
         </section>
 
-        {activeSection === "dashboard" ? (
+        {/* {activeSection === "dashboard" ? (
           <section className="workspace-grid">
             {renderBuilderCard()}
             {renderInventoryCard()}
           </section>
-        ) : null}
+        ) : null} */}
 
         {activeSection === "new" ? <section className="workspace-grid single-column-grid">{renderBuilderCard()}</section> : null}
 
