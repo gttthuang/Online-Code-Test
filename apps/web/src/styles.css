@@ -358,10 +358,6 @@ textarea {
   grid-template-columns: 0.82fr 1.25fr 1fr;
 }
 
-.header-container {
-  padding: 1rem 1rem 0;
-}
-
 .workspace-container {
   padding: 0 1rem 1rem;
 }
@@ -990,7 +986,6 @@ textarea {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  /* border: 1px solid var(--line); */
   border: none;
   background: white;
   color: var(--danger);
@@ -1696,6 +1691,7 @@ textarea {
   gap: 1rem;
   margin-bottom: 1rem;
   align-items: stretch;
+  padding: 1rem 1rem 0;
 }
 
 .header-container .hero-panel {

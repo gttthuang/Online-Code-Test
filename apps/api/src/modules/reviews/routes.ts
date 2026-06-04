@@ -99,7 +99,7 @@ async function assertReviewTargetExists(context: AppContext, candidateId: string
     context.store.getProblem(problemId)
   ]);
 
-  if (!candidate || candidate.role !== "candidate") {
+  if (candidate?.role !== "candidate") {
     throw new AppError(404, "candidate_not_found", "Candidate does not exist");
   }
 

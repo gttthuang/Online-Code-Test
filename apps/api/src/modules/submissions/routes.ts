@@ -83,7 +83,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     const params = submissionIdParamsSchema.parse(request.params);
     const submission = await context.store.getSubmissionById(params.submissionId);
 
-    if (!submission || submission.candidateId !== user.id) {
+    if (submission?.candidateId !== user.id) {
       throw new AppError(404, "submission_not_found", "Submission does not exist");
     }
 
@@ -97,7 +97,7 @@ export async function registerSubmissionRoutes(app: FastifyInstance, context: Ap
     const params = candidateIdParamsSchema.parse(request.params);
     const candidate = await context.store.getUserById(params.candidateId);
 
-    if (!candidate || candidate.role !== "candidate") {
+    if (candidate?.role !== "candidate") {
       throw new AppError(404, "candidate_not_found", "Candidate does not exist");
     }
 

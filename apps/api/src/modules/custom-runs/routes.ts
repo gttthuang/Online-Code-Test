@@ -70,7 +70,7 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
     const params = runIdParamsSchema.parse(request.params);
     const run = await context.store.getCustomRun(params.runId);
 
-    if (!run || run.candidateId !== user.id) {
+    if (run?.candidateId !== user.id) {
       throw new AppError(404, "custom_run_not_found", "Custom run does not exist");
     }
 
@@ -181,7 +181,7 @@ async function assertCanViewCandidateProblem(
 ) {
   const candidate = await context.store.getUserById(candidateId);
 
-  if (!candidate || candidate.role !== "candidate") {
+  if (candidate?.role !== "candidate") {
     throw new AppError(404, "candidate_not_found", "Candidate does not exist");
   }
 
