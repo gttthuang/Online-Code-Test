@@ -53,15 +53,7 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLoadResults = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const candidate = candidates.find(c => getCandidateLabel(c) === candidateInput);
-    if (!candidate) {
-      setError("Please select a valid candidate from the dropdown list.");
-      return;
-    }
-
+  const loadResultsFor = async (candidate: AuthUser) => {
     setLoading(true);
     setError(null);
     setResults(null);
@@ -85,6 +77,29 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
       setError(err instanceof Error ? err.message : "Failed to load candidate results");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadResults = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const candidate = candidates.find(c => getCandidateLabel(c) === candidateInput);
+    if (!candidate) {
+      setError("Please select a valid candidate from the dropdown list.");
+      return;
+    }
+
+    void loadResultsFor(candidate);
+  };
+
+  const handleCandidateChange = (value: string) => {
+    setCandidateInput(value);
+
+    // Auto-load as soon as a candidate is fully selected, so interviewers
+    // don't need a separate "View" click.
+    const candidate = candidates.find(c => getCandidateLabel(c) === value);
+    if (candidate) {
+      void loadResultsFor(candidate);
     }
   };
 
@@ -172,18 +187,11 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
             <CandidateCombobox
               candidates={candidates}
               id="results-candidate-options"
-              onChange={setCandidateInput}
+              onChange={handleCandidateChange}
               placeholder="Type to search or select a candidate..."
               value={candidateInput}
             />
           </label>
-          <button
-            className="secondary-button"
-            disabled={loading || !candidateInput}
-            type="submit"
-          >
-            {loading ? "Loading..." : "View"}
-          </button>
         </div>
       </form>
 

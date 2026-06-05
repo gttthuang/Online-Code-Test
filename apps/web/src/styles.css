@@ -1920,7 +1920,6 @@ textarea {
   color: var(--text-main);
 }
 
-.combobox-option:hover,
 .combobox-option-active {
   background: var(--accent-soft);
 }
