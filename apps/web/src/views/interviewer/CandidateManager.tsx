@@ -158,8 +158,7 @@ export function CandidateManager({ token, onCandidatesUpdated }: CandidateManage
                   <span className="candidate-email">{c.email}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <span className="badge badge-outline">{c.id}</span>
-                  <button 
+                  <button
                     className="danger-button text-sm" 
                     onClick={() => handleDelete(c.id)}
                     style={{ padding: '4px 8px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}

@@ -88,8 +88,8 @@ async function loadResults(reviews: InterviewReview[] = []) {
   mocked.getCandidateReviewContext.mockResolvedValue(reviewContext({ reviews }));
 
   render(<CandidateResults token="t" candidates={[candidate]} />);
+  // Selecting a candidate auto-loads their results (no "View" click needed).
   fireEvent.change(screen.getByPlaceholderText(/Type to search/), { target: { value: candidateLabel } });
-  fireEvent.click(screen.getByRole("button", { name: "View" }));
   await screen.findByText("Notes and rubric");
 }
 
@@ -105,7 +105,7 @@ describe("CandidateResults", () => {
   it("rejects loading for an unknown candidate", () => {
     render(<CandidateResults token="t" candidates={[candidate]} />);
     fireEvent.change(screen.getByPlaceholderText(/Type to search/), { target: { value: "Nobody" } });
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
+    fireEvent.submit(screen.getByPlaceholderText(/Type to search/).closest("form")!);
     expect(screen.getByText(/select a valid candidate from the dropdown/)).toBeInTheDocument();
   });
 
@@ -121,7 +121,6 @@ describe("CandidateResults", () => {
     mocked.getCandidateReviewContext.mockRejectedValue(new Error("load boom"));
     render(<CandidateResults token="t" candidates={[candidate]} />);
     fireEvent.change(screen.getByPlaceholderText(/Type to search/), { target: { value: candidateLabel } });
-    fireEvent.click(screen.getByRole("button", { name: "View" }));
     expect(await screen.findByText("load boom")).toBeInTheDocument();
   });
 
