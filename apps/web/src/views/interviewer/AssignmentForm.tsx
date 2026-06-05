@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AuthUser, ProblemSummary } from "@oct/contracts";
 import { createAssignment } from "../../lib/api";
+import { CandidateCombobox, getCandidateLabel } from "./CandidateCombobox";
 
 interface AssignmentFormProps {
   readonly token: string;
@@ -17,8 +18,7 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
   const [success, setSuccess] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState("all");
 
-  const getCandidateLabel = (c: AuthUser) => `${c.name} (${c.email})`;
-  const activeProblems = problems.filter((problem) => 
+  const activeProblems = problems.filter((problem) =>
     !problem.archivedAt && (difficultyFilter === "all" || problem.difficulty === difficultyFilter)
   );
 
@@ -74,18 +74,13 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
       <form onSubmit={handleAssign} className="assignment-form mt-md">
         <label className="field">
           <span>Candidate</span>
-          <input 
-            type="text" 
-            list="candidate-list"
-            placeholder="Type to search or select a candidate..." 
+          <CandidateCombobox
+            candidates={candidates}
+            id="assign-candidate-options"
+            onChange={setCandidateInput}
+            placeholder="Type to search or select a candidate..."
             value={candidateInput}
-            onChange={(e) => setCandidateInput(e.target.value)}
           />
-          <datalist id="candidate-list">
-            {candidates.map((c) => (
-              <option key={c.id} value={getCandidateLabel(c)} />
-            ))}
-          </datalist>
         </label>
 
         <label className="field">

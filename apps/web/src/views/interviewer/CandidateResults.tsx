@@ -3,6 +3,7 @@ import { reviewRecommendations } from "@oct/contracts";
 import type { AuthUser, CandidateReviewContextResponse, CustomRunDetail, InterviewReview, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 import { createAdminCustomRun, deleteCandidateReview, getAdminCustomRun, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
 import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
+import { CandidateCombobox, getCandidateLabel } from "./CandidateCombobox";
 import Editor from "@monaco-editor/react";
 
 interface CandidateResultsProps {
@@ -51,8 +52,6 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const getCandidateLabel = (c: AuthUser) => `${c.name} (${c.email})`;
 
   const handleLoadResults = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,18 +169,13 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
       <form onSubmit={handleLoadResults} className="results-form mt-md">
         <div className="inline-form">
           <label className="field flex-grow">
-            <input
-              type="text"
-              list="results-candidate-list"
+            <CandidateCombobox
+              candidates={candidates}
+              id="results-candidate-options"
+              onChange={setCandidateInput}
               placeholder="Type to search or select a candidate..."
               value={candidateInput}
-              onChange={(e) => setCandidateInput(e.target.value)}
             />
-            <datalist id="results-candidate-list">
-              {candidates.map((candidate) => (
-                <option key={candidate.id} value={getCandidateLabel(candidate)} />
-              ))}
-            </datalist>
           </label>
           <button
             className="secondary-button"
