@@ -427,7 +427,18 @@ function WorkspaceFrame({ children, onLogout, session }: { readonly children: Re
                 (item.path !== roleHomePath[session.user.role] && location.pathname.startsWith(item.path));
 
               return (
-                <NavLink className={isActive ? "sidebar-link sidebar-link-active" : "sidebar-link"} key={item.path} to={item.path}>
+                <NavLink
+                  className={isActive ? "sidebar-link sidebar-link-active" : "sidebar-link"}
+                  key={item.path}
+                  onClick={(event) => {
+                    // Clicking "Exam" while already viewing a specific problem would
+                    // reset to the default problem; keep the candidate where they are.
+                    if (item.path === roleHomePath.candidate && location.pathname.startsWith("/candidate/problems")) {
+                      event.preventDefault();
+                    }
+                  }}
+                  to={item.path}
+                >
                   <Icon aria-hidden="true" size={17} />
                   <span>{item.label}</span>
                 </NavLink>
