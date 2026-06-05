@@ -127,7 +127,7 @@ export function AssignmentForm({ token, candidates, problems }: AssignmentFormPr
                   />
                   <span>
                     <strong>{problem.title}</strong>
-                    <small>{problem.id} · {problem.difficulty.toUpperCase()}</small>
+                    <small>{problem.difficulty.toUpperCase()}</small>
                   </span>
                 </label>
               ))

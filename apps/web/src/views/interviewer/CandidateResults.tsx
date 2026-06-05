@@ -56,7 +56,7 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
 
   const handleLoadResults = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const candidate = candidates.find(c => getCandidateLabel(c) === candidateInput);
     if (!candidate) {
       setError("Please select a valid candidate from the dropdown list.");
@@ -170,10 +170,10 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
       <form onSubmit={handleLoadResults} className="results-form mt-md">
         <div className="inline-form">
           <label className="field flex-grow">
-            <input 
-              type="text" 
+            <input
+              type="text"
               list="results-candidate-list"
-              placeholder="Type to search or select a candidate..." 
+              placeholder="Type to search or select a candidate..."
               value={candidateInput}
               onChange={(e) => setCandidateInput(e.target.value)}
             />
@@ -183,9 +183,9 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
               ))}
             </datalist>
           </label>
-          <button 
-            className="secondary-button" 
-            disabled={loading || !candidateInput} 
+          <button
+            className="secondary-button"
+            disabled={loading || !candidateInput}
             type="submit"
           >
             {loading ? "Loading..." : "View"}

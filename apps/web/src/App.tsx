@@ -180,7 +180,6 @@ function CandidateAssignmentsList({
         <Link className="assignment-card-link" key={assignment.id} to={`/candidate/problems/${assignment.problemId}`}>
           <div>
             <strong>{assignment.problemTitle}</strong>
-            <small>{assignment.problemId}</small>
           </div>
           <span className="role-badge">{assignment.difficulty}</span>
         </Link>
