@@ -45,6 +45,7 @@ type ProblemRow = {
   output_spec: string | null;
   sample_explanation: string | null;
   template_code: string | null;
+  display_number: number | null;
 };
 
 type AssignmentRow = {
@@ -214,55 +215,85 @@ export class PostgresStore implements AppStore {
     return this.createUser({ ...input, role: "candidate" });
   }
 
+  // async listProblems(): Promise<ProblemSummary[]> {
+  //   const result = await this.pool.query<ProblemRow>(
+  //     `
+  //       select
+  //         id,
+  //         title,
+  //         description,
+  //         difficulty,
+  //         time_limit_ms,
+  //         memory_limit_kb,
+  //         supported_languages,
+  //         sample_input,
+  //         sample_output,
+  //         created_by,
+  //         archived_at
+  //       from problems
+  //       order by title asc
+  //     `
+  //   );
+
+  //   return result.rows.map((row) => this.toProblemSummary(row));
+  // }
   async listProblems(): Promise<ProblemSummary[]> {
     const result = await this.pool.query<ProblemRow>(
       `
         select
-          id,
-          title,
-          description,
-          difficulty,
-          time_limit_ms,
-          memory_limit_kb,
-          supported_languages,
-          sample_input,
-          sample_output,
-          created_by,
-          archived_at
-        from problems
-        order by title asc
+          p.id, p.title, p.description, p.difficulty, p.time_limit_ms,
+          p.memory_limit_kb, p.supported_languages, p.sample_input, p.sample_output,
+          p.created_by, p.archived_at,
+          pdn.display_number
+        from problems p
+        left join problem_display_numbers pdn on p.id = pdn.problem_id
+        order by pdn.display_number asc, p.title asc
       `
     );
 
+    // 直接對每一行呼叫轉換函式即可，不要再做額外的擴充運算
     return result.rows.map((row) => this.toProblemSummary(row));
   }
 
   async getProblem(problemId: string): Promise<ProblemRecord | null> {
+    // const problemResult = await this.pool.query<ProblemRow>(
+    //   `
+    //     select
+    //       id,
+    //       title,
+    //       description,
+    //       difficulty,
+    //       time_limit_ms,
+    //       memory_limit_kb,
+    //       supported_languages,
+    //       sample_input,
+    //       sample_output,
+    //       created_by,
+    //       archived_at,
+    //       constraints as "constraints",
+    //       input_spec as "inputSpec",
+    //       output_spec as "outputSpec",
+    //       sample_explanation as "sampleExplanation",
+    //       template_code as "templateCode"
+    //     from problems
+    //     where id = $1
+    //   `,
+    //   [problemId]
+    // );
     const problemResult = await this.pool.query<ProblemRow>(
       `
         select
-          id,
-          title,
-          description,
-          difficulty,
-          time_limit_ms,
-          memory_limit_kb,
-          supported_languages,
-          sample_input,
-          sample_output,
-          created_by,
-          archived_at,
-          constraints as "constraints",
-          input_spec as "inputSpec",
-          output_spec as "outputSpec",
-          sample_explanation as "sampleExplanation",
-          template_code as "templateCode"
-        from problems
-        where id = $1
+          p.id, p.title, p.description, p.difficulty, p.time_limit_ms,
+          p.memory_limit_kb, p.supported_languages, p.sample_input, p.sample_output,
+          p.created_by, p.archived_at,
+          p.constraints, p.input_spec, p.output_spec, p.sample_explanation, p.template_code,
+          pdn.display_number
+        from problems p
+        left join problem_display_numbers pdn on p.id = pdn.problem_id
+        where p.id = $1
       `,
       [problemId]
     );
-
     const problem = problemResult.rows[0];
 
     if (!problem) {
@@ -346,6 +377,16 @@ export class PostgresStore implements AppStore {
           (input as any).templateCode
         ]
       );
+      // 2. 寫入題號對照表
+      // 使用 COALESCE 處理第一筆題目（若無資料則從 1 開始）
+      await client.query(
+        `
+          insert into problem_display_numbers (problem_id, display_number)
+          select $1, COALESCE(MAX(display_number), 0) + 1 
+          from problem_display_numbers
+        `,
+        [problemId]
+      );
 
       for (const testCase of input.hiddenTestCases ?? []) {
         await client.query(
@@ -368,6 +409,13 @@ export class PostgresStore implements AppStore {
     const problem = await this.getProblem(problemId);
     if (!problem) {
       throw new Error("failed_to_create_problem");
+    }
+    if (!(problem as any).display_number) {
+      const check = await this.pool.query(
+        "SELECT display_number FROM problem_display_numbers WHERE problem_id = $1",
+        [problemId]
+      );
+      (problem as any).display_number = check.rows[0]?.display_number ?? 0;
     }
 
     return this.toProblemSummary(problem);
@@ -1461,6 +1509,7 @@ export class PostgresStore implements AppStore {
   }
 
   private toProblemSummary(problem: ProblemRow | ProblemRecord): ProblemSummary {
+    console.log("Mapping problem:", problem.id, "Display number from DB:", (problem as any).display_number);
     return {
       id: problem.id,
       title: problem.title,
@@ -1469,12 +1518,13 @@ export class PostgresStore implements AppStore {
       memoryLimitKb: "memory_limit_kb" in problem ? problem.memory_limit_kb : problem.memoryLimitKb,
       supportedLanguages:
         "supported_languages" in problem ? problem.supported_languages as ProblemSummary["supportedLanguages"] : problem.supportedLanguages,
-      archivedAt: "archived_at" in problem ? problem.archived_at : problem.archivedAt
+      archivedAt: "archived_at" in problem ? problem.archived_at : problem.archivedAt,
+      displayId: problem.display_number ?? 0,
     };
   }
 
   private toProblemDetail(problem: ProblemRow | ProblemRecord): ProblemDetail {
-    
+    console.log("Mapping problem:", problem.id, "Display number from DB:", (problem as any).display_number);
     return {
       ...this.toProblemSummary(problem),
       description: problem.description,

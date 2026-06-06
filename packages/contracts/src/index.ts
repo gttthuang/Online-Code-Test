@@ -77,6 +77,7 @@ export interface ProblemSummary {
   memoryLimitKb: number;
   supportedLanguages: SupportedLanguage[];
   archivedAt: string | null;
+  displayId: number | null;
 }
 
 export interface ProblemDetail extends ProblemSummary {
@@ -147,6 +148,7 @@ export interface AssignmentSummary {
   startedAt: string | null;
   expiresAt: string | null;
   latestSubmissionStatus: SubmissionStatus | null;
+  displayId?: number;
 }
 
 export interface CreateAssignmentRequest {
@@ -281,6 +283,7 @@ export interface SubmissionHistoryItem extends SubmissionDetail {
   problemTitle: string;
   passedCases: number;
   totalCases: number;
+  displayId?: number;
 }
 
 export interface CandidateResultItem {
