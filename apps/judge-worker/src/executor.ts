@@ -454,7 +454,7 @@ async function runHostCommand(command: string, args: string[], timeoutMs: number
   });
 }
 
-function buildDockerRunArgs(
+export function buildDockerRunArgs(
   containerName: string,
   workingDirectory: string,
   sandbox: ExecutionSubmission["sandbox"],

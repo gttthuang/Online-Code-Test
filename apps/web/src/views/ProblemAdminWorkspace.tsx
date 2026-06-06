@@ -1,21 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
 import type { AuthUser, ProblemDetail, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
+import ReactQuill from "react-quill-new";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers, getAdminProblem, updateAdminProblem } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
-import ReactQuill, { Quill } from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/default.min.css';
-
-// // 1. 強制掛載到 window，供 Quill 內部呼叫
-(window as any).hljs = hljs;
-
+import "react-quill-new/dist/quill.snow.css";
 
 interface ProblemAdminWorkspaceProps {
   readonly currentUserId: string;
@@ -131,7 +125,6 @@ function resolveActiveSection(pathname: string) {
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
-  const quillRef = useRef<any>(null);
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
@@ -154,14 +147,11 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [operationMode, setOperationMode] = useState<"delete" | "modify">("delete");
-  // 在你的 ProblemAdminWorkspace 元件中加入
   useEffect(() => {
-    // 如果目前的頁面不是 "/new"，且我們有正在編輯的題目，則清理狀態
     if (activeSection !== "new" && editingId !== null) {
       setEditingId(null);
       setForm(initialFormState);
       setTestcases([createEmptyTestcase()]);
-      // 也可以選擇在這裡顯示一個提示：showNotice(...)
     }
   }, [activeSection, editingId]);
   async function requestModifyProblem(problem: ProblemSummary) {
@@ -172,7 +162,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     setConfirmImpact(null);
     try {
       const impact = await getProblemImpact(token, problem.id);
-      setConfirmImpact(impact); // 這是關鍵：一旦設值，UI 應該要顯示警告彈窗
+      setConfirmImpact(impact);
     } catch (err) {
       showNotice({ type: "error", title: "無法檢查影響", message: "無法獲取題目狀態" });
     } finally {
@@ -185,11 +175,8 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     try {
       setConfirmLoading(true);
       
-      // 1. 執行載入 API
       const detail = await getAdminProblem(token, confirmId);
-      console.log("完整的 API 回傳資料:", detail);
 
-      // 2. 設定編輯狀態與 Form 資料
       setEditingId(confirmId);
       setForm({
         title: detail.title,
@@ -205,10 +192,9 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         sampleExplanation: detail.sampleExplanation ?? ""
       });
       
-      // 3. 處理測試資料 (隱藏測資轉 File)
       if (detail.hiddenTestCases && detail.hiddenTestCases.length > 0) {
         setTestcases(
-          detail.hiddenTestCases.map((tc: any) => {
+          detail.hiddenTestCases.map((tc) => {
             const inputFile = new File([tc.input], `existing_input_${tc.id}.in`, { type: 'text/plain' });
             const outputFile = new File([tc.expectedOutput], `existing_output_${tc.id}.out`, { type: 'text/plain' });
 
@@ -224,16 +210,13 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         setTestcases([createEmptyTestcase()]);
       }
       
-      // 4. 切換 UI 並導向
       setActiveTab("info");
       navigate("/problem-admin/new");
       
-      // 5. 清除確認狀態
       setConfirmId(null);
       setConfirmImpact(null);
       
     } catch (err) {
-      console.error("載入失敗:", err);
       showNotice({ 
         type: "error", 
         title: "載入失敗", 
@@ -248,7 +231,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     setFormError(null);
 
     try {
-      // 1. 驗證測試資料完整性
       const incompleteIndex = testcases.findIndex(
         (tc) => Boolean(tc.input) !== Boolean(tc.output)
       );
@@ -261,7 +243,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         throw new Error("At least one testcase is required.");
       }
 
-      // 2. 組裝 FormData
       const formData = new FormData();
       formData.append("title", form.title);
       formData.append("description", form.description);
@@ -277,28 +258,22 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       formData.append("sampleExplanation", form.sampleExplanation);
 
       completeTestcases.forEach((tc, index) => {
-        // 若是編輯模式，且 tc.input 是 null (代表沒更動)，有些後端可能需要標記
-        // 這裡依照你現有邏輯，直接 append 檔案
         if (tc.input) formData.append(`testcases[${index}][input]`, tc.input);
         if (tc.output) formData.append(`testcases[${index}][output]`, tc.output);
       });
 
-      // 3. 執行 API 動作
       if (editingId) {
-        // 更新模式
         await updateAdminProblem(token, editingId, formData);
         setProblems((prev) =>
           prev.map((p) => (p.id === editingId ? { ...p, title: form.title, difficulty: form.difficulty } : p))
         );
         showNotice({ type: "success", title: "Updated", message: "Problem updated successfully." });
       } else {
-        // 建立模式
         const response = await createProblem(token, formData);
         setProblems((current) => [response.problem, ...current]);
         showNotice({ type: "success", title: "Created", message: "Problem created successfully." });
       }
 
-      // 4. 重置狀態
       setForm(initialFormState);
       setTestcases([createEmptyTestcase()]);
       setEditingId(null);
@@ -652,15 +627,11 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           <label className="field">
             <span>Description</span>
             <ReactQuill 
-              ref={quillRef} // <--- 加上這一行
               theme="snow" 
               value={form.description} 
-              onChange={(content, delta, source, editor) => {
-                  // 關鍵檢查：只有當 source 是 'user' (使用者手動輸入) 時才觸發更新
-                  // 這樣可以避免 Quill 初始化時自動觸發的變更導致無限迴圈
+              onChange={(content, _delta, source) => {
                   if (source === 'user') {
                     setForm((current) => {
-                      // 只有當內容確實不同時，才更新狀態
                       if (current.description !== content) {
                         return { ...current, description: content };
                       }
@@ -668,7 +639,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                     });
                   }
                 }}
-              // 加上一個 wrapper class 方便 CSS 控制
               className="quill-editor" 
               modules={{
                 
@@ -919,7 +889,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   if (previewProblemId) {
     return (
       <div className="fullscreen-preview-container">
-        {/* 上側工具列 */}
         <div className="preview-top-bar">
           <button
             className="chip-button"
@@ -933,18 +902,16 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </span>
         </div>
 
-        {/* 下方內容區 */}
         <div className="preview-workspace-body">
           <CandidateWorkspace
             key={previewProblemId}
             initialProblemId={previewProblemId}
             token={token}
             user={{
-              // id: "admin-preview",
               id: currentUserId,
               name: "Admin",
               role: "problem_admin",
-              email: "admin-preview@example.com"
+              email: "admin@example.com"
             }}
           />
         </div>

@@ -784,10 +784,9 @@ textarea {
 
   .problem-title-box {
     min-width: 0; /* 配合 ellipsis 縮小成 ... 使用 */
-    width: 100%;  /* 🔥 加上這行：確保寬度 100% 傳遞給內層的 strong 標籤 */
+    width: 100%;
   }
 
-  /* 5. Title 的文字本身：強迫不換行，超過寬度自動變 ... */
   .problem-title-box strong {
     display: block;       
     margin: 0;
@@ -802,13 +801,9 @@ textarea {
 }
 
 
-/* ==========================================================================
-   修正 Problem Builder & Inventory 顏色與防禦排版（完全還原原本半透明毛玻璃）
-   ========================================================================== */
-  /* 2. 表格的每一行：寬度百分之百固定與外層一致，按鈕絕對不會被切掉 */
+/* Problem Builder and Inventory layout hardening. */
   .problem-table-row {
     display: grid;
-    /* 🔥 關鍵修改：將第一個參數改成 minmax(0, 1fr)，這樣文字寬度才能被成功限縮，進而觸發 ... 省略號 */
     grid-template-columns: minmax(0, 1fr) auto auto auto auto 40px;
     
     gap: 1.5rem; 
@@ -847,7 +842,6 @@ textarea {
     font-family: 'Consolas', 'Monaco', monospace !important;
     font-size: 14px !important;
 }
-/* 
 /* 讓列表間距更清楚 */
 .ql-editor li {
     margin-bottom: 5px !important;

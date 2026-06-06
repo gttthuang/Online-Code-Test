@@ -25,3 +25,17 @@ aws elasticbeanstalk describe-environments \
   --query "Environments[].{Name:EnvironmentName,Status:Status,Health:Health,CNAME:CNAME}" \
   --output table \
   --region "${AWS_REGION}" || true
+
+echo "--- CloudWatch alarms ---"
+aws cloudwatch describe-alarms \
+  --alarm-name-prefix "${APP_NAME}-${STAGE}-" \
+  --query "MetricAlarms[].{Name:AlarmName,State:StateValue,Reason:StateReason}" \
+  --output table \
+  --region "${AWS_REGION}" || true
+
+echo "--- CloudWatch log groups ---"
+aws logs describe-log-groups \
+  --log-group-name-prefix "/${APP_NAME}/${STAGE}" \
+  --query "logGroups[].{Name:logGroupName,RetentionDays:retentionInDays}" \
+  --output table \
+  --region "${AWS_REGION}" || true

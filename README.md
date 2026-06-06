@@ -18,12 +18,16 @@ An online coding interview system with a working React frontend, Fastify API, Po
 
 The app supports candidate submissions, custom stdin runs, interviewer private notes/rubric, admin problem authoring, user management, and AWS deployment. Sandboxing is currently Docker-based rather than a fully hardened production judge environment.
 
-Local observability is also available through `GET /internal/stats`, which returns current submission status counts and judge failure breakdowns.
+Operational endpoints include lightweight liveness at `GET /healthz`, dependency
+readiness at `GET /readyz`, Prometheus metrics at `GET /metrics`, and detailed
+judge statistics at `GET /internal/stats`. Set `OPS_TOKEN` to protect the latter
+two endpoints outside local development.
 
 ## Quick Start
 
 Host prerequisites:
 
+- Node.js `22.13+` LTS (`nvm use` reads the checked-in `.nvmrc`)
 - Docker / Docker Desktop
 
 ```bash
@@ -51,15 +55,32 @@ Demo emails are documented in [Local Development](./docs/local-development.md).
 
 ## Verification
 
+Start PostgreSQL before running the complete local gate:
+
 ```bash
+docker compose -f infra/docker-compose.yml up -d postgres
 npm run ci:verify
 ```
 
-For a local Docker-based GitHub Actions check, use:
+The gate runs workspace typechecks, backend and frontend coverage thresholds, the
+full account-to-judge production flow, frontend production build, Docker Compose
+validation, and AWS shell syntax checks.
+
+The API also publishes its machine-readable route and role contract at
+`http://localhost:3000/openapi.json`. Fastify startup fails if a registered route
+is missing from that contract.
+
+GitHub Actions runs these areas in parallel:
 
 ```bash
-act push -j verify --bind
+act push -j static-analysis
+act push -j backend --bind
+act push -j frontend
+act push -j infrastructure
 ```
+
+The stable `Quality gate` job requires all four areas to pass and is the check that
+should be required by branch protection.
 
 ## AWS Quick Deploy
 
@@ -82,6 +103,9 @@ You do not need to manually set `DB_PASSWORD` by default. The scripts will:
 - reuse an existing Secrets Manager secret if it exists
 - otherwise generate one automatically
 - store it at `${APP_NAME}/${STAGE}/postgres/master-password`
+
+The scripts use the same flow for an operations token stored at
+`${APP_NAME}/${STAGE}/api/ops-token`.
 
 Deploy:
 

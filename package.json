@@ -2,6 +2,7 @@
   "name": "online-code-test",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "npm@10.9.4",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -12,10 +13,13 @@
     "dev:worker": "npm run dev --workspace @oct/judge-worker",
     "build:web": "npm run build --workspace @oct/web",
     "test:api": "npm run test --workspace @oct/api",
+    "test:system": "npm run test:system --workspace @oct/api",
+    "test:worker": "npm run test --workspace @oct/judge-worker",
     "test:web": "npm run test --workspace @oct/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "ci:verify": "npm run typecheck && npm run test:api && npm run test:web && npm run build:web",
-    "test:coverage": "npm run test:coverage --workspace @oct/api && npm run test:coverage --workspace @oct/web",
+    "verify:infra": "bash infra/verify.sh",
+    "ci:verify": "npm run typecheck && npm run test:coverage && npm run test:system && npm run build:web && npm run verify:infra",
+    "test:coverage": "npm run test:coverage --workspace @oct/api && npm run test:coverage --workspace @oct/judge-worker && npm run test:coverage --workspace @oct/web",
     "presonar-scanner": "npm run test:coverage",
     "sonar-scanner": "npx sonarqube-scanner"
   },
@@ -24,11 +28,10 @@
     "tsx": "^4",
     "typescript": "^5.8.3"
   },
-  "engines": {
-    "node": ">=22"
+  "overrides": {
+    "monaco-editor": "0.53.0"
   },
-  "dependencies": {
-    "highlight.js": "^11.11.1",
-    "react-quill": "^2.0.0"
+  "engines": {
+    "node": "^22.13.0 || >=24.0.0"
   }
 }

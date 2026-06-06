@@ -7,7 +7,7 @@
 ```text
 Browser
   -> apps/web (React + Vite, localhost:5173)
-  -> proxy /auth /me /admin /live /healthz /internal/stats
+  -> proxy API / health / metrics / OpenAPI routes
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
       -> Redis
@@ -62,13 +62,16 @@ Browser
 - submission APIs
 - custom run APIs
 - result APIs
-- local observability stats endpoint
+- liveness / readiness、Prometheus metrics 與 protected operations stats
 
 目前狀態：
 
 - route surface 已經固定到前端可以直接串
 - token 目前只是 demo token，不是真 JWT
+- `GET /healthz` 是 process liveness；`GET /readyz` 會檢查 PostgreSQL / Redis
+- `GET /metrics` 提供 bounded-cardinality HTTP RED、Node process 與 judge metrics
 - `GET /internal/stats` 會回 PostgreSQL 聚合出的 submission / failure counters
+- AWS 會設定 `OPS_TOKEN` 保護 metrics / stats，本機未設定時保留開發便利性
 
 ### `packages/contracts`
 
@@ -114,11 +117,15 @@ Browser
 - API 會建立 `queued` custom run
 - API 會 enqueue Redis job，job 會標示 `submission` 或 `custom_run`
 - worker 會 consume Redis job 並 claim queued item
-- worker 會把 item 更新成 `running`
+- worker 會把 item 更新成 `running`，同時建立唯一 execution lease
+- submission 與 custom run 執行期間都會更新 heartbeat
 - worker 會在短生命週期 Docker sandbox 內編譯 / 執行
 - 正式 submission 會讀 hidden test cases，逐筆比對輸出
 - custom run 會回傳 stdout / stderr / error
-- worker 會回寫 `finished` 或 `failed`
+- worker 只有持有目前 lease 才能回寫 `finished` 或 `failed`
+- stale execution 會被 recovery 重新排隊，舊 worker 的遲到結果會被丟棄
+- BullMQ job 會對 infrastructure failure 做三次 exponential-backoff retry
+- recovery enqueue 使用新的 job ID，避免 Redis 中保留的舊 job 阻擋重送
 
 目前 worker 已經有第一版 Docker sandbox execution：
 
@@ -127,6 +134,7 @@ Browser
 - 有 Docker container isolation
 - 有 `--network none`
 - 有 CPU / memory / pids limit
+- 有 execution lease、heartbeat、stale recovery 與 concurrent-claim tests
 - 還沒有更嚴格的 seccomp / filesystem hardening
 - worker log 現在是 JSON 結構化格式，方便 demo 與本機 debug
 

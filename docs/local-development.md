@@ -4,7 +4,7 @@
 
 ## 前置需求
 
-- Node.js `22+`
+- Node.js `22.13+` LTS（建議先執行 `nvm use`；不支援非 LTS 的 Node 23）
 - Docker / Docker Desktop
 - npm
 
@@ -30,10 +30,20 @@ npm run dev:web
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:3000`
-- Health check: `http://localhost:3000/healthz`
+- Liveness: `http://localhost:3000/healthz`
+- Readiness: `http://localhost:3000/readyz`
+- Prometheus metrics: `http://localhost:3000/metrics`
 - Stats: `http://localhost:3000/internal/stats`
+- OpenAPI contract: `http://localhost:3000/openapi.json`
 
-Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
+Vite 會把 API、health、metrics 與 OpenAPI 路徑 proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
+
+本機未設定 `OPS_TOKEN` 時可以直接讀 `/metrics` 與 `/internal/stats`；若想模擬
+部署環境，在 `.env` 設定 token 後，這兩個 endpoint 都必須帶：
+
+```http
+Authorization: Bearer <OPS_TOKEN>
+```
 
 第一次啟動 worker 時，Docker 可能會先拉 `python` / `gcc` sandbox images。
 
@@ -71,8 +81,12 @@ Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本
 
 ```bash
 npm run typecheck
-POSTGRES_PORT=5433 npm run test:api
+POSTGRES_PORT=5433 npm run test:coverage --workspace @oct/api
+POSTGRES_PORT=5433 npm run test:system --workspace @oct/api
+npm run test:coverage --workspace @oct/judge-worker
+npm run test:coverage --workspace @oct/web
 npm run build:web
+npm run verify:infra
 ```
 
 完整檢查可以直接跑：
@@ -87,20 +101,19 @@ npm run ci:verify
 
 GitHub Actions 會跑：
 
-```bash
-npm run ci:verify
-```
-
-這包含：
-
-- TypeScript typecheck
-- API integration tests
-- Web production build
+- `Static analysis`: 所有 workspace 的 TypeScript typecheck
+- `Backend tests`: PostgreSQL integration、API / worker coverage gate，以及完整 account-to-judge production flow
+- `Frontend tests and build`: Vitest coverage gate 與 production build
+- `Infrastructure checks`: Compose、AWS shell syntax 與 production dependency audit
+- `Quality gate`: 確認上述四個 job 全部成功
 
 本機如果有安裝 `act`，可以用：
 
 ```bash
-act push -j verify --bind
+act push -j static-analysis
+act push -j backend --bind
+act push -j frontend
+act push -j infrastructure
 ```
 
 `act` 會使用 Docker 模擬 GitHub Actions。第一次跑可能會下載 runner image，時間會比較久。
@@ -115,12 +128,14 @@ act push -j verify --bind
 
 ```bash
 curl http://localhost:3000/healthz
+curl http://localhost:3000/readyz
 ```
 
-回應應該包含：
+`/healthz` 只表示 API process 存活；`/readyz` 應回：
 
-- `storageMode: "postgres"`
-- `queueMode: "redis-bullmq"`
+- `status: "ready"`
+- `dependencies.postgres: "reachable"`
+- `dependencies.redis: "reachable"`
 
 ### Submission 一直 queued
 

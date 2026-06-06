@@ -28,6 +28,7 @@ WORKER_MAX_SIZE=${WORKER_MAX_SIZE:-2}
 JUDGE_QUEUE_CONCURRENCY=${JUDGE_QUEUE_CONCURRENCY:-2}
 
 ensure_database_password
+ensure_ops_token
 load_secret_from_ssm_if_needed REDIS_PASSWORD REDIS_PASSWORD_SSM_PARAMETER
 
 ARTIFACT_BUCKET_NAME=${ARTIFACT_BUCKET_NAME:-"${APP_NAME}-${STAGE}-${ACCOUNT_ID}-${AWS_REGION}-artifacts"}
@@ -138,16 +139,20 @@ cat > "${TMP_DIR}/beanstalk-option-settings.json" <<EOF
 [
   {"Namespace":"aws:autoscaling:launchconfiguration","OptionName":"IamInstanceProfile","Value":"aws-elasticbeanstalk-ec2-role"},
   {"Namespace":"aws:elasticbeanstalk:environment","OptionName":"ServiceRole","Value":"aws-elasticbeanstalk-service-role"},
-  {"Namespace":"aws:elasticbeanstalk:application","OptionName":"Application Healthcheck URL","Value":"/healthz"},
-  {"Namespace":"aws:elasticbeanstalk:healthreporting:system","OptionName":"SystemType","Value":"basic"},
+  {"Namespace":"aws:elasticbeanstalk:application","OptionName":"Application Healthcheck URL","Value":"/readyz"},
+  {"Namespace":"aws:elasticbeanstalk:healthreporting:system","OptionName":"SystemType","Value":"enhanced"},
+  {"Namespace":"aws:elasticbeanstalk:cloudwatch:logs","OptionName":"StreamLogs","Value":"true"},
+  {"Namespace":"aws:elasticbeanstalk:cloudwatch:logs","OptionName":"RetentionInDays","Value":"14"},
+  {"Namespace":"aws:elasticbeanstalk:cloudwatch:logs","OptionName":"DeleteOnTerminate","Value":"false"},
   {"Namespace":"aws:autoscaling:launchconfiguration","OptionName":"InstanceType","Value":"t3.small"},
   {"Namespace":"aws:ec2:vpc","OptionName":"VPCId","Value":"${VPC_ID}"},
   {"Namespace":"aws:ec2:vpc","OptionName":"Subnets","Value":"${SUBNET_IDS_CSV}"},
   {"Namespace":"aws:ec2:vpc","OptionName":"ELBSubnets","Value":"${SUBNET_IDS_CSV}"},
   {"Namespace":"aws:ec2:vpc","OptionName":"AssociatePublicIpAddress","Value":"true"},
   {"Namespace":"aws:elasticbeanstalk:environment","OptionName":"EnvironmentType","Value":"LoadBalanced"},
-  {"Namespace":"aws:elb:healthcheck","OptionName":"Target","Value":"HTTP:80/healthz"},
+  {"Namespace":"aws:elb:healthcheck","OptionName":"Target","Value":"HTTP:80/readyz"},
   {"Namespace":"aws:elasticbeanstalk:application:environment","OptionName":"API_PORT","Value":"3000"},
+  {"Namespace":"aws:elasticbeanstalk:application:environment","OptionName":"OPS_TOKEN","Value":"${OPS_TOKEN}"},
   {"Namespace":"aws:elasticbeanstalk:application:environment","OptionName":"POSTGRES_HOST","Value":"${POSTGRES_HOST}"},
   {"Namespace":"aws:elasticbeanstalk:application:environment","OptionName":"POSTGRES_PORT","Value":"${POSTGRES_PORT}"},
   {"Namespace":"aws:elasticbeanstalk:application:environment","OptionName":"POSTGRES_DB","Value":"${POSTGRES_DB}"},

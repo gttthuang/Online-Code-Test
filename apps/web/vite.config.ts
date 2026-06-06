@@ -13,6 +13,9 @@ export default defineConfig({
       "/me": apiProxyTarget,
       "/admin": apiProxyTarget,
       "/healthz": apiProxyTarget,
+      "/readyz": apiProxyTarget,
+      "/metrics": apiProxyTarget,
+      "/openapi.json": apiProxyTarget,
       "/internal": apiProxyTarget
     }
   },
@@ -23,7 +26,14 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
-      include: ["src/**/*.{ts,tsx}"]
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts"],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 75,
+        branches: 75
+      }
     }
   }
 });

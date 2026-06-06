@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getJudgeJobId } from "@oct/contracts";
 import type { CreateCustomRunResponse, CustomRunDetail } from "@oct/contracts";
 
-import { authHeader, createHarness, createWorker, destroyHarness, login, startCandidateExam } from "./helpers.js";
+import { authHeader, createHarness, createProblem, createWorker, destroyHarness, login, startCandidateExam } from "./helpers.js";
 
 test("judge queue job ids are BullMQ-safe", () => {
   assert.equal(getJudgeJobId({ kind: "custom_run", runId: "run_123" }).includes(":"), false);
@@ -87,6 +87,68 @@ test("interviewer can run current room code for an assigned candidate", async ()
     assert.equal(detailResponse.statusCode, 200);
     assert.equal(detail.status, "finished");
     assert.equal(detail.stdout, "HELLO\n");
+  } finally {
+    await destroyHarness(harness);
+  }
+});
+
+test("problem admin preview custom runs use admin identity and validate language support", async () => {
+  const harness = await createHarness();
+
+  try {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const problem = await createProblem(harness.app, problemAdmin.token, {
+      title: "Preview Custom Run",
+      supportedLanguages: ["python"]
+    });
+
+    const response = await harness.app.inject({
+      method: "POST",
+      url: "/admin/custom-runs",
+      headers: authHeader(problemAdmin.token),
+      payload: {
+        candidateId: problemAdmin.user.id,
+        problemId: problem.id,
+        language: "python",
+        sourceCode: "print(input().strip())",
+        stdin: "hello\n"
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const created = response.json<CreateCustomRunResponse>();
+    const worker = createWorker(harness.workerPool);
+
+    await worker.processCustomRunById(created.runId);
+
+    const detailResponse = await harness.app.inject({
+      method: "GET",
+      url: `/admin/custom-runs/${created.runId}`,
+      headers: authHeader(problemAdmin.token)
+    });
+    const detail = detailResponse.json<CustomRunDetail>();
+
+    assert.equal(detailResponse.statusCode, 200);
+    assert.equal(detail.candidateId, problemAdmin.user.id);
+    assert.equal(detail.status, "finished");
+    assert.equal(detail.stdout, "hello\n");
+
+    const unsupportedLanguageResponse = await harness.app.inject({
+      method: "POST",
+      url: "/admin/custom-runs",
+      headers: authHeader(problemAdmin.token),
+      payload: {
+        candidateId: problemAdmin.user.id,
+        problemId: problem.id,
+        language: "cpp",
+        sourceCode: "int main(){}",
+        stdin: ""
+      }
+    });
+
+    assert.equal(unsupportedLanguageResponse.statusCode, 400);
+    assert.equal(unsupportedLanguageResponse.json().error.code, "language_not_supported");
   } finally {
     await destroyHarness(harness);
   }

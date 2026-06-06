@@ -3,6 +3,7 @@
 
 node_modules
 apps/web/dist
+**/.judge-work/
 sonar-project.properties
 .env
 .env3

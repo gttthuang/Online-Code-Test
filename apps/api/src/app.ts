@@ -11,6 +11,7 @@ import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { registerUserRoutes } from "./modules/users/routes.js";
 import { toErrorResponse } from "./core/errors.js";
+import { requireOpsAccess } from "./core/ops-auth.js";
 import { config } from "./config.js";
 import { createRedisJudgeQueue } from "./infra/judge-queue.js";
 import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
@@ -18,17 +19,59 @@ import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
 import { createJudgeQueue } from "./infra/redis.js";
 import type { JudgeQueue } from "./infra/judge-queue.js";
+import { ApiMetrics } from "./observability.js";
+import {
+  apiRouteDefinitions,
+  apiRouteKey,
+  assertApiRouteContract,
+  createOpenApiDocument
+} from "./api-contract.js";
 
 type BuildAppOptions = {
   postgres?: typeof config.postgres;
   logger?: boolean;
   judgeQueue?: JudgeQueue;
+  opsToken?: string;
 };
 
 export async function buildApp(options: BuildAppOptions = {}) {
   const postgresConfig = options.postgres ?? config.postgres;
   const app = Fastify({
     logger: options.logger ?? true
+  });
+  const metrics = new ApiMetrics();
+  const requestStartTimes = new WeakMap<object, bigint>();
+  const opsToken = options.opsToken ?? config.opsToken;
+  const registeredRoutes = new Set<string>();
+
+  app.addHook("onRoute", (routeOptions) => {
+    const methods = Array.isArray(routeOptions.method)
+      ? routeOptions.method
+      : [routeOptions.method];
+
+    for (const method of methods) {
+      if (method !== "HEAD" && method !== "OPTIONS") {
+        registeredRoutes.add(apiRouteKey(method, routeOptions.url));
+      }
+    }
+  });
+  app.addHook("onRequest", async (request) => {
+    requestStartTimes.set(request, process.hrtime.bigint());
+  });
+  app.addHook("onResponse", async (request, reply) => {
+    const startedAt = requestStartTimes.get(request);
+
+    if (startedAt === undefined) {
+      return;
+    }
+
+    const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+    metrics.observeHttpRequest(
+      request.routeOptions.url ?? "unmatched",
+      request.method,
+      reply.statusCode,
+      durationSeconds
+    );
   });
 
   await ensurePostgresDatabase(postgresConfig);
@@ -56,74 +99,68 @@ export async function buildApp(options: BuildAppOptions = {}) {
       teamHandoffFile: "docs/team-handoff-zh.md"
     },
     healthcheck: "/healthz",
+    readiness: "/readyz",
+    metrics: "/metrics",
+    openapi: "/openapi.json",
     demoAccounts: {
       candidate: "alice.candidate@example.com",
       interviewer: "bob.interviewer@example.com",
       problemAdmin: "cindy.problem_admin@example.com"
     },
-    routes: [
-      "POST /auth/login",
-      "GET /auth/me",
-      "GET /internal/stats",
-      "GET /me/exam",
-      "POST /me/exam/start",
-      "GET /me/assignments",
-      "GET /me/problems/:problemId",
-      "GET /me/submissions",
-      "POST /me/submissions",
-      "GET /me/submissions/:submissionId",
-      "POST /me/custom-runs",
-      "GET /me/custom-runs/:runId",
-      "GET /admin/candidates",
-      "POST /admin/candidates",
-      "DELETE /admin/candidates/:candidateId",
-      "GET /admin/users",
-      "POST /admin/users",
-      "DELETE /admin/users/:userId",
-      "POST /admin/problems",
-      "GET /admin/problems",
-      "GET /admin/problems/:problemId/impact",
-      "PATCH /admin/problems/:problemId/archive",
-      "DELETE /admin/problems/:problemId",
-      "POST /admin/assignments",
-      "GET /admin/candidates/:candidateId/results",
-      "GET /admin/candidates/:candidateId/submissions",
-      "GET /admin/candidates/:candidateId/reviews",
-      "PUT /admin/candidates/:candidateId/reviews/:problemId",
-      "DELETE /admin/candidates/:candidateId/reviews/:problemId",
-      "GET /admin/submissions",
-      "POST /admin/submissions/preview",
-      "GET /admin/submissions/:submissionId",
-      "POST /admin/custom-runs",
-      "GET /admin/custom-runs/:runId"
-    ]
+    routes: apiRouteDefinitions.map(({ method, path }) => apiRouteKey(method, path))
   }));
 
   app.get("/healthz", async () => ({
     status: "ok",
-    service: "api",
-    storageMode: "postgres",
-    queueMode: "redis-bullmq",
-    postgres: {
-      configuredHost: postgresConfig.host,
-      configuredDatabase: postgresConfig.database,
-      status: await pingPostgres(postgresPool)
-        .then(() => "reachable")
-        .catch(() => "unreachable")
-    },
-    redis: {
-      configuredHost: config.redis.host,
-      configuredDb: config.redis.db
-    }
+    service: "api"
   }));
 
-  app.get("/internal/stats", async () => ({
-    service: "api",
-    generatedAt: new Date().toISOString(),
-    queueMode: "redis-bullmq",
-    storageMode: "postgres",
-    stats: await store.getInternalStats()
-  }));
+  app.get("/readyz", async (_request, reply) => {
+    const [postgresResult, redisResult] = await Promise.allSettled([
+      pingPostgres(postgresPool),
+      judgeQueue.ping?.() ?? Promise.resolve()
+    ]);
+    const ready = postgresResult.status === "fulfilled" && redisResult.status === "fulfilled";
+
+    return reply
+      .header("cache-control", "no-store")
+      .status(ready ? 200 : 503)
+      .send({
+        status: ready ? "ready" : "unavailable",
+        service: "api",
+        dependencies: {
+          postgres: postgresResult.status === "fulfilled" ? "reachable" : "unreachable",
+          redis: redisResult.status === "fulfilled" ? "reachable" : "unreachable"
+        }
+      });
+  });
+
+  app.get("/internal/stats", async (request, reply) => {
+    requireOpsAccess(request, opsToken);
+
+    return reply
+      .header("cache-control", "no-store")
+      .send({
+        service: "api",
+        generatedAt: new Date().toISOString(),
+        queueMode: "redis-bullmq",
+        storageMode: "postgres",
+        stats: await store.getInternalStats()
+      });
+  });
+
+  app.get("/metrics", async (request, reply) => {
+    requireOpsAccess(request, opsToken);
+
+    return reply
+      .header("cache-control", "no-store")
+      .header("content-type", metrics.contentType)
+      .send(await metrics.render(await store.getInternalStats()));
+  });
+
+  app.get("/openapi.json", async (_request, reply) => reply
+    .header("cache-control", "no-store")
+    .send(createOpenApiDocument()));
 
   app.setErrorHandler((error, _request, reply) => {
     const { statusCode, body } = toErrorResponse(error);
@@ -140,6 +177,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerResultRoutes(app, context);
   registerReviewRoutes(app, context);
   registerUserRoutes(app, context);
+  assertApiRouteContract(registeredRoutes);
 
   return app;
 }

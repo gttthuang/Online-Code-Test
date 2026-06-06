@@ -64,6 +64,7 @@ Resources:
           var request = event.request;
           var uri = request.uri;
           var apiPrefixes = ["/auth/", "/me/", "/admin/", "/internal/"];
+          var apiExactPaths = ["/healthz", "/readyz", "/metrics", "/openapi.json"];
 
           for (var index = 0; index < apiPrefixes.length; index++) {
             if (uri.indexOf(apiPrefixes[index]) === 0) {
@@ -71,10 +72,15 @@ Resources:
             }
           }
 
-          if (uri === "/healthz" || uri.indexOf(".") !== -1) {
-            return request;
+          for (var exactIndex = 0; exactIndex < apiExactPaths.length; exactIndex++) {
+            if (uri === apiExactPaths[exactIndex]) {
+              return request;
+            }
           }
 
+          if (uri.indexOf(".") !== -1) {
+            return request;
+          }
           request.uri = "/index.html";
           return request;
         }
@@ -164,6 +170,39 @@ Resources:
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
             OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
           - PathPattern: /healthz
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+          - PathPattern: /readyz
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+          - PathPattern: /metrics
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+          - PathPattern: /openapi.json
             TargetOriginId: ApiOrigin
             ViewerProtocolPolicy: redirect-to-https
             AllowedMethods:

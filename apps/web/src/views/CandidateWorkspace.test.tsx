@@ -328,8 +328,9 @@ describe("CandidateWorkspace — admin preview", () => {
     mocked.getAdminSubmissionHistory.mockResolvedValue([]);
   });
 
-  it("loads an admin preview without an exam gate and disables custom runs", async () => {
+  it("loads an admin preview without an exam gate and supports custom runs", async () => {
     mocked.createPreviewSubmission.mockResolvedValue({ submissionId: "preview_1", status: "finished" });
+    mocked.createAdminCustomRun.mockResolvedValue({ runId: "run_1", status: "queued" });
     render(<CandidateWorkspace token="t" user={admin} initialProblemId="problem_1" />);
 
     expect(await screen.findByText("Reverse the input string.")).toBeInTheDocument();
@@ -344,5 +345,22 @@ describe("CandidateWorkspace — admin preview", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Run & Submit Code" }));
     await waitFor(() => expect(mocked.createPreviewSubmission).toHaveBeenCalled());
+  });
+
+  it("sanitizes rich problem descriptions before rendering", async () => {
+    mocked.getAdminProblem.mockResolvedValue(
+      makeProblem({
+        description:
+          '<p>Safe description</p><img src="x" onerror="alert(1)"><script>alert(2)</script>'
+      })
+    );
+
+    const { container } = render(
+      <CandidateWorkspace token="t" user={admin} initialProblemId="problem_1" />
+    );
+
+    expect(await screen.findByText("Safe description")).toBeInTheDocument();
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.querySelector("img")).not.toHaveAttribute("onerror");
   });
 });

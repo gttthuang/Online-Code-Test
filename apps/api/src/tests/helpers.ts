@@ -21,6 +21,7 @@ import { createPostgresPool } from "../infra/postgres.js";
 import { JudgeWorker } from "../../../judge-worker/src/worker.js";
 import { createPostgresPool as createWorkerPostgresPool } from "../../../judge-worker/src/postgres.js";
 import { config as workerConfig } from "../../../judge-worker/src/config.js";
+import { PostgresJudgeRepository } from "../../../judge-worker/src/repository.js";
 
 export type TestPostgresConfig = {
   host: string;
@@ -38,6 +39,11 @@ export type TestHarness = {
   dbName: string;
 };
 
+export type CreateHarnessOptions = {
+  judgeQueue?: JudgeQueue;
+  opsToken?: string;
+};
+
 const basePostgresConfig = {
   host: process.env.POSTGRES_HOST || "localhost",
   port: Number(process.env.POSTGRES_PORT || 5433),
@@ -47,10 +53,11 @@ const basePostgresConfig = {
 };
 
 const testJudgeQueue: JudgeQueue = {
-  async enqueue() {}
+  async enqueue() {},
+  async ping() {}
 };
 
-export async function createHarness(): Promise<TestHarness> {
+export async function createHarness(options: CreateHarnessOptions = {}): Promise<TestHarness> {
   const dbName = `oct_test_${randomUUID().replaceAll("-", "_")}`;
   await createDatabase(dbName);
 
@@ -62,7 +69,8 @@ export async function createHarness(): Promise<TestHarness> {
   const app = await buildApp({
     postgres,
     logger: false,
-    judgeQueue: testJudgeQueue
+    judgeQueue: options.judgeQueue ?? testJudgeQueue,
+    opsToken: options.opsToken
   });
   await app.ready();
 
@@ -100,7 +108,7 @@ export function authHeader(token: string) {
 
 export function createWorker(pool: Pool, options?: { staleThresholdMs?: number }) {
   return new JudgeWorker(
-    pool,
+    new PostgresJudgeRepository(pool),
     250,
     options?.staleThresholdMs ?? 30_000,
     workerConfig.sandbox
@@ -163,6 +171,11 @@ export async function createProblem(
       supportedLanguages: input?.supportedLanguages ?? ["python"],
       sampleInput: input?.sampleInput ?? "hello",
       sampleOutput: input?.sampleOutput ?? "hello",
+      constraints: input?.constraints,
+      inputSpec: input?.inputSpec,
+      outputSpec: input?.outputSpec,
+      sampleExplanation: input?.sampleExplanation,
+      templateCode: input?.templateCode,
       hiddenTestCases: input?.hiddenTestCases ?? [
         { input: "abc", expectedOutput: "abc" },
         { input: "line two", expectedOutput: "line two" }

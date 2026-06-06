@@ -130,6 +130,9 @@ describe("CandidateResults", () => {
 
     const sliders = screen.getAllByRole("slider");
     fireEvent.change(sliders[0], { target: { value: "5" } });
+    fireEvent.change(sliders[1], { target: { value: "4" } });
+    fireEvent.change(sliders[2], { target: { value: "3" } });
+    fireEvent.change(sliders[3], { target: { value: "2" } });
     fireEvent.change(screen.getByDisplayValue("Lean hire"), { target: { value: "strong_hire" } });
     fireEvent.change(screen.getByRole("textbox", { name: "" }) ?? screen.getAllByRole("textbox")[0], {
       target: { value: "great" }
@@ -180,5 +183,36 @@ describe("CandidateResults", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByText("run boom")).toBeInTheDocument();
+  });
+
+  it("shows empty review options when no problems are assigned", async () => {
+    mocked.getCandidateSubmissionHistory.mockResolvedValue({
+      candidate,
+      submissions: []
+    });
+    mocked.getCandidateReviewContext.mockResolvedValue(
+      reviewContext({ assignments: [] })
+    );
+    render(<CandidateResults token="t" candidates={[candidate]} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/Type to search/), {
+      target: { value: candidateLabel }
+    });
+
+    expect(await screen.findByText("No assigned problems")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Review" })).toBeDisabled();
+  });
+
+  it("surfaces review save and delete failures", async () => {
+    mocked.saveCandidateReview.mockRejectedValue(new Error("save boom"));
+    mocked.deleteCandidateReview.mockRejectedValue(new Error("delete boom"));
+    await loadResults([review()]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Review" }));
+    expect(await screen.findByText("save boom")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(await screen.findByText("delete boom")).toBeInTheDocument();
   });
 });

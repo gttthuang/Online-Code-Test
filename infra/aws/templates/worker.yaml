@@ -236,8 +236,52 @@ Resources:
           Weight: 1
       TaskDefinition: !Ref WorkerTaskDefinition
 
+  WorkerHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-worker-high-cpu"
+      AlarmDescription: Judge worker service CPU has remained above 80 percent.
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref WorkerCluster
+        - Name: ServiceName
+          Value: !GetAtt WorkerService.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  WorkerHighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-worker-high-memory"
+      AlarmDescription: Judge worker service memory has remained above 85 percent.
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref WorkerCluster
+        - Name: ServiceName
+          Value: !GetAtt WorkerService.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
 Outputs:
   WorkerClusterName:
     Value: !Ref WorkerCluster
   WorkerServiceName:
     Value: !Ref WorkerService
+  WorkerHighCpuAlarmName:
+    Value: !Ref WorkerHighCpuAlarm
+  WorkerHighMemoryAlarmName:
+    Value: !Ref WorkerHighMemoryAlarm

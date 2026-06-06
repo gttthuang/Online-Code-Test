@@ -6,10 +6,38 @@ on:
       - main
   pull_request:
 
-jobs:
-  verify:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -21,17 +49,50 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d online_code_test"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
-
+          --health-retries 10
     env:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: online_code_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run API and judge integration tests with coverage
+        run: npm run test:coverage --workspace @oct/api
+
+      - name: Run production flow system test
+        run: npm run test:system --workspace @oct/api
+
+      - name: Run judge worker tests with coverage
+        run: npm run test:coverage --workspace @oct/judge-worker
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            apps/api/coverage/lcov.info
+            apps/judge-worker/coverage/lcov.info
+          if-no-files-found: error
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -46,16 +107,62 @@ jobs:
         run: npm ci
 
       - name: Install Linux Rollup native package
-        run: |
-          ARCH="$(node -p "process.arch")"
-          if [ "$ARCH" = "x64" ]; then
-            npm install --no-save @rollup/rollup-linux-x64-gnu@4.60.1
-          elif [ "$ARCH" = "arm64" ]; then
-            npm install --no-save @rollup/rollup-linux-arm64-gnu@4.60.1
-          else
-            echo "Unsupported Rollup native architecture: $ARCH"
-            exit 1
-          fi
+        run: npm install --no-save @rollup/rollup-linux-x64-gnu@4.60.1
 
-      - name: Run CI verification
-        run: npm run ci:verify
+      - name: Run frontend tests with coverage
+        run: npm run test:coverage --workspace @oct/web
+
+      - name: Build production frontend
+        run: npm run build:web
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage/lcov.info
+          if-no-files-found: error
+
+  infrastructure:
+    name: Infrastructure checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify deployment assets
+        run: npm run verify:infra
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  quality-gate:
+    name: Quality gate
+    if: always()
+    needs:
+      - static-analysis
+      - backend
+      - frontend
+      - infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI area to pass
+        env:
+          STATIC_RESULT: ${{ needs.static-analysis.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          INFRA_RESULT: ${{ needs.infrastructure.result }}
+        run: |
+          test "$STATIC_RESULT" = "success"
+          test "$BACKEND_RESULT" = "success"
+          test "$FRONTEND_RESULT" = "success"
+          test "$INFRA_RESULT" = "success"

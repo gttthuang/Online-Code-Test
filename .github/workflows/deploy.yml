@@ -84,6 +84,8 @@ jobs:
           DB_PASSWORD_SECRET_NAME: ${{ vars.DB_PASSWORD_SECRET_NAME || '' }}
           DB_PASSWORD_SSM_PARAMETER: ${{ vars.DB_PASSWORD_SSM_PARAMETER || '' }}
           DB_INSTANCE_CLASS: ${{ vars.DB_INSTANCE_CLASS || 'db.t4g.micro' }}
+          OPS_TOKEN: ${{ secrets.OPS_TOKEN || '' }}
+          OPS_TOKEN_SECRET_NAME: ${{ vars.OPS_TOKEN_SECRET_NAME || '' }}
           REDIS_NODE_TYPE: ${{ vars.REDIS_NODE_TYPE || 'cache.t4g.micro' }}
           REDIS_TLS: ${{ vars.REDIS_TLS || 'true' }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD || '' }}
@@ -99,6 +101,8 @@ jobs:
           APP_NAME: ${{ vars.APP_NAME || 'online-code-test' }}
           STAGE: ${{ vars.STAGE || 'dev' }}
           AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          OPS_TOKEN: ${{ secrets.OPS_TOKEN || '' }}
+          OPS_TOKEN_SECRET_NAME: ${{ vars.OPS_TOKEN_SECRET_NAME || '' }}
           CANDIDATE_TOKEN: ${{ vars.SMOKE_CANDIDATE_TOKEN || 'candidate_alice' }}
           INTERVIEWER_TOKEN: ${{ vars.SMOKE_INTERVIEWER_TOKEN || 'interviewer_bob' }}
           SMOKE_CANDIDATE_ID: ${{ vars.SMOKE_CANDIDATE_ID || 'candidate_alice' }}

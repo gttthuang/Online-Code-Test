@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/scripts/migrate.ts",
     "test": "node --import tsx --test src/tests/**/*.test.ts",
-    "test:coverage": "c8 --reporter=lcovonly --reporter=text --reports-dir=coverage --src=src node --import tsx --test src/tests/**/*.test.ts",
+    "test:system": "node --import tsx --test --test-concurrency=1 src/system-tests/**/*.test.ts",
+    "test:coverage": "c8 --check-coverage --lines 80 --statements 80 --functions 70 --branches 70 --reporter=lcovonly --reporter=text --reports-dir=coverage --src=src --exclude=src/tests/** --exclude=src/scripts/** --exclude=src/index.ts node --import tsx --test src/tests/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "fastify": "^5.8.5",
     "ioredis": "^5.10.1",
     "pg": "^8.16.3",
+    "prom-client": "^15.1.3",
     "zod": "^3"
   },
   "devDependencies": {

@@ -216,4 +216,37 @@ describe("App — candidate assignments page", () => {
     renderApp("/candidate/assignments");
     expect(await screen.findByText("exam boom")).toBeInTheDocument();
   });
+
+  it("formats unset and singular exam durations", async () => {
+    mockedApi.getCandidateExam.mockResolvedValue(
+      exam({ status: "not_started", durationMinutes: null })
+    );
+    const firstRender = renderApp("/candidate/assignments");
+    expect(await screen.findByText("Time limit: Not set")).toBeInTheDocument();
+    firstRender.unmount();
+
+    mockedApi.getCandidateExam.mockResolvedValue(
+      exam({ status: "not_started", durationMinutes: 1 })
+    );
+    renderApp("/candidate/assignments");
+    expect(await screen.findByText("Time limit: 1 minute")).toBeInTheDocument();
+  });
+
+  it("shows an unknown remaining time and start failure", async () => {
+    mockedApi.getCandidateExam.mockResolvedValue(
+      exam({ status: "not_started", remainingSeconds: null })
+    );
+    mockedApi.startCandidateExam.mockRejectedValue(new Error("start boom"));
+    const firstRender = renderApp("/candidate/assignments");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start Exam" }));
+    expect(await screen.findByText("start boom")).toBeInTheDocument();
+    firstRender.unmount();
+
+    mockedApi.getCandidateExam.mockResolvedValue(
+      exam({ status: "started", remainingSeconds: null })
+    );
+    renderApp("/candidate/assignments");
+    expect(await screen.findByText("--:-- remaining")).toBeInTheDocument();
+  });
 });
