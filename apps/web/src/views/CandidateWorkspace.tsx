@@ -1,18 +1,17 @@
 import { useEffect, useState, useRef } from "react";
 import type { AssignmentSummary, AuthUser, CandidateExamSummary, CustomRunDetail, ProblemDetail, SubmissionDetail, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import Editor from "@monaco-editor/react";
+import type { OnMount } from "@monaco-editor/react";
+import DOMPurify from "dompurify";
+import hljs from "highlight.js";
+import type { VimAdapterInstance } from "monaco-vim";
+import { initVimMode } from "monaco-vim";
 
 import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam, createAdminCustomRun, getAdminCustomRun } from "../lib/api";
 import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import { loadDraft, saveDraft, loadEditorSettings, saveEditorSettings } from "../lib/drafts";
 import "./candidate.css";
-
-// Import Monaco Editor and Vim mode
-import Editor from "@monaco-editor/react";
-import { initVimMode } from "monaco-vim";
-
-import hljs from 'highlight.js';
-import 'highlight.js/styles/default.min.css'; 
-(window as any).hljs = hljs;
+import "highlight.js/styles/default.min.css";
 
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";
@@ -314,9 +313,8 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     saveEditorSettings(user.id, { fontSize, tabSize, keybinding: value });
   };
 
-  // === Editor and Vim instance references ===
-  const editorRef = useRef<any>(null);
-  const vimModeRef = useRef<any>(null);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const vimModeRef = useRef<VimAdapterInstance | null>(null);
 
   // Helper: converts language format to Monaco-supported format
   const getMonacoLanguage = (lang: string) => {
@@ -343,8 +341,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     }
   };
 
-  // Triggered when Monaco editor finishes mounting
-  const handleEditorMount = (editor: any) => {
+  const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
     applyKeybinding(keybinding);
   };
@@ -550,10 +547,8 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     const timer = setTimeout(() => {
       if (contentRef.current) {
         const blocks = contentRef.current.querySelectorAll('pre');
-        console.log("找到的區塊數量:", blocks.length);
         blocks.forEach((block) => {
           hljs.highlightElement(block as HTMLElement);
-          console.log("已處理區塊:", block);
         });
       }
     }, 300); // 延長到 300ms 確保 DOM 已渲染
@@ -594,7 +589,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
   }
 
   async function handleCustomRun() {
-    // 1. 放行 candidate 與 problem_admin
     if (!problem || (user.role !== "candidate" && user.role !== "problem_admin")) return;
 
     setCustomRunLoading(true);
@@ -604,9 +598,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     try {
       let created;
 
-      // 🚀 2. 關鍵分流：根據身分呼叫不同的後端 API 函式
       if (user.role === "problem_admin") {
-        // 呼叫管理員專用 API，並且依後端 Schema 要求，強行把 candidateId 帶入自己的 id
         created = await createAdminCustomRun(token, {
           problemId: problem.id,
           language,
@@ -615,13 +607,16 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
           candidateId: user.id 
         });
       } else {
-        // 考生走原本的常規 API
         created = await createCustomRun(token, {
           problemId: problem.id,
           language,
           sourceCode,
           stdin: customInput
         });
+      }
+
+      if (!created?.runId) {
+        throw new Error("Custom run did not return an id");
       }
 
       const now = new Date().toISOString();
@@ -644,7 +639,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
         updatedAt: now
       });
     } catch (error) {
-      console.error("Terminal 執行發生錯誤:", error);
       setWorkspaceError(error instanceof Error ? error.message : "Failed to run custom input");
     } finally {
       setCustomRunLoading(false);
@@ -1008,49 +1002,37 @@ function LeftPanel({
 
   return (
     <>
-      {/* A. 頂部 Meta 資訊 */}
       <div className="meta-row">
         <span>Difficulty: {problem.difficulty}</span>
         <span>Time: {problem.timeLimitMs} ms</span>
         <span>Memory: {problem.memoryLimitKb} KB</span>
       </div>
 
-      {/* B. 頂部：主要的題目描述 */}
       {problem.description && (
         <div 
-          // className="panel-copy" 
-          // style={{ marginBottom: "25px" }}
-          // dangerouslySetInnerHTML={{ __html: problem.description }} 
-          // ref={contentRef} 
-          className="ql-editor" // 這非常重要，因為 ql-editor 有內建的程式碼區塊樣式
-          dangerouslySetInnerHTML={{ __html: problem.description }}
+          className="ql-editor"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(problem.description) }}
         />
-        
-        // <p>{problem.description}</p>
       )}
 
-      {/* 2. 獨立區塊：Input Specification (輸入說明) */}
-      {typeof (problem as any).inputSpec === "string" && (problem as any).inputSpec.trim() !== "" && (
+      {problem.inputSpec?.trim() ? (
         <div className="problem-extended-section">
           <p className="label-text make-label-bold-black">Input Specification:</p>
           <p className="panel-copy problem-extended-content">
-            {(problem as any).inputSpec}
+            {problem.inputSpec}
           </p>
         </div>
-      )}
+      ) : null}
 
-      {/* 3. 獨立區塊：Output Specification (輸出說明) */}
-      {typeof (problem as any).outputSpec === "string" && (problem as any).outputSpec.trim() !== "" && (
+      {problem.outputSpec?.trim() ? (
         <div className="problem-extended-section">
           <p className="label-text make-label-bold-black">Output Specification:</p>
           <p className="panel-copy problem-extended-content">
-            {(problem as any).outputSpec}
+            {problem.outputSpec}
           </p>
         </div>
-      )}
+      ) : null}
 
-      {/* D. 中間：對照式的 Sample Input / Output 區塊 */}
-      {/* 💡 透過 marginBottom: "0px" 確保它跟下面的 Explanation 完美黏在一起 */}
       <div className="sample-grid" style={{ marginTop: "15px", marginBottom: "0px" }}>
         <div>
           <p className="label-text make-label-bold-black">Sample Input</p>
@@ -1062,26 +1044,23 @@ function LeftPanel({
         </div>
       </div>
 
-      {/* E. 底部：範例解釋說明 */}
-      {/* 💡 透過 marginTop: "4px" 消除間距，達到無縫接軌的效果 */}
-      {typeof (problem as any).sampleExplanation === "string" && (problem as any).sampleExplanation.trim() !== "" && (
+      {problem.sampleExplanation?.trim() ? (
         <div className="sample-grid" style={{ marginTop: "4px", marginBottom: "30px" }}>
           <div style={{ gridColumn: "1 / -1" }}>
             <p className="label-text make-label-bold-black">Sample Explanation:</p>
-            <pre style={{ whiteSpace: "pre-wrap" }}>{(problem as any).sampleExplanation}</pre>
+            <pre style={{ whiteSpace: "pre-wrap" }}>{problem.sampleExplanation}</pre>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* 1. 獨立區塊：Constraints (限制條件) */}
-      {typeof (problem as any).constraints === "string" && (problem as any).constraints.trim() !== "" && (
+      {problem.constraints?.trim() ? (
         <div className="problem-extended-section">
           <p className="label-text make-label-bold-black">Constraints:</p>
           <p className="panel-copy problem-extended-content">
-            {(problem as any).constraints}
+            {problem.constraints}
           </p>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

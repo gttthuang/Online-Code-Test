@@ -89,4 +89,14 @@ describe("CandidateManager", () => {
     render(<CandidateManager token="t" onCandidatesUpdated={vi.fn()} />);
     expect(await screen.findByText("load boom")).toBeInTheDocument();
   });
+
+  it("shows the fallback error when candidate deletion fails", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocked.deleteCandidate.mockRejectedValue("delete failed");
+    render(<CandidateManager token="t" onCandidatesUpdated={vi.fn()} />);
+    await screen.findByText("Dave");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(await screen.findByText("Failed to delete candidate")).toBeInTheDocument();
+  });
 });

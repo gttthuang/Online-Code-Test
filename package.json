@@ -2,6 +2,7 @@
   "name": "online-code-test",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "npm@10.9.4",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -26,7 +27,10 @@
     "tsx": "^4",
     "typescript": "^5.8.3"
   },
+  "overrides": {
+    "monaco-editor": "0.53.0"
+  },
   "engines": {
-    "node": ">=22"
+    "node": "^22.13.0 || >=24.0.0"
   }
 }

@@ -4,7 +4,7 @@
 
 ## 前置需求
 
-- Node.js `22+`
+- Node.js `22.13+` LTS（建議先執行 `nvm use`；不支援非 LTS 的 Node 23）
 - Docker / Docker Desktop
 - npm
 

@@ -339,11 +339,11 @@ export class PostgresStore implements AppStore {
           input.sampleInput,
           input.sampleOutput,
           createdBy,
-          (input as any).constraints,
-          (input as any).inputSpec,
-          (input as any).outputSpec,
-          (input as any).sampleExplanation,
-          (input as any).templateCode
+          input.constraints,
+          input.inputSpec,
+          input.outputSpec,
+          input.sampleExplanation,
+          input.templateCode
         ]
       );
 
@@ -1480,18 +1480,21 @@ export class PostgresStore implements AppStore {
       description: problem.description,
       sampleInput: "sample_input" in problem ? problem.sample_input : problem.sampleInput,
       sampleOutput: "sample_output" in problem ? problem.sample_output : problem.sampleOutput,
-      constraints: "constraints" in problem ? problem.constraints : (problem as any).constraints,
-      inputSpec: "input_spec" in problem ? problem.input_spec : (problem as any).inputSpec,
-      outputSpec: "output_spec" in problem ? problem.output_spec : (problem as any).outputSpec,
-      sampleExplanation: "sample_explanation" in problem ? problem.sample_explanation : (problem as any).sampleExplanation,
-      templateCode: "template_code" in problem ? problem.template_code : (problem as any).templateCode,
+      constraints: problem.constraints ?? undefined,
+      inputSpec: "input_spec" in problem ? problem.input_spec ?? undefined : problem.inputSpec,
+      outputSpec: "output_spec" in problem ? problem.output_spec ?? undefined : problem.outputSpec,
+      sampleExplanation:
+        "sample_explanation" in problem
+          ? problem.sample_explanation ?? undefined
+          : problem.sampleExplanation,
+      templateCode: "template_code" in problem ? problem.template_code : problem.templateCode
     };
   }
   // 給 Admin 用的 (包含所有機密資訊)
   private toAdminProblemDetail(problem: ProblemRecord): ProblemDetail {
     return {
       ...this.toProblemDetail(problem),
-      hiddenTestCases: problem.hiddenTestCases?.map((tc: any) => ({
+      hiddenTestCases: problem.hiddenTestCases?.map((tc) => ({
         id: tc.id,
         input: tc.input,
         expectedOutput: tc.expectedOutput 
@@ -1534,11 +1537,11 @@ export class PostgresStore implements AppStore {
           input.supportedLanguages,
           input.sampleInput,
           input.sampleOutput,
-          (input as any).constraints,
-          (input as any).inputSpec,
-          (input as any).outputSpec,
-          (input as any).sampleExplanation,
-          (input as any).templateCode
+          input.constraints,
+          input.inputSpec,
+          input.outputSpec,
+          input.sampleExplanation,
+          input.templateCode
         ]
       );
 

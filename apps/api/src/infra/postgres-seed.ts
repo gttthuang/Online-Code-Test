@@ -50,11 +50,11 @@ export async function seedPostgres(pool: Pool) {
         problem.sampleInput,
         problem.sampleOutput,
         problem.createdBy,
-        (problem as any).constraints ?? null,
-        (problem as any).inputSpec ?? null,
-        (problem as any).outputSpec ?? null,
-        (problem as any).sampleExplanation ?? null,
-        (problem as any).templateCode ?? null
+        problem.constraints ?? null,
+        problem.inputSpec ?? null,
+        problem.outputSpec ?? null,
+        problem.sampleExplanation ?? null,
+        problem.templateCode ?? null
       ]
     );
 

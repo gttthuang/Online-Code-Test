@@ -34,6 +34,7 @@
 
 主機環境需要先有：
 
+- Node.js `22.13+` LTS（可先執行 `nvm use`，會讀取 repo 內的 `.nvmrc`）
 - Docker / Docker Desktop
 
 ```bash
@@ -68,8 +69,13 @@ npm run ci:verify
 如果本機有安裝 `act`，也可以用 Docker 模擬 GitHub Actions：
 
 ```bash
-act push -j verify --bind
+act push -j static-analysis
+act push -j backend --bind
+act push -j frontend
+act push -j infrastructure
 ```
+
+`Quality gate` 會彙整以上四個 job，建議把它設成 branch protection 的 required check。
 
 ## AWS 快速部署
 

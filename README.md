@@ -24,6 +24,7 @@ Local observability is also available through `GET /internal/stats`, which retur
 
 Host prerequisites:
 
+- Node.js `22.13+` LTS (`nvm use` reads the checked-in `.nvmrc`)
 - Docker / Docker Desktop
 
 ```bash

@@ -92,18 +92,16 @@ export interface ProblemDetail extends ProblemSummary {
   description: string;
   sampleInput: string;
   sampleOutput: string;
-  // --- 以下是新增的具體欄位 ---
   constraints?: string;
   inputSpec?: string;
   outputSpec?: string;
   sampleExplanation?: string;
+  templateCode?: string | null;
   hiddenTestCases?: Array<{
     id: string;
     input: string;
     expectedOutput: string;
   }>;
-  // 這行告訴 TypeScript：除了上面那些，這個物件可以有任何字串鍵值的欄位
-  [key: string]: any;
 }
 
 export interface HiddenTestCaseInput {
@@ -120,6 +118,11 @@ export interface CreateProblemRequest {
   supportedLanguages: SupportedLanguage[];
   sampleInput: string;
   sampleOutput: string;
+  constraints?: string | null;
+  inputSpec?: string | null;
+  outputSpec?: string | null;
+  sampleExplanation?: string | null;
+  templateCode?: string | null;
   hiddenTestCases?: HiddenTestCaseInput[];
 }
 

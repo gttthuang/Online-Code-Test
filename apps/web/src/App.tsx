@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
 import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, UserRoundCog } from "lucide-react";
@@ -6,10 +6,20 @@ import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, usePa
 
 import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
-import { CandidateWorkspace } from "./views/CandidateWorkspace";
-import { InterviewerWorkspace } from "./views/InterviewerWorkspace";
 import { LoginPanel } from "./views/LoginPanel";
-import { ProblemAdminWorkspace } from "./views/ProblemAdminWorkspace";
+
+const CandidateWorkspace = lazy(async () => {
+  const module = await import("./views/CandidateWorkspace");
+  return { default: module.CandidateWorkspace };
+});
+const InterviewerWorkspace = lazy(async () => {
+  const module = await import("./views/InterviewerWorkspace");
+  return { default: module.InterviewerWorkspace };
+});
+const ProblemAdminWorkspace = lazy(async () => {
+  const module = await import("./views/ProblemAdminWorkspace");
+  return { default: module.ProblemAdminWorkspace };
+});
 
 interface SessionState {
   token: string;
@@ -477,7 +487,11 @@ function WorkspaceFrame({ children, onLogout, session }: { readonly children: Re
           </div>
         </header>
 
-        <div className="app-route-content">{children}</div>
+        <div className="app-route-content">
+          <Suspense fallback={<div className="route-loading">Loading workspace...</div>}>
+            {children}
+          </Suspense>
+        </div>
       </section>
     </main>
   );
