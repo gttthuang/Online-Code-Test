@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
 import type { AuthUser, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
@@ -8,6 +8,14 @@ import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, g
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
+import ReactQuill, { Quill } from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/default.min.css';
+
+// // 1. 強制掛載到 window，供 Quill 內部呼叫
+(window as any).hljs = hljs;
+
 
 interface ProblemAdminWorkspaceProps {
   readonly currentUserId: string;
@@ -122,6 +130,7 @@ function resolveActiveSection(pathname: string) {
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
+  const quillRef = useRef<any>(null);
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
@@ -465,17 +474,50 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </>
       );
     }
-
+    
     if (activeTab === "description") {
       return (
         <>
-          <label className="field">
+          {/* <label className="field">
             <span>Description</span>
             <textarea
               className="text-block"
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
               value={form.description}
             />
+          </label> */}
+          <label className="field">
+            <span>Description</span>
+            <ReactQuill 
+              ref={quillRef} // <--- 加上這一行
+              theme="snow" 
+              value={form.description} 
+              onChange={(content, delta, source, editor) => {
+                  // 關鍵檢查：只有當 source 是 'user' (使用者手動輸入) 時才觸發更新
+                  // 這樣可以避免 Quill 初始化時自動觸發的變更導致無限迴圈
+                  if (source === 'user') {
+                    setForm((current) => {
+                      // 只有當內容確實不同時，才更新狀態
+                      if (current.description !== content) {
+                        return { ...current, description: content };
+                      }
+                      return current;
+                    });
+                  }
+                }}
+              // 加上一個 wrapper class 方便 CSS 控制
+              className="quill-editor" 
+              modules={{
+                
+                toolbar: [
+                  [{ 'header': [1, 2, false] }],
+                  ['bold', 'italic', 'underline', 'strike'],
+                  [{ 'color': [] }, { 'background': [] }],
+                  ['link', 'code-block']
+                ]
+              }}
+            />
+            
           </label>
           <label className="field">
             <span>Constraints</span>
@@ -489,23 +531,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </>
       );
     }
-
-    // if (activeTab === "sample") {
-    //   return (
-
-    // <div className="sample-grid">
-    //   <label className="field">
-    //     <span>Sample Input</span>
-    //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleInput: event.target.value }))} value={form.sampleInput} />
-    //   </label>
-
-    //   <label className="field">
-    //     <span>Sample Output</span>
-    //     <textarea onChange={(event) => setForm((current) => ({ ...current, sampleOutput: event.target.value }))} value={form.sampleOutput} />
-    //   </label>
-    // </div>
-    //   );
-    // }
     if (activeTab === "sample") {
       return (
         <div className="sample-grid-container">
@@ -695,28 +720,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       </article>
     );
   }
-
-  // if (previewProblemId) {
-  //   return (
-  //     <div className="candidate-workspace-container fullscreen-preview">
-  //       <button className="chip-button preview-back-button" onClick={() => navigate("/problem-admin/problems")} type="button">
-  //         Back
-  //       </button>
-
-  //       <CandidateWorkspace
-  //         key={previewProblemId}
-  //         initialProblemId={previewProblemId}
-  //         token={token}
-  //         user={{
-  //           id: "admin-preview",
-  //           name: "Admin",
-  //           role: "problem_admin",
-  //           email: "admin-preview@example.com"
-  //         }}
-  //       />
-  //     </div>
-  //   );
-  // }
   if (previewProblemId) {
     return (
       <div className="fullscreen-preview-container">

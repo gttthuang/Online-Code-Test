@@ -26,5 +26,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "react-quill": "^2.0.0"
   }
 }
