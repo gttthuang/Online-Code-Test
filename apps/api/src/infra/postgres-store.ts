@@ -1510,6 +1510,11 @@ export class PostgresStore implements AppStore {
 
   private toProblemSummary(problem: ProblemRow | ProblemRecord): ProblemSummary {
     console.log("Mapping problem:", problem.id, "Display number from DB:", (problem as any).display_number);
+    const getDisplayId = (p: any): number | null => {
+      if (typeof p.displayId === 'number') return p.displayId;
+      if (typeof p.display_number === 'number') return p.display_number;
+      return 0; // 預設值
+    };
     return {
       id: problem.id,
       title: problem.title,
@@ -1519,7 +1524,7 @@ export class PostgresStore implements AppStore {
       supportedLanguages:
         "supported_languages" in problem ? problem.supported_languages as ProblemSummary["supportedLanguages"] : problem.supportedLanguages,
       archivedAt: "archived_at" in problem ? problem.archived_at : problem.archivedAt,
-      displayId: problem.display_number ?? 0,
+      displayId: getDisplayId(problem),
     };
   }
 
