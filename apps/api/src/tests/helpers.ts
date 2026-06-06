@@ -21,6 +21,7 @@ import { createPostgresPool } from "../infra/postgres.js";
 import { JudgeWorker } from "../../../judge-worker/src/worker.js";
 import { createPostgresPool as createWorkerPostgresPool } from "../../../judge-worker/src/postgres.js";
 import { config as workerConfig } from "../../../judge-worker/src/config.js";
+import { PostgresJudgeRepository } from "../../../judge-worker/src/repository.js";
 
 export type TestPostgresConfig = {
   host: string;
@@ -100,7 +101,7 @@ export function authHeader(token: string) {
 
 export function createWorker(pool: Pool, options?: { staleThresholdMs?: number }) {
   return new JudgeWorker(
-    pool,
+    new PostgresJudgeRepository(pool),
     250,
     options?.staleThresholdMs ?? 30_000,
     workerConfig.sandbox

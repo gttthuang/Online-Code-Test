@@ -7,10 +7,11 @@ import {createPostgresPool} from "./postgres.js";
 import {createRedisConnection} from "./redis.js";
 import {config} from "./config.js";
 import {logError, logInfo} from "./logger.js";
+import {PostgresJudgeRepository} from "./repository.js";
 import {JudgeWorker} from "./worker.js";
 
 const pool = createPostgresPool(config.postgres);
-const worker = new JudgeWorker(pool, config.heartbeatIntervalMs,
+const worker = new JudgeWorker(new PostgresJudgeRepository(pool), config.heartbeatIntervalMs,
                                config.staleThresholdMs, config.sandbox);
 const redisConnection = createRedisConnection(config.redis);
 const recoveryQueue =
@@ -44,7 +45,6 @@ async function shutdown() {
 
   shuttingDown = true;
   clearInterval(recoveryTimer);
-  worker.stop();
   await queueWorker.close();
   await recoveryQueue.close();
   await redisConnection.quit();
