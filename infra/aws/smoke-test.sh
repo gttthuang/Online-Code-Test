@@ -8,6 +8,9 @@ source "${SCRIPT_DIR}/common.sh"
 
 require_command curl
 require_command node
+require_command aws
+
+ensure_ops_token
 
 BASE_URL=${BASE_URL:-}
 CANDIDATE_TOKEN=${CANDIDATE_TOKEN:-candidate_alice}
@@ -35,12 +38,30 @@ function json_value() {
 log_step "Smoke testing ${BASE_URL}/healthz"
 health_json=$(curl -sS --fail --max-time 20 "${BASE_URL}/healthz")
 health_status=$(printf '%s' "${health_json}" | json_value "data => data.status")
-storage_mode=$(printf '%s' "${health_json}" | json_value "data => data.storageMode")
-queue_mode=$(printf '%s' "${health_json}" | json_value "data => data.queueMode")
-postgres_status=$(printf '%s' "${health_json}" | json_value "data => data.postgres && data.postgres.status")
 
-if [[ "${health_status}" != "ok" || "${storage_mode}" != "postgres" || "${queue_mode}" != "redis-bullmq" || "${postgres_status}" != "reachable" ]]; then
+if [[ "${health_status}" != "ok" ]]; then
   echo "Unexpected health response: ${health_json}" >&2
+  exit 1
+fi
+
+log_step "Smoke testing ${BASE_URL}/readyz"
+readiness_json=$(curl -sS --fail --max-time 20 "${BASE_URL}/readyz")
+readiness_status=$(printf '%s' "${readiness_json}" | json_value "data => data.status")
+postgres_status=$(printf '%s' "${readiness_json}" | json_value "data => data.dependencies && data.dependencies.postgres")
+redis_status=$(printf '%s' "${readiness_json}" | json_value "data => data.dependencies && data.dependencies.redis")
+
+if [[ "${readiness_status}" != "ready" || "${postgres_status}" != "reachable" || "${redis_status}" != "reachable" ]]; then
+  echo "Unexpected readiness response: ${readiness_json}" >&2
+  exit 1
+fi
+
+log_step "Smoke testing protected Prometheus metrics"
+metrics=$(curl -sS --fail --max-time 20 \
+  "${BASE_URL}/metrics" \
+  -H "Authorization: Bearer ${OPS_TOKEN}")
+
+if [[ "${metrics}" != *"oct_api_build_info"* || "${metrics}" != *"oct_api_submissions"* ]]; then
+  echo "Expected API metrics were not exposed" >&2
   exit 1
 fi
 

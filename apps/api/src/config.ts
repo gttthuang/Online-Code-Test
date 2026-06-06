@@ -1,5 +1,6 @@
 export const config = {
   port: Number(process.env.API_PORT || 3000),
+  opsToken: process.env.OPS_TOKEN || undefined,
   postgres: {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT || 5433),

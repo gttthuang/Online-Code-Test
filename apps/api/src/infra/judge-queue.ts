@@ -7,6 +7,7 @@ import {
 
 export interface JudgeQueue {
   enqueue(job: JudgeJob): Promise<void>;
+  ping?(): Promise<void>;
   close?(): Promise<void>;
 }
 
@@ -18,6 +19,10 @@ export class RedisJudgeQueue implements JudgeQueue {
       jobId: getJudgeJobId(job),
       ...judgeQueueJobOptions
     });
+  }
+
+  async ping() {
+    await this.queue.getJobCounts("waiting");
   }
 
   async close() {

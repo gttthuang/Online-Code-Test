@@ -8,15 +8,17 @@ export type ApiRouteDefinition = {
   operationId: string;
   summary: string;
   tag: "System" | "Auth" | "Candidate" | "Interviewer" | "Admin";
-  access: "public" | "authenticated";
+  access: "public" | "authenticated" | "ops";
   roles?: readonly UserRole[];
   successStatus?: 200 | 204;
 };
 
 export const apiRouteDefinitions = [
   route("GET", "/", "getServiceIndex", "Read the API service index", "System", "public"),
-  route("GET", "/healthz", "getHealth", "Check API dependencies", "System", "public"),
-  route("GET", "/internal/stats", "getInternalStats", "Read judge and submission statistics", "System", "public"),
+  route("GET", "/healthz", "getHealth", "Check whether the API process is alive", "System", "public"),
+  route("GET", "/readyz", "getReadiness", "Check PostgreSQL and Redis readiness", "System", "public"),
+  route("GET", "/metrics", "getMetrics", "Read Prometheus operational metrics", "System", "ops"),
+  route("GET", "/internal/stats", "getInternalStats", "Read judge and submission statistics", "System", "ops"),
   route("GET", "/openapi.json", "getOpenApiDocument", "Read the machine-readable API contract", "System", "public"),
   route("POST", "/auth/login", "login", "Sign in with a demo account email", "Auth", "public"),
   route("GET", "/auth/me", "getCurrentUser", "Read the authenticated user", "Auth", "authenticated"),
@@ -216,7 +218,9 @@ export function createOpenApiDocument() {
       operationId: definition.operationId,
       summary: definition.summary,
       tags: [definition.tag],
-      security: definition.access === "public" ? [] : [{ bearerAuth: [] }],
+      security: definition.access === "public"
+        ? []
+        : [{ [definition.access === "ops" ? "opsBearer" : "bearerAuth"]: [] }],
       ...(definition.roles ? { "x-roles": definition.roles } : {}),
       ...(parameters.length > 0 ? { parameters } : {}),
       responses: createOpenApiResponses(definition.successStatus ?? 200)
@@ -243,6 +247,11 @@ export function createOpenApiDocument() {
         bearerAuth: {
           type: "http",
           scheme: "bearer"
+        },
+        opsBearer: {
+          type: "http",
+          scheme: "bearer",
+          description: "Operations token configured through OPS_TOKEN."
         }
       },
       schemas: {

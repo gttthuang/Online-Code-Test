@@ -13,6 +13,9 @@ export default defineConfig({
       "/me": apiProxyTarget,
       "/admin": apiProxyTarget,
       "/healthz": apiProxyTarget,
+      "/readyz": apiProxyTarget,
+      "/metrics": apiProxyTarget,
+      "/openapi.json": apiProxyTarget,
       "/internal": apiProxyTarget
     }
   },

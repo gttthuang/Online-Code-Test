@@ -15,7 +15,7 @@ test("API route catalog has unique routes and operation IDs", () => {
 
   assert.equal(new Set(routeKeys).size, routeKeys.length);
   assert.equal(new Set(operationIds).size, operationIds.length);
-  assert.equal(apiRouteDefinitions.length, 39);
+  assert.equal(apiRouteDefinitions.length, 41);
 });
 
 test("OpenAPI document includes every canonical route and access rule", () => {
@@ -33,7 +33,12 @@ test("OpenAPI document includes every canonical route and access rule", () => {
 
     assert.ok(operation, `${definition.method} ${definition.path} is absent from OpenAPI`);
     assert.equal(operation.operationId, definition.operationId);
-    assert.deepEqual(operation.security, definition.access === "public" ? [] : [{ bearerAuth: [] }]);
+    assert.deepEqual(
+      operation.security,
+      definition.access === "public"
+        ? []
+        : [{ [definition.access === "ops" ? "opsBearer" : "bearerAuth"]: [] }]
+    );
     assert.deepEqual(operation["x-roles"], definition.roles);
   }
 });

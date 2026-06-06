@@ -39,6 +39,11 @@ export type TestHarness = {
   dbName: string;
 };
 
+export type CreateHarnessOptions = {
+  judgeQueue?: JudgeQueue;
+  opsToken?: string;
+};
+
 const basePostgresConfig = {
   host: process.env.POSTGRES_HOST || "localhost",
   port: Number(process.env.POSTGRES_PORT || 5433),
@@ -48,10 +53,11 @@ const basePostgresConfig = {
 };
 
 const testJudgeQueue: JudgeQueue = {
-  async enqueue() {}
+  async enqueue() {},
+  async ping() {}
 };
 
-export async function createHarness(): Promise<TestHarness> {
+export async function createHarness(options: CreateHarnessOptions = {}): Promise<TestHarness> {
   const dbName = `oct_test_${randomUUID().replaceAll("-", "_")}`;
   await createDatabase(dbName);
 
@@ -63,7 +69,8 @@ export async function createHarness(): Promise<TestHarness> {
   const app = await buildApp({
     postgres,
     logger: false,
-    judgeQueue: testJudgeQueue
+    judgeQueue: options.judgeQueue ?? testJudgeQueue,
+    opsToken: options.opsToken
   });
   await app.ready();
 

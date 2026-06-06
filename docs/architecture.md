@@ -7,7 +7,7 @@
 ```text
 Browser
   -> apps/web (React + Vite, localhost:5173)
-  -> proxy /auth /me /admin /live /healthz /internal/stats
+  -> proxy API / health / metrics / OpenAPI routes
   -> apps/api (Fastify, localhost:3000)
       -> PostgreSQL
       -> Redis
@@ -62,13 +62,16 @@ Browser
 - submission APIs
 - custom run APIs
 - result APIs
-- local observability stats endpoint
+- liveness / readiness、Prometheus metrics 與 protected operations stats
 
 目前狀態：
 
 - route surface 已經固定到前端可以直接串
 - token 目前只是 demo token，不是真 JWT
+- `GET /healthz` 是 process liveness；`GET /readyz` 會檢查 PostgreSQL / Redis
+- `GET /metrics` 提供 bounded-cardinality HTTP RED、Node process 與 judge metrics
 - `GET /internal/stats` 會回 PostgreSQL 聚合出的 submission / failure counters
+- AWS 會設定 `OPS_TOKEN` 保護 metrics / stats，本機未設定時保留開發便利性
 
 ### `packages/contracts`
 

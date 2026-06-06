@@ -61,7 +61,9 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 
 - `GET /`
 - `GET /healthz`
+- `GET /readyz`
 - `GET /internal/stats`
+- `GET /metrics`
 - `GET /openapi.json`
 - `POST /auth/login`
 
@@ -270,12 +272,36 @@ Response:
 }
 ```
 
+### `GET /healthz`
+
+用途：
+
+- liveness probe，只確認 API process 可回應
+- 不查 PostgreSQL / Redis，避免暫時 dependency failure 造成 process 被反覆重啟
+
+### `GET /readyz`
+
+用途：
+
+- readiness probe，會實際檢查 PostgreSQL 與 Redis
+- 任一 dependency 不可用時回 HTTP `503`
+- Elastic Beanstalk load balancer 使用這個 endpoint 判斷 instance 是否接流量
+
+### `GET /metrics`
+
+用途：
+
+- Prometheus text format 的 HTTP RED、Node process 與 judge business metrics
+- HTTP labels 使用 Fastify route template，不會放 candidate / problem / submission ID
+- production 必須帶 `Authorization: Bearer <OPS_TOKEN>`
+
 ### `GET /internal/stats`
 
 用途：
 
-- 本機 demo / debug 用的最小 observability endpoint
+- JSON 格式的 debug / operations endpoint
 - 看目前 submission 狀態分布、judge failure breakdown、基本資料量
+- production 必須帶 `Authorization: Bearer <OPS_TOKEN>`
 
 Response:
 

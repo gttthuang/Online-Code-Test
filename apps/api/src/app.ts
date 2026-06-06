@@ -11,6 +11,7 @@ import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerSubmissionRoutes } from "./modules/submissions/routes.js";
 import { registerUserRoutes } from "./modules/users/routes.js";
 import { toErrorResponse } from "./core/errors.js";
+import { requireOpsAccess } from "./core/ops-auth.js";
 import { config } from "./config.js";
 import { createRedisJudgeQueue } from "./infra/judge-queue.js";
 import { createPostgresPool, ensurePostgresDatabase, pingPostgres } from "./infra/postgres.js";
@@ -18,6 +19,7 @@ import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
 import { createJudgeQueue } from "./infra/redis.js";
 import type { JudgeQueue } from "./infra/judge-queue.js";
+import { ApiMetrics } from "./observability.js";
 import {
   apiRouteDefinitions,
   apiRouteKey,
@@ -29,6 +31,7 @@ type BuildAppOptions = {
   postgres?: typeof config.postgres;
   logger?: boolean;
   judgeQueue?: JudgeQueue;
+  opsToken?: string;
 };
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -36,6 +39,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: options.logger ?? true
   });
+  const metrics = new ApiMetrics();
+  const requestStartTimes = new WeakMap<object, bigint>();
+  const opsToken = options.opsToken ?? config.opsToken;
   const registeredRoutes = new Set<string>();
 
   app.addHook("onRoute", (routeOptions) => {
@@ -48,6 +54,24 @@ export async function buildApp(options: BuildAppOptions = {}) {
         registeredRoutes.add(apiRouteKey(method, routeOptions.url));
       }
     }
+  });
+  app.addHook("onRequest", async (request) => {
+    requestStartTimes.set(request, process.hrtime.bigint());
+  });
+  app.addHook("onResponse", async (request, reply) => {
+    const startedAt = requestStartTimes.get(request);
+
+    if (startedAt === undefined) {
+      return;
+    }
+
+    const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+    metrics.observeHttpRequest(
+      request.routeOptions.url ?? "unmatched",
+      request.method,
+      reply.statusCode,
+      durationSeconds
+    );
   });
 
   await ensurePostgresDatabase(postgresConfig);
@@ -75,6 +99,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       teamHandoffFile: "docs/team-handoff-zh.md"
     },
     healthcheck: "/healthz",
+    readiness: "/readyz",
+    metrics: "/metrics",
     openapi: "/openapi.json",
     demoAccounts: {
       candidate: "alice.candidate@example.com",
@@ -86,31 +112,55 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.get("/healthz", async () => ({
     status: "ok",
-    service: "api",
-    storageMode: "postgres",
-    queueMode: "redis-bullmq",
-    postgres: {
-      configuredHost: postgresConfig.host,
-      configuredDatabase: postgresConfig.database,
-      status: await pingPostgres(postgresPool)
-        .then(() => "reachable")
-        .catch(() => "unreachable")
-    },
-    redis: {
-      configuredHost: config.redis.host,
-      configuredDb: config.redis.db
-    }
+    service: "api"
   }));
 
-  app.get("/internal/stats", async () => ({
-    service: "api",
-    generatedAt: new Date().toISOString(),
-    queueMode: "redis-bullmq",
-    storageMode: "postgres",
-    stats: await store.getInternalStats()
-  }));
+  app.get("/readyz", async (_request, reply) => {
+    const [postgresResult, redisResult] = await Promise.allSettled([
+      pingPostgres(postgresPool),
+      judgeQueue.ping?.() ?? Promise.resolve()
+    ]);
+    const ready = postgresResult.status === "fulfilled" && redisResult.status === "fulfilled";
 
-  app.get("/openapi.json", async () => createOpenApiDocument());
+    return reply
+      .header("cache-control", "no-store")
+      .status(ready ? 200 : 503)
+      .send({
+        status: ready ? "ready" : "unavailable",
+        service: "api",
+        dependencies: {
+          postgres: postgresResult.status === "fulfilled" ? "reachable" : "unreachable",
+          redis: redisResult.status === "fulfilled" ? "reachable" : "unreachable"
+        }
+      });
+  });
+
+  app.get("/internal/stats", async (request, reply) => {
+    requireOpsAccess(request, opsToken);
+
+    return reply
+      .header("cache-control", "no-store")
+      .send({
+        service: "api",
+        generatedAt: new Date().toISOString(),
+        queueMode: "redis-bullmq",
+        storageMode: "postgres",
+        stats: await store.getInternalStats()
+      });
+  });
+
+  app.get("/metrics", async (request, reply) => {
+    requireOpsAccess(request, opsToken);
+
+    return reply
+      .header("cache-control", "no-store")
+      .header("content-type", metrics.contentType)
+      .send(await metrics.render(await store.getInternalStats()));
+  });
+
+  app.get("/openapi.json", async (_request, reply) => reply
+    .header("cache-control", "no-store")
+    .send(createOpenApiDocument()));
 
   app.setErrorHandler((error, _request, reply) => {
     const { statusCode, body } = toErrorResponse(error);

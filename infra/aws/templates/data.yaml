@@ -123,6 +123,76 @@ Resources:
       AtRestEncryptionEnabled: true
       TransitEncryptionEnabled: !If [UseRedisTls, true, false]
 
+  DatabaseHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-postgres-high-cpu"
+      AlarmDescription: PostgreSQL CPU has remained above 80 percent.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  DatabaseLowStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-postgres-low-storage"
+      AlarmDescription: PostgreSQL free storage has fallen below 2 GiB.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2147483648
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+
+  RedisHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-redis-high-cpu"
+      AlarmDescription: Redis engine CPU has remained above 80 percent.
+      Namespace: AWS/ElastiCache
+      MetricName: EngineCPUUtilization
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Sub "${RedisReplicationGroup}-001"
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  RedisEvictionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AppName}-${Stage}-redis-evictions"
+      AlarmDescription: Redis evicted one or more keys during the evaluation period.
+      Namespace: AWS/ElastiCache
+      MetricName: Evictions
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Sub "${RedisReplicationGroup}-001"
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
 Outputs:
   DatabaseHost:
     Value: !GetAtt Database.Endpoint.Address
@@ -138,3 +208,11 @@ Outputs:
     Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Port
   RedisTlsEnabled:
     Value: !Ref RedisTransitEncryptionEnabled
+  DatabaseHighCpuAlarmName:
+    Value: !Ref DatabaseHighCpuAlarm
+  DatabaseLowStorageAlarmName:
+    Value: !Ref DatabaseLowStorageAlarm
+  RedisHighCpuAlarmName:
+    Value: !Ref RedisHighCpuAlarm
+  RedisEvictionsAlarmName:
+    Value: !Ref RedisEvictionsAlarm

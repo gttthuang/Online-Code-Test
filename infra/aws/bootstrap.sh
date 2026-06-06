@@ -21,6 +21,7 @@ REDIS_NODE_TYPE=${REDIS_NODE_TYPE:-cache.t4g.micro}
 REDIS_TLS=${REDIS_TLS:-true}
 
 ensure_database_password
+ensure_ops_token
 
 ARTIFACT_BUCKET_NAME=${ARTIFACT_BUCKET_NAME:-"${APP_NAME}-${STAGE}-${ACCOUNT_ID}-${AWS_REGION}-artifacts"}
 API_REPOSITORY_NAME=${API_REPOSITORY_NAME:-"${APP_NAME}/${STAGE}/api"}
@@ -66,3 +67,4 @@ log_step "Bootstrap complete"
 echo "Foundation stack: ${APP_NAME}-${STAGE}-foundation"
 echo "Data stack: ${APP_NAME}-${STAGE}-data"
 echo "Database password secret: ${DB_PASSWORD_SECRET_NAME}"
+echo "Operations token secret: ${OPS_TOKEN_SECRET_NAME}"

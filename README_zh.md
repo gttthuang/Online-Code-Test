@@ -23,7 +23,7 @@
 - interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、用 terminal 跑程式片段
 - admin 建題、批次匯入測資、preview、archive / force delete、管理 users、查看全站 submissions
 - worker 會在背景消化 queued submissions
-- API 可透過 `/internal/stats` 看目前 submission 狀態與 failure breakdown
+- API 提供 `/healthz` liveness、`/readyz` dependency readiness、`/metrics` Prometheus 指標與 `/internal/stats` judge 統計
 
 目前仍然需要後續強化：
 
@@ -108,6 +108,9 @@ AWS_REGION=ap-northeast-1
 - 找不到就自動產生
 - 存到 `${APP_NAME}/${STAGE}/postgres/master-password`
 
+部署腳本也會自動產生 operations token，存到
+`${APP_NAME}/${STAGE}/api/ops-token`，用來保護 `/metrics` 與 `/internal/stats`。
+
 部署指令：
 
 ```bash
@@ -118,7 +121,8 @@ bash infra/aws/deploy.sh
 部署完成後可用：
 
 - frontend: CloudFront URL
-- api health: `http://<beanstalk-cname>/healthz`
+- api liveness: `http://<beanstalk-cname>/healthz`
+- api readiness: `http://<beanstalk-cname>/readyz`
 
 完整說明見 [AWS 部署說明](./docs/aws-deployment.md)。
 

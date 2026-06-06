@@ -30,11 +30,20 @@ npm run dev:web
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:3000`
-- Health check: `http://localhost:3000/healthz`
+- Liveness: `http://localhost:3000/healthz`
+- Readiness: `http://localhost:3000/readyz`
+- Prometheus metrics: `http://localhost:3000/metrics`
 - Stats: `http://localhost:3000/internal/stats`
 - OpenAPI contract: `http://localhost:3000/openapi.json`
 
-Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
+Vite 會把 API、health、metrics 與 OpenAPI 路徑 proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
+
+本機未設定 `OPS_TOKEN` 時可以直接讀 `/metrics` 與 `/internal/stats`；若想模擬
+部署環境，在 `.env` 設定 token 後，這兩個 endpoint 都必須帶：
+
+```http
+Authorization: Bearer <OPS_TOKEN>
+```
 
 第一次啟動 worker 時，Docker 可能會先拉 `python` / `gcc` sandbox images。
 
@@ -119,12 +128,14 @@ act push -j infrastructure
 
 ```bash
 curl http://localhost:3000/healthz
+curl http://localhost:3000/readyz
 ```
 
-回應應該包含：
+`/healthz` 只表示 API process 存活；`/readyz` 應回：
 
-- `storageMode: "postgres"`
-- `queueMode: "redis-bullmq"`
+- `status: "ready"`
+- `dependencies.postgres: "reachable"`
+- `dependencies.redis: "reachable"`
 
 ### Submission 一直 queued
 

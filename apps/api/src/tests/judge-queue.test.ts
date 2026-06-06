@@ -19,11 +19,19 @@ test("API enqueue is idempotent and carries the retry policy", async () => {
         options: CapturedOptions;
       }
     | undefined;
+  let pinged = false;
+  let closed = false;
   const queue = {
     async add(name: string, job: JudgeJob, options: CapturedOptions) {
       captured = { name, job, options };
     },
-    async close() {}
+    async getJobCounts() {
+      pinged = true;
+      return { waiting: 0 };
+    },
+    async close() {
+      closed = true;
+    }
   } as unknown as Queue<JudgeJob>;
   const judgeQueue = new RedisJudgeQueue(queue);
   const job: JudgeJob = {
@@ -32,6 +40,8 @@ test("API enqueue is idempotent and carries the retry policy", async () => {
   };
 
   await judgeQueue.enqueue(job);
+  await judgeQueue.ping();
+  await judgeQueue.close();
 
   assert.ok(captured);
   assert.equal(captured.name, "judge-submission");
@@ -42,4 +52,6 @@ test("API enqueue is idempotent and carries the retry policy", async () => {
     type: "exponential",
     delay: 1_000
   });
+  assert.equal(pinged, true);
+  assert.equal(closed, true);
 });

@@ -18,7 +18,10 @@ An online coding interview system with a working React frontend, Fastify API, Po
 
 The app supports candidate submissions, custom stdin runs, interviewer private notes/rubric, admin problem authoring, user management, and AWS deployment. Sandboxing is currently Docker-based rather than a fully hardened production judge environment.
 
-Local observability is also available through `GET /internal/stats`, which returns current submission status counts and judge failure breakdowns.
+Operational endpoints include lightweight liveness at `GET /healthz`, dependency
+readiness at `GET /readyz`, Prometheus metrics at `GET /metrics`, and detailed
+judge statistics at `GET /internal/stats`. Set `OPS_TOKEN` to protect the latter
+two endpoints outside local development.
 
 ## Quick Start
 
@@ -100,6 +103,9 @@ You do not need to manually set `DB_PASSWORD` by default. The scripts will:
 - reuse an existing Secrets Manager secret if it exists
 - otherwise generate one automatically
 - store it at `${APP_NAME}/${STAGE}/postgres/master-password`
+
+The scripts use the same flow for an operations token stored at
+`${APP_NAME}/${STAGE}/api/ops-token`.
 
 Deploy:
 

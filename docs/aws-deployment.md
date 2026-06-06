@@ -54,11 +54,19 @@ bash infra/aws/deploy.sh
 - Elastic Beanstalk API
 - S3 + CloudFront frontend
 - DB password secret
+- operations token secret
+- CloudWatch log streaming 與 RDS / Redis / ECS alarms
 
 其中 DB 密碼預設不需要手填。腳本會優先用 Secrets Manager，secret name 預設是：
 
 ```bash
 ${APP_NAME}/${STAGE}/postgres/master-password
+```
+
+`OPS_TOKEN` 也不需要手填，預設 secret name 是：
+
+```bash
+${APP_NAME}/${STAGE}/api/ops-token
 ```
 
 ## 檔案入口
@@ -164,7 +172,10 @@ bash infra/aws/smoke-test.sh
 7. build web 並上傳到 S3
 8. 對 CloudFront 做 invalidation
 
-`bash infra/aws/smoke-test.sh` 會從 CloudFront 打 `/healthz`，確認 API 連得到 PostgreSQL / Redis，並建立一筆 candidate custom run，輪詢到 worker 實際執行完成。GitHub Actions 的 Deploy AWS workflow 也會在部署後自動跑同一支 script。
+`bash infra/aws/smoke-test.sh` 會從 CloudFront 驗證 `/healthz`、透過 `/readyz`
+確認 PostgreSQL / Redis、帶 operations token 抓 `/metrics`，再建立一筆 candidate
+custom run 並輪詢到 worker 實際執行完成。GitHub Actions 的 Deploy AWS workflow
+也會在部署後自動跑同一支 script。
 
 ## 建立出的 AWS 資源
 
@@ -189,6 +200,7 @@ bash infra/aws/smoke-test.sh
 如果你想手動指定 DB 密碼，才需要放：
 
 - `DB_PASSWORD`
+- `OPS_TOKEN`（不填會由腳本自動產生）
 
 如果你改成由 AWS SSM 管密碼，也可以改放：
 
@@ -198,6 +210,7 @@ bash infra/aws/smoke-test.sh
 如果你要指定 Secrets Manager 名稱，也可以放：
 
 - `DB_PASSWORD_SECRET_NAME`
+- `OPS_TOKEN_SECRET_NAME`
 
 ### Variables
 
@@ -229,7 +242,11 @@ bash infra/aws/smoke-test.sh
 - 這套腳本預設抓 default VPC 和 default subnets。
 - `RDS` / `ElastiCache` 會放在同一個 VPC 內，由 VPC CIDR 允許 API / worker 存取。
 - `Elastic Beanstalk` 目前是單一 API image，不負責跑 judge worker。
-- `CloudFront` 會對 `/auth/*`、`/me/*`、`/admin/*`、`/healthz`、`/internal/*` 轉送到 API origin，其餘路徑回 frontend。
+- `CloudFront` 會把 API、health、metrics 與 OpenAPI 路徑轉送到 API origin，其餘路徑回 frontend。
+- Elastic Beanstalk 使用 `/readyz` 做 load balancer health check，並把 platform / container logs 串到 CloudWatch Logs，保留 14 天。
+- data stack 會建立 RDS 高 CPU / 低空間與 Redis 高 CPU / eviction alarms。
+- worker stack 會建立 ECS service 高 CPU / 高記憶體 alarms。
+- alarms 目前未綁通知目的地；production 可再把 SNS / PagerDuty ARN 接上。
 - frontend build 目前預設走 same-origin，相容於 CloudFront path-based routing。
 
 ## 目前仍然是第一版
@@ -243,5 +260,5 @@ bash infra/aws/smoke-test.sh
 之後還值得補的項目：
 
 - CloudFront custom domain + ACM
-- Beanstalk health / alarm / log shipping
 - ECS worker auto scaling policy
+- AWS Managed Prometheus 或其他長期 metrics scraper

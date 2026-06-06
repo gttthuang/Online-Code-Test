@@ -158,6 +158,42 @@ function ensure_database_password() {
   put_secretsmanager_secret_value "${DB_PASSWORD_SECRET_NAME}" "${DB_PASSWORD}"
 }
 
+function default_ops_token_secret_name() {
+  echo "${APP_NAME}/${STAGE}/api/ops-token"
+}
+
+function generate_ops_token() {
+  require_command openssl
+  openssl rand -hex 32
+}
+
+function ensure_ops_token() {
+  OPS_TOKEN_SECRET_NAME=${OPS_TOKEN_SECRET_NAME:-$(default_ops_token_secret_name)}
+  export OPS_TOKEN_SECRET_NAME
+
+  if [[ -n "${OPS_TOKEN:-}" ]]; then
+    local current_secret=""
+
+    if secretsmanager_secret_exists "${OPS_TOKEN_SECRET_NAME}"; then
+      current_secret=$(secretsmanager_secret_value "${OPS_TOKEN_SECRET_NAME}")
+    fi
+
+    if [[ "${current_secret}" != "${OPS_TOKEN}" ]]; then
+      put_secretsmanager_secret_value "${OPS_TOKEN_SECRET_NAME}" "${OPS_TOKEN}"
+    fi
+    export OPS_TOKEN
+    return
+  fi
+
+  if secretsmanager_secret_exists "${OPS_TOKEN_SECRET_NAME}"; then
+    export "OPS_TOKEN=$(secretsmanager_secret_value "${OPS_TOKEN_SECRET_NAME}")"
+    return
+  fi
+
+  export "OPS_TOKEN=$(generate_ops_token)"
+  put_secretsmanager_secret_value "${OPS_TOKEN_SECRET_NAME}" "${OPS_TOKEN}"
+}
+
 function aws_account_id() {
   aws sts get-caller-identity --query Account --output text
 }
