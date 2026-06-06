@@ -62,9 +62,18 @@ Demo 帳號、路由、CI 與常見問題請看 [本機執行與驗證](./docs/l
 
 ## 驗證
 
+先確認 PostgreSQL 已啟動：
+
 ```bash
+docker compose -f infra/docker-compose.yml up -d postgres
 npm run ci:verify
 ```
+
+這會執行所有 workspace typecheck、前後端 coverage gate、完整的「建立帳號到實際
+Docker 判題與 review」system test、production build 與基礎設施檢查。
+
+API 的機器可讀 route / role contract 位於 `http://localhost:3000/openapi.json`。
+若實際 Fastify route 沒有同步進 contract，API 啟動與 CI 會直接失敗。
 
 如果本機有安裝 `act`，也可以用 Docker 模擬 GitHub Actions：
 

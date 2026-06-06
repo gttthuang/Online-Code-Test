@@ -15,6 +15,11 @@
 ## Base URL
 
 - 本機：`http://localhost:3000`
+- 機器可讀 OpenAPI：`http://localhost:3000/openapi.json`
+
+`apps/api/src/api-contract.ts` 是 route、角色權限與 OpenAPI operation 的單一來源。
+後端啟動時會把它和 Fastify 實際註冊的 route 做雙向比對；新增、刪除或更名 endpoint
+時若沒有同步 contract，API 與 CI 會直接失敗。本文件則保留 payload 範例與操作流程。
 
 ## Demo 帳號
 
@@ -57,11 +62,17 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /`
 - `GET /healthz`
 - `GET /internal/stats`
+- `GET /openapi.json`
 - `POST /auth/login`
+
+### 已登入使用者
+
 - `GET /auth/me`
 
 ### Candidate
 
+- `GET /me/exam`
+- `POST /me/exam/start`
 - `GET /me/assignments`
 - `GET /me/problems/:problemId`
 - `GET /me/submissions`
@@ -73,16 +84,24 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 ### Interviewer / Admin
 
 - `GET /admin/problems`
+- `GET /admin/problems/:problemId`
+- `GET /admin/candidates/:candidateId/submissions`
+- `GET /admin/submissions/:submissionId`
+- `POST /admin/custom-runs`
+- `GET /admin/custom-runs/:runId`
 
 ### Admin
 
 - `POST /admin/problems`
+- `PUT /admin/problems/:problemId`
+- `GET /admin/problems/:problemId/impact`
+- `PATCH /admin/problems/:problemId/archive`
 - `DELETE /admin/problems/:problemId`
 - `GET /admin/users`
 - `POST /admin/users`
 - `DELETE /admin/users/:userId`
+- `GET /admin/submissions`
 - `POST /admin/submissions/preview`
-- `GET /admin/submissions/:submissionId`
 
 ### Interviewer
 
@@ -95,13 +114,6 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /admin/candidates/:candidateId/reviews`
 - `PUT /admin/candidates/:candidateId/reviews/:problemId`
 - `DELETE /admin/candidates/:candidateId/reviews/:problemId`
-
-### Admin Submission Review
-
-- `GET /admin/submissions`
-- `GET /admin/submissions/:submissionId`
-- `POST /admin/custom-runs`
-- `GET /admin/custom-runs/:runId`
 
 ## 主要 Request / Response
 
@@ -587,6 +599,14 @@ Response:
 
 - 讓 interviewer / admin 讀題目列表
 
+### `GET /admin/problems/:problemId`
+
+用途：
+
+- 讓 interviewer / admin 讀取完整題目內容
+- admin 會用這個 endpoint 載入既有內容再進行編輯
+- response 包含 authoring fields 與 hidden testcases，不可提供給 candidate
+
 ### `POST /admin/problems`
 
 用途：
@@ -624,6 +644,33 @@ Validation:
 - `sampleInput` / `sampleOutput`: 各最多 8000 字元
 - `hiddenTestCases`: 1 到 50 筆
 - 每筆 hidden testcase 的 `input` / `expectedOutput`: 各最多 16000 字元
+
+### `PUT /admin/problems/:problemId`
+
+用途：
+
+- admin 完整更新一題
+- request 與 `POST /admin/problems` 相同，支援 JSON 或 multipart 批次 testcase 檔案
+- validation 規則與建立題目完全相同
+
+### `GET /admin/problems/:problemId/impact`
+
+用途：
+
+- 刪除前取得 assignments、candidate submissions、preview submissions 與 reviews 數量
+- 前端應根據 `canDeleteWithoutForce` 決定是否顯示強制刪除確認
+
+### `PATCH /admin/problems/:problemId/archive`
+
+Request:
+
+```json
+{
+  "archived": true
+}
+```
+
+封存後題目仍保留歷史資料，但不能再被指派；傳 `false` 可恢復。
 
 ### `DELETE /admin/problems/:problemId`
 

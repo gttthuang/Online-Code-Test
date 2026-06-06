@@ -60,7 +60,12 @@ npm run ci:verify
 ```
 
 The gate runs workspace typechecks, backend and frontend coverage thresholds, the
-frontend production build, Docker Compose validation, and AWS shell syntax checks.
+full account-to-judge production flow, frontend production build, Docker Compose
+validation, and AWS shell syntax checks.
+
+The API also publishes its machine-readable route and role contract at
+`http://localhost:3000/openapi.json`. Fastify startup fails if a registered route
+is missing from that contract.
 
 GitHub Actions runs these areas in parallel:
 

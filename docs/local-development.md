@@ -32,6 +32,7 @@ npm run dev:web
 - API: `http://localhost:3000`
 - Health check: `http://localhost:3000/healthz`
 - Stats: `http://localhost:3000/internal/stats`
+- OpenAPI contract: `http://localhost:3000/openapi.json`
 
 Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本機 API，所以前端不需要在畫面上顯示或硬填 API URL。
 
@@ -72,6 +73,7 @@ Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本
 ```bash
 npm run typecheck
 POSTGRES_PORT=5433 npm run test:coverage --workspace @oct/api
+POSTGRES_PORT=5433 npm run test:system --workspace @oct/api
 npm run test:coverage --workspace @oct/judge-worker
 npm run test:coverage --workspace @oct/web
 npm run build:web
@@ -91,7 +93,7 @@ npm run ci:verify
 GitHub Actions 會跑：
 
 - `Static analysis`: 所有 workspace 的 TypeScript typecheck
-- `Backend tests`: PostgreSQL integration、Docker judge execution 與 API coverage gate
+- `Backend tests`: PostgreSQL integration、API / worker coverage gate，以及完整 account-to-judge production flow
 - `Frontend tests and build`: Vitest coverage gate 與 production build
 - `Infrastructure checks`: Compose、AWS shell syntax 與 production dependency audit
 - `Quality gate`: 確認上述四個 job 全部成功

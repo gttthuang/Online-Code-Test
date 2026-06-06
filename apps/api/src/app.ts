@@ -18,6 +18,12 @@ import { initializePostgres } from "./infra/postgres-init.js";
 import { PostgresStore } from "./infra/postgres-store.js";
 import { createJudgeQueue } from "./infra/redis.js";
 import type { JudgeQueue } from "./infra/judge-queue.js";
+import {
+  apiRouteDefinitions,
+  apiRouteKey,
+  assertApiRouteContract,
+  createOpenApiDocument
+} from "./api-contract.js";
 
 type BuildAppOptions = {
   postgres?: typeof config.postgres;
@@ -29,6 +35,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const postgresConfig = options.postgres ?? config.postgres;
   const app = Fastify({
     logger: options.logger ?? true
+  });
+  const registeredRoutes = new Set<string>();
+
+  app.addHook("onRoute", (routeOptions) => {
+    const methods = Array.isArray(routeOptions.method)
+      ? routeOptions.method
+      : [routeOptions.method];
+
+    for (const method of methods) {
+      if (method !== "HEAD" && method !== "OPTIONS") {
+        registeredRoutes.add(apiRouteKey(method, routeOptions.url));
+      }
+    }
   });
 
   await ensurePostgresDatabase(postgresConfig);
@@ -56,47 +75,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
       teamHandoffFile: "docs/team-handoff-zh.md"
     },
     healthcheck: "/healthz",
+    openapi: "/openapi.json",
     demoAccounts: {
       candidate: "alice.candidate@example.com",
       interviewer: "bob.interviewer@example.com",
       problemAdmin: "cindy.problem_admin@example.com"
     },
-    routes: [
-      "POST /auth/login",
-      "GET /auth/me",
-      "GET /internal/stats",
-      "GET /me/exam",
-      "POST /me/exam/start",
-      "GET /me/assignments",
-      "GET /me/problems/:problemId",
-      "GET /me/submissions",
-      "POST /me/submissions",
-      "GET /me/submissions/:submissionId",
-      "POST /me/custom-runs",
-      "GET /me/custom-runs/:runId",
-      "GET /admin/candidates",
-      "POST /admin/candidates",
-      "DELETE /admin/candidates/:candidateId",
-      "GET /admin/users",
-      "POST /admin/users",
-      "DELETE /admin/users/:userId",
-      "POST /admin/problems",
-      "GET /admin/problems",
-      "GET /admin/problems/:problemId/impact",
-      "PATCH /admin/problems/:problemId/archive",
-      "DELETE /admin/problems/:problemId",
-      "POST /admin/assignments",
-      "GET /admin/candidates/:candidateId/results",
-      "GET /admin/candidates/:candidateId/submissions",
-      "GET /admin/candidates/:candidateId/reviews",
-      "PUT /admin/candidates/:candidateId/reviews/:problemId",
-      "DELETE /admin/candidates/:candidateId/reviews/:problemId",
-      "GET /admin/submissions",
-      "POST /admin/submissions/preview",
-      "GET /admin/submissions/:submissionId",
-      "POST /admin/custom-runs",
-      "GET /admin/custom-runs/:runId"
-    ]
+    routes: apiRouteDefinitions.map(({ method, path }) => apiRouteKey(method, path))
   }));
 
   app.get("/healthz", async () => ({
@@ -125,6 +110,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     stats: await store.getInternalStats()
   }));
 
+  app.get("/openapi.json", async () => createOpenApiDocument());
+
   app.setErrorHandler((error, _request, reply) => {
     const { statusCode, body } = toErrorResponse(error);
 
@@ -140,6 +127,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerResultRoutes(app, context);
   registerReviewRoutes(app, context);
   registerUserRoutes(app, context);
+  assertApiRouteContract(registeredRoutes);
 
   return app;
 }

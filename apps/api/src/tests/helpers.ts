@@ -164,6 +164,11 @@ export async function createProblem(
       supportedLanguages: input?.supportedLanguages ?? ["python"],
       sampleInput: input?.sampleInput ?? "hello",
       sampleOutput: input?.sampleOutput ?? "hello",
+      constraints: input?.constraints,
+      inputSpec: input?.inputSpec,
+      outputSpec: input?.outputSpec,
+      sampleExplanation: input?.sampleExplanation,
+      templateCode: input?.templateCode,
       hiddenTestCases: input?.hiddenTestCases ?? [
         { input: "abc", expectedOutput: "abc" },
         { input: "line two", expectedOutput: "line two" }

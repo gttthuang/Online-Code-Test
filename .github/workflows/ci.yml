@@ -74,6 +74,9 @@ jobs:
       - name: Run API and judge integration tests with coverage
         run: npm run test:coverage --workspace @oct/api
 
+      - name: Run production flow system test
+        run: npm run test:system --workspace @oct/api
+
       - name: Run judge worker tests with coverage
         run: npm run test:coverage --workspace @oct/judge-worker
 

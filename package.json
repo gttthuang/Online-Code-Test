@@ -13,11 +13,12 @@
     "dev:worker": "npm run dev --workspace @oct/judge-worker",
     "build:web": "npm run build --workspace @oct/web",
     "test:api": "npm run test --workspace @oct/api",
+    "test:system": "npm run test:system --workspace @oct/api",
     "test:worker": "npm run test --workspace @oct/judge-worker",
     "test:web": "npm run test --workspace @oct/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "verify:infra": "bash infra/verify.sh",
-    "ci:verify": "npm run typecheck && npm run test:coverage && npm run build:web && npm run verify:infra",
+    "ci:verify": "npm run typecheck && npm run test:coverage && npm run test:system && npm run build:web && npm run verify:infra",
     "test:coverage": "npm run test:coverage --workspace @oct/api && npm run test:coverage --workspace @oct/judge-worker && npm run test:coverage --workspace @oct/web",
     "presonar-scanner": "npm run test:coverage",
     "sonar-scanner": "npx sonarqube-scanner"
