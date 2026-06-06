@@ -66,7 +66,8 @@ export function buildSeedData(): {
           expectedOutput: "[1, 2]"
         }
       ],
-      createdBy: "problem_admin_cindy"
+      createdBy: "problem_admin_cindy",
+      displayId: 1
     },
     {
       id: "problem_reverse_string",
@@ -86,7 +87,8 @@ export function buildSeedData(): {
           expectedOutput: "\"evitan\""
         }
       ],
-      createdBy: "problem_admin_cindy"
+      createdBy: "problem_admin_cindy",
+      displayId: 2
     }
   ];
 

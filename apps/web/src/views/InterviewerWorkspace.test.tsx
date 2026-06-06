@@ -33,7 +33,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocked.getAdminProblems.mockResolvedValue([
-    { id: "p1", title: "P1", difficulty: "easy", timeLimitMs: 1, memoryLimitKb: 1, supportedLanguages: ["python"], archivedAt: null }
+    { id: "p1", title: "P1", difficulty: "easy", timeLimitMs: 1, memoryLimitKb: 1, supportedLanguages: ["python"], archivedAt: null, displayId: 101 }
   ]);
   mocked.getCandidates.mockResolvedValue([]);
 });

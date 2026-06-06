@@ -852,6 +852,9 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             problems.map((problem) => (
               <div className="problem-table-row" key={problem.id}>
                 <div className="problem-title-box">
+                  <span style={{ color: '#666', marginRight: '8px', fontWeight: 'bold' }}>
+                    #{problem.displayId}
+                  </span>
                   <strong>{problem.title}</strong>
                 </div>
 
