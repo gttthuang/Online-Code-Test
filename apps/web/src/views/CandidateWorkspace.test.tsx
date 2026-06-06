@@ -64,6 +64,7 @@ function makeProblem(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
     inputSpec: "A single line string",
     outputSpec: "The reversed string",
     sampleExplanation: "abc reversed is cba",
+    displayId: 100,
     ...overrides
   };
 }

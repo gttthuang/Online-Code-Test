@@ -19,6 +19,7 @@ function makeProblem(overrides: Partial<ProblemSummary> = {}): ProblemSummary {
     memoryLimitKb: 65536,
     supportedLanguages: ["python"],
     archivedAt: null,
+    displayId: 103,
     ...overrides
   };
 }
