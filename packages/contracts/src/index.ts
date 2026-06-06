@@ -88,6 +88,11 @@ export interface ProblemDetail extends ProblemSummary {
   inputSpec?: string;
   outputSpec?: string;
   sampleExplanation?: string;
+  hiddenTestCases?: Array<{
+    id: string;
+    input: string;
+    expectedOutput: string;
+  }>;
   // 這行告訴 TypeScript：除了上面那些，這個物件可以有任何字串鍵值的欄位
   [key: string]: any;
 }
@@ -120,6 +125,7 @@ export interface ProblemLifecycleImpact {
   previewSubmissions: number;
   reviews: number;
   canDeleteWithoutForce: boolean;
+  mode?: "delete" | "modify";
 }
 
 export interface ProblemArchiveRequest {

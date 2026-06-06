@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { FormEvent } from "react";
 import { roles } from "@oct/contracts";
-import type { AuthUser, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
+import type { AuthUser, ProblemDetail, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers } from "../lib/api";
+import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers, getAdminProblem, updateAdminProblem } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
@@ -27,6 +27,7 @@ interface TestCaseState {
   input: File | null;
   output: File | null;
   label?: string;
+  
 }
 
 interface ProblemFormState {
@@ -143,12 +144,173 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const [confirmImpact, setConfirmImpact] = useState<ProblemLifecycleImpact | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [forceDeleteConfirmed, setForceDeleteConfirmed] = useState(false);
+  const [forceModifyConfirmed, setForceModifyConfirmed] = useState(false);
   const [lifecycleBusyId, setLifecycleBusyId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const previewProblemId = /^\/problem-admin\/problems\/([^/]+)\/preview$/.exec(location.pathname)?.[1] ?? null;
   const activeSection = resolveActiveSection(location.pathname);
+  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const [operationMode, setOperationMode] = useState<"delete" | "modify">("delete");
+  // 在你的 ProblemAdminWorkspace 元件中加入
+  useEffect(() => {
+    // 如果目前的頁面不是 "/new"，且我們有正在編輯的題目，則清理狀態
+    if (activeSection !== "new" && editingId !== null) {
+      setEditingId(null);
+      setForm(initialFormState);
+      setTestcases([createEmptyTestcase()]);
+      // 也可以選擇在這裡顯示一個提示：showNotice(...)
+    }
+  }, [activeSection, editingId]);
+  async function requestModifyProblem(problem: ProblemSummary) {
+    setOperationMode("modify");
+    setConfirmId(problem.id);
+    setConfirmLoading(true);
+    setForceModifyConfirmed(false);
+    setConfirmImpact(null);
+    try {
+      const impact = await getProblemImpact(token, problem.id);
+      setConfirmImpact(impact); // 這是關鍵：一旦設值，UI 應該要顯示警告彈窗
+    } catch (err) {
+      showNotice({ type: "error", title: "無法檢查影響", message: "無法獲取題目狀態" });
+    } finally {
+      setConfirmLoading(false);
+    }
+  }
+  async function confirmModify() {
+    if (!confirmId) return;
+    
+    try {
+      setConfirmLoading(true);
+      
+      // 1. 執行載入 API
+      const detail = await getAdminProblem(token, confirmId);
+      console.log("完整的 API 回傳資料:", detail);
 
+      // 2. 設定編輯狀態與 Form 資料
+      setEditingId(confirmId);
+      setForm({
+        title: detail.title,
+        description: detail.description,
+        difficulty: detail.difficulty,
+        timeLimitMs: detail.timeLimitMs,
+        memoryLimitKb: detail.memoryLimitKb,
+        constraints: detail.constraints ?? "",
+        inputSpec: detail.inputSpec ?? "",
+        outputSpec: detail.outputSpec ?? "",
+        sampleInput: detail.sampleInput ?? "",
+        sampleOutput: detail.sampleOutput ?? "",
+        sampleExplanation: detail.sampleExplanation ?? ""
+      });
+      
+      // 3. 處理測試資料 (隱藏測資轉 File)
+      if (detail.hiddenTestCases && detail.hiddenTestCases.length > 0) {
+        setTestcases(
+          detail.hiddenTestCases.map((tc: any) => {
+            const inputFile = new File([tc.input], `existing_input_${tc.id}.in`, { type: 'text/plain' });
+            const outputFile = new File([tc.expectedOutput], `existing_output_${tc.id}.out`, { type: 'text/plain' });
+
+            return {
+              id: tc.id,
+              input: inputFile, 
+              output: outputFile,
+              label: `Case ${tc.id.substring(0, 4)}`,
+            };
+          })
+        );
+      } else {
+        setTestcases([createEmptyTestcase()]);
+      }
+      
+      // 4. 切換 UI 並導向
+      setActiveTab("info");
+      navigate("/problem-admin/new");
+      
+      // 5. 清除確認狀態
+      setConfirmId(null);
+      setConfirmImpact(null);
+      
+    } catch (err) {
+      console.error("載入失敗:", err);
+      showNotice({ 
+        type: "error", 
+        title: "載入失敗", 
+        message: "無法獲取題目詳細資料" 
+      });
+    } finally {
+      setConfirmLoading(false);
+    }
+  }
+  async function handleSaveProblem() {
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      // 1. 驗證測試資料完整性
+      const incompleteIndex = testcases.findIndex(
+        (tc) => Boolean(tc.input) !== Boolean(tc.output)
+      );
+      if (incompleteIndex >= 0) {
+        throw new Error(`Testcase ${incompleteIndex + 1} must include both input and output files.`);
+      }
+
+      const completeTestcases = testcases.filter((tc) => tc.input && tc.output);
+      if (completeTestcases.length === 0) {
+        throw new Error("At least one testcase is required.");
+      }
+
+      // 2. 組裝 FormData
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("description", form.description);
+      formData.append("difficulty", form.difficulty);
+      formData.append("timeLimitMs", String(form.timeLimitMs));
+      formData.append("memoryLimitKb", String(form.memoryLimitKb));
+      formData.append("supportedLanguages", JSON.stringify(["python", "cpp"]));
+      formData.append("sampleInput", form.sampleInput);
+      formData.append("sampleOutput", form.sampleOutput);
+      formData.append("constraints", form.constraints);
+      formData.append("inputSpec", form.inputSpec);
+      formData.append("outputSpec", form.outputSpec);
+      formData.append("sampleExplanation", form.sampleExplanation);
+
+      completeTestcases.forEach((tc, index) => {
+        // 若是編輯模式，且 tc.input 是 null (代表沒更動)，有些後端可能需要標記
+        // 這裡依照你現有邏輯，直接 append 檔案
+        if (tc.input) formData.append(`testcases[${index}][input]`, tc.input);
+        if (tc.output) formData.append(`testcases[${index}][output]`, tc.output);
+      });
+
+      // 3. 執行 API 動作
+      if (editingId) {
+        // 更新模式
+        await updateAdminProblem(token, editingId, formData);
+        setProblems((prev) =>
+          prev.map((p) => (p.id === editingId ? { ...p, title: form.title, difficulty: form.difficulty } : p))
+        );
+        showNotice({ type: "success", title: "Updated", message: "Problem updated successfully." });
+      } else {
+        // 建立模式
+        const response = await createProblem(token, formData);
+        setProblems((current) => [response.problem, ...current]);
+        showNotice({ type: "success", title: "Created", message: "Problem created successfully." });
+      }
+
+      // 4. 重置狀態
+      setForm(initialFormState);
+      setTestcases([createEmptyTestcase()]);
+      setEditingId(null);
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setFormError(message);
+      showNotice({ type: "error", title: "Operation failed", message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
   const confirmProblem = problems.find((problem) => problem.id === confirmId);
   const difficultyCounts = useMemo(
     () => ({
@@ -248,6 +410,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   }
 
   async function requestDeleteProblem(problemId: string) {
+    setOperationMode("delete");
     setConfirmId(problemId);
     setConfirmImpact(null);
     setForceDeleteConfirmed(false);
@@ -619,7 +782,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
               <input accept=".in" onChange={(event) => updateTestcase(index, { input: event.target.files?.[0] ?? null })} type="file" />
               {testcase.input ? <small className="upload-success">Uploaded: {testcase.input.name}</small> : null}
             </label>
-
             <label>
               <span>Output (.out)</span>
               <input accept=".out" onChange={(event) => updateTestcase(index, { output: event.target.files?.[0] ?? null })} type="file" />
@@ -643,12 +805,21 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   }
 
   function renderBuilderCard() {
+    const isEditing = !!editingId;
+    // 新增一個取消編輯的處理函式
+    function handleCancelEdit() {
+      setEditingId(null);
+      setForm(initialFormState);
+      setTestcases([createEmptyTestcase()]);
+      navigate("/problem-admin/problems"); // 回到列表頁
+    }
     return (
       <article className="status-card panel-column">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Problem Builder</p>
-            <h2>Create a new problem</h2>
+            {/* <h2>Create a new problem</h2> */}
+            <h2>{isEditing ? "Edit Problem" : "Create a new problem"}</h2>
           </div>
         </div>
 
@@ -661,10 +832,31 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </div>
 
         {renderTabContent()}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '24px' }}>
+          {/* 儲存按鈕：使用 primary-button */}
+          <button 
+            className="primary-button" 
+            disabled={submitting} 
+            onClick={isEditing ? handleSaveProblem : handleCreateProblem} 
+            type="button"
+          >
+            {submitting 
+              ? (isEditing ? "Saving..." : "Creating...") 
+              : (isEditing ? "Save Changes" : "Create Problem")
+            }
+          </button>
 
-        <button className="primary-button" disabled={submitting} onClick={handleCreateProblem} type="button">
-          {submitting ? "Creating..." : "Create Problem"}
-        </button>
+          {/* 取消更新按鈕：只有在編輯模式下平行顯示 */}
+          {isEditing && (
+            <button 
+              className="chip-button" 
+              onClick={handleCancelEdit} 
+              type="button"
+            >
+              Cancel Update
+            </button>
+          )}
+        </div>
 
         {formError ? <p className="error-text">{formError}</p> : null}
       </article>
@@ -709,7 +901,11 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                 >
                   {problem.archivedAt ? "Restore" : "Archive"}
                 </button>
-
+                <button 
+                  className="chip-button" 
+                  onClick={() => requestModifyProblem(problem)}
+                  type="button"
+                >modify</button>
                 <button className="delete-button" onClick={() => requestDeleteProblem(problem.id)} type="button">
                   x
                 </button>
@@ -817,7 +1013,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </output>
       ) : null}
 
-      {confirmId ? (
+      {/* {confirmId ? (
         <div className="modal-backdrop">
           <div className="modal modal-wide">
             <p>Delete problem</p>
@@ -878,7 +1074,95 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             </div>
           </div>
         </div>
-      ) : null}
+      ) : null} */}
+      {confirmId ? (
+      <div className="modal-backdrop">
+        <div className="modal modal-wide">
+          {/* 根據 operationMode 顯示標題 */}
+          <p>{operationMode === "modify" ? "Edit Problem" : "Delete Problem"}</p>
+          <p className="modal-target-title">{confirmProblem?.title}</p>
+
+          {/* 載入中狀態 */}
+          {confirmLoading && (
+            <div className="empty-state">Loading impact analysis...</div>
+          )}
+
+          {/* 顯示影響範圍 (共用) */}
+          {!confirmLoading && confirmImpact && (
+            <div className="impact-grid">
+              <div>
+                <span>Assignments</span>
+                <strong>{confirmImpact.assignments}</strong>
+              </div>
+              <div>
+                <span>Candidate submissions</span>
+                <strong>{confirmImpact.candidateSubmissions}</strong>
+              </div>
+              <div>
+                <span>Preview submissions</span>
+                <strong>{confirmImpact.previewSubmissions}</strong>
+              </div>
+              <div>
+                <span>Reviews</span>
+                <strong>{confirmImpact.reviews}</strong>
+              </div>
+            </div>
+          )}
+
+          {/* 只有在刪除模式且不能直接刪除時，才顯示強制刪除選項 */}
+          {confirmImpact && !confirmImpact.canDeleteWithoutForce ? (
+          <label className="force-delete-check">
+            <input
+              type="checkbox"
+              checked={operationMode === "modify" ? forceModifyConfirmed : forceDeleteConfirmed}
+              onChange={(e) => {
+                if (operationMode === "modify") {
+                  setForceModifyConfirmed(e.target.checked);
+                } else {
+                  setForceDeleteConfirmed(e.target.checked);
+                }
+              }}
+            />
+            <span>
+              {operationMode === "modify"
+                ? "Force update: I understand this will impact existing submissions."
+                : "Force delete: This will remove all associated assignments and history."}
+            </span>
+          </label>
+        ) : null}
+
+          <div className="modal-actions">
+            <button 
+              className="chip-button" 
+              onClick={() => {
+                setConfirmId(null);
+                setConfirmImpact(null);
+                setForceDeleteConfirmed(false);
+              }} 
+              type="button"
+            >
+              Cancel
+            </button>
+
+            <button
+              className="chip-button"
+              disabled={
+                confirmLoading || 
+                Boolean(confirmImpact && !confirmImpact.canDeleteWithoutForce && 
+                (operationMode === "modify" ? !forceModifyConfirmed : !forceDeleteConfirmed))
+              }
+              onClick={operationMode === "modify" ? confirmModify : confirmDelete}
+              type="button"
+            >
+              {operationMode === "modify" 
+                ? (forceModifyConfirmed ? "Force Update" : "Continue Editing")
+                : (forceDeleteConfirmed ? "Force Delete" : "Delete")
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
     </>
   );
 }

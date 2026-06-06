@@ -59,6 +59,7 @@ export interface AppStore {
   listProblems(): Promise<ProblemSummary[]>;
   getProblem(problemId: string): Promise<ProblemRecord | null>;
   getProblemDetail(problemId: string): Promise<ProblemDetail | null>;
+  getAdminProblemDetail(problemId: string): Promise<ProblemDetail | null>;
   createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary>;
   getProblemLifecycleImpact(problemId: string): Promise<ProblemLifecycleImpact | null>;
   archiveProblem(problemId: string, archived: boolean): Promise<ProblemSummary | null>;
@@ -118,4 +119,5 @@ export interface AppStore {
   }): Promise<InterviewReview | null>;
   deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean>;
   getInternalStats(): Promise<InternalStats>;
+  updateProblem(problemId: string, data: any): Promise<any | null>;
 }

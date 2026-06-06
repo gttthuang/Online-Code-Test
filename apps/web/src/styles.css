@@ -809,7 +809,7 @@ textarea {
   .problem-table-row {
     display: grid;
     /* 🔥 關鍵修改：將第一個參數改成 minmax(0, 1fr)，這樣文字寬度才能被成功限縮，進而觸發 ... 省略號 */
-    grid-template-columns: minmax(0, 1fr) auto auto auto 40px;
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto 40px;
     
     gap: 1.5rem; 
     align-items: center;

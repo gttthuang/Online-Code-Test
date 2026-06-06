@@ -445,3 +445,14 @@ export function getPreviewSubmission(
 export function getAdminSubmission(token: string, submissionId: string) {
   return getPreviewSubmission(token, submissionId);
 }
+
+export function updateAdminProblem(token: string, problemId: string, data: FormData) {
+  return request<ProblemDetail>(
+    `/admin/problems/${problemId}`,
+    {
+      method: "PUT", 
+      body: data
+    },
+    token
+  );
+}
