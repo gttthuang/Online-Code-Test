@@ -300,6 +300,10 @@ export class PostgresStore implements AppStore {
     const problem = await this.getProblem(problemId);
     return problem ? this.toProblemDetail(problem) : null;
   }
+  async getAdminProblemDetail(problemId: string): Promise<ProblemDetail | null> {
+    const problem = await this.getProblem(problemId);
+    return problem ? this.toAdminProblemDetail(problem) : null;
+  }
 
   async createProblem(input: CreateProblemRequest, createdBy: string): Promise<ProblemSummary> {
     const problemId = `problem_${randomUUID()}`;
@@ -1470,6 +1474,7 @@ export class PostgresStore implements AppStore {
   }
 
   private toProblemDetail(problem: ProblemRow | ProblemRecord): ProblemDetail {
+    
     return {
       ...this.toProblemSummary(problem),
       description: problem.description,
@@ -1479,8 +1484,90 @@ export class PostgresStore implements AppStore {
       inputSpec: "input_spec" in problem ? problem.input_spec : (problem as any).inputSpec,
       outputSpec: "output_spec" in problem ? problem.output_spec : (problem as any).outputSpec,
       sampleExplanation: "sample_explanation" in problem ? problem.sample_explanation : (problem as any).sampleExplanation,
-      templateCode: "template_code" in problem ? problem.template_code : (problem as any).templateCode
+      templateCode: "template_code" in problem ? problem.template_code : (problem as any).templateCode,
     };
+  }
+  // 給 Admin 用的 (包含所有機密資訊)
+  private toAdminProblemDetail(problem: ProblemRecord): ProblemDetail {
+    return {
+      ...this.toProblemDetail(problem),
+      hiddenTestCases: problem.hiddenTestCases?.map((tc: any) => ({
+        id: tc.id,
+        input: tc.input,
+        expectedOutput: tc.expectedOutput 
+      })) ?? []
+    };
+  }
+  async updateProblem(problemId: string, input: CreateProblemRequest): Promise<ProblemDetail | null> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("begin");
+
+      // 1. 更新題目主表資料
+      await client.query(
+        `
+          update problems
+          set
+            title = $2,
+            description = $3,
+            difficulty = $4,
+            time_limit_ms = $5,
+            memory_limit_kb = $6,
+            supported_languages = $7::text[],
+            sample_input = $8,
+            sample_output = $9,
+            constraints = $10,
+            input_spec = $11,
+            output_spec = $12,
+            sample_explanation = $13,
+            template_code = $14
+          where id = $1
+        `,
+        [
+          problemId,
+          input.title,
+          input.description,
+          input.difficulty,
+          input.timeLimitMs,
+          input.memoryLimitKb,
+          input.supportedLanguages,
+          input.sampleInput,
+          input.sampleOutput,
+          (input as any).constraints,
+          (input as any).inputSpec,
+          (input as any).outputSpec,
+          (input as any).sampleExplanation,
+          (input as any).templateCode
+        ]
+      );
+
+      // 2. 更新測試案例 (先刪除舊的，再寫入新的)
+      // 注意：這會刪除所有該問題相關的 "hidden" 測試案例
+      await client.query(`delete from test_cases where problem_id = $1 and is_hidden = true`, [problemId]);
+
+      if (input.hiddenTestCases) {
+        for (const testCase of input.hiddenTestCases) {
+          await client.query(
+            `
+              insert into test_cases (id, problem_id, input, expected_output, is_hidden)
+              values ($1, $2, $3, $4, true)
+            `,
+            [`case_${randomUUID()}`, problemId, testCase.input, testCase.expectedOutput]
+          );
+        }
+      }
+
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    // 3. 回傳最新的詳細資料
+    return await this.getAdminProblemDetail(problemId);
   }
 
 }
