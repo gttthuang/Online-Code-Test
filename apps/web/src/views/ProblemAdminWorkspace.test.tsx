@@ -221,7 +221,11 @@ describe("ProblemAdminWorkspace — delete & archive", () => {
     fireEvent.click(screen.getByRole("button", { name: "x" }));
     await screen.findByText("Delete problem");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText("Delete problem")).not.toBeInTheDocument();
+    // expect(screen.queryByText("Delete problem")).not.toBeInTheDocument();
+    // 使用 waitFor 等待 DOM 更新
+    await waitFor(() => {
+      expect(screen.queryByText("Delete problem")).not.toBeInTheDocument();
+    });
   });
 
   it("surfaces an error when impact fails to load", async () => {
