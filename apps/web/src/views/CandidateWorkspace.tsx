@@ -10,6 +10,10 @@ import "./candidate.css";
 import Editor from "@monaco-editor/react";
 import { initVimMode } from "monaco-vim";
 
+import hljs from 'highlight.js';
+import 'highlight.js/styles/default.min.css'; 
+(window as any).hljs = hljs;
+
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";
 
@@ -540,6 +544,23 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     };
   }, [customRun?.id, customRun?.status, token, user.role]);
 
+    //trigger codeblock
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (contentRef.current) {
+        const blocks = contentRef.current.querySelectorAll('pre');
+        console.log("找到的區塊數量:", blocks.length);
+        blocks.forEach((block) => {
+          hljs.highlightElement(block as HTMLElement);
+          console.log("已處理區塊:", block);
+        });
+      }
+    }, 300); // 延長到 300ms 確保 DOM 已渲染
+
+    return () => clearTimeout(timer);
+  }, [problem]);
+
   async function handleSubmit() {
     if (!problem) return;
     setSubmissionLoading(true);
@@ -721,6 +742,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       problem={problem}
       selectedSubmissionId={submission?.id ?? null}
       submissionHistory={submissionHistory}
+      
     />
   );
 
@@ -783,7 +805,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
               </div>
             </div>
 
-            <div className="problem-stack">
+            <div className="problem-stack" ref={contentRef}>
               {leftPanelContent}
             </div>
           </article>
@@ -995,9 +1017,16 @@ function LeftPanel({
 
       {/* B. 頂部：主要的題目描述 */}
       {problem.description && (
-        <p className="panel-copy" style={{ whiteSpace: "pre-wrap", marginBottom: "25px" }}>
-          {problem.description}
-        </p>
+        <div 
+          // className="panel-copy" 
+          // style={{ marginBottom: "25px" }}
+          // dangerouslySetInnerHTML={{ __html: problem.description }} 
+          // ref={contentRef} 
+          className="ql-editor" // 這非常重要，因為 ql-editor 有內建的程式碼區塊樣式
+          dangerouslySetInnerHTML={{ __html: problem.description }}
+        />
+        
+        // <p>{problem.description}</p>
       )}
 
       {/* 2. 獨立區塊：Input Specification (輸入說明) */}
