@@ -14,7 +14,8 @@
     "test:api": "npm run test --workspace @oct/api",
     "test:web": "npm run test --workspace @oct/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "ci:verify": "npm run typecheck && npm run test:api && npm run test:web && npm run build:web",
+    "verify:infra": "bash infra/verify.sh",
+    "ci:verify": "npm run typecheck && npm run test:coverage && npm run build:web && npm run verify:infra",
     "test:coverage": "npm run test:coverage --workspace @oct/api && npm run test:coverage --workspace @oct/web",
     "presonar-scanner": "npm run test:coverage",
     "sonar-scanner": "npx sonarqube-scanner"

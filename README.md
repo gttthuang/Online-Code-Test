@@ -51,15 +51,27 @@ Demo emails are documented in [Local Development](./docs/local-development.md).
 
 ## Verification
 
+Start PostgreSQL before running the complete local gate:
+
 ```bash
+docker compose -f infra/docker-compose.yml up -d postgres
 npm run ci:verify
 ```
 
-For a local Docker-based GitHub Actions check, use:
+The gate runs workspace typechecks, backend and frontend coverage thresholds, the
+frontend production build, Docker Compose validation, and AWS shell syntax checks.
+
+GitHub Actions runs these areas in parallel:
 
 ```bash
-act push -j verify --bind
+act push -j static-analysis
+act push -j backend --bind
+act push -j frontend
+act push -j infrastructure
 ```
+
+The stable `Quality gate` job requires all four areas to pass and is the check that
+should be required by branch protection.
 
 ## AWS Quick Deploy
 

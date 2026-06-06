@@ -71,8 +71,10 @@ Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本
 
 ```bash
 npm run typecheck
-POSTGRES_PORT=5433 npm run test:api
+POSTGRES_PORT=5433 npm run test:coverage --workspace @oct/api
+npm run test:coverage --workspace @oct/web
 npm run build:web
+npm run verify:infra
 ```
 
 完整檢查可以直接跑：
@@ -87,20 +89,19 @@ npm run ci:verify
 
 GitHub Actions 會跑：
 
-```bash
-npm run ci:verify
-```
-
-這包含：
-
-- TypeScript typecheck
-- API integration tests
-- Web production build
+- `Static analysis`: 所有 workspace 的 TypeScript typecheck
+- `Backend tests`: PostgreSQL integration、Docker judge execution 與 API coverage gate
+- `Frontend tests and build`: Vitest coverage gate 與 production build
+- `Infrastructure checks`: Compose、AWS shell syntax 與 production dependency audit
+- `Quality gate`: 確認上述四個 job 全部成功
 
 本機如果有安裝 `act`，可以用：
 
 ```bash
-act push -j verify --bind
+act push -j static-analysis
+act push -j backend --bind
+act push -j frontend
+act push -j infrastructure
 ```
 
 `act` 會使用 Docker 模擬 GitHub Actions。第一次跑可能會下載 runner image，時間會比較久。
