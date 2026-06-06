@@ -357,3 +357,28 @@ describe("ProblemAdminWorkspace — submission history", () => {
     expect(await screen.findByText("subs boom")).toBeInTheDocument();
   });
 });
+describe("ProblemAdminWorkspace — inventory search", () => {
+  it("filters problems by title and displayId", async () => {
+    mocked.getAdminProblems.mockResolvedValue([
+      makeProblem({ id: "p1", title: "FizzBuzz", displayId: 101 }),
+      makeProblem({ id: "p2", title: "AlgoExpert", displayId: 102 })
+    ]);
+    renderAt("/problem-admin/problems");
+
+    // 確認兩者都出現
+    expect(await screen.findByText("FizzBuzz")).toBeInTheDocument();
+    expect(screen.getByText("AlgoExpert")).toBeInTheDocument();
+
+    // 搜尋 title
+    const searchInput = screen.getByPlaceholderText("Search by title or ID...");
+    fireEvent.change(searchInput, { target: { value: "Algo" } });
+    
+    expect(screen.queryByText("FizzBuzz")).not.toBeInTheDocument();
+    expect(screen.getByText("AlgoExpert")).toBeInTheDocument();
+
+    // 搜尋 displayId
+    fireEvent.change(searchInput, { target: { value: "101" } });
+    expect(screen.getByText("FizzBuzz")).toBeInTheDocument();
+    expect(screen.queryByText("AlgoExpert")).not.toBeInTheDocument();
+  });
+});
