@@ -519,7 +519,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     
     const poll = async () => {
       try {
-        // 🚀 關鍵修改 1：根據角色決定要用哪一個輪詢 API 函式
         const api = user.role === "problem_admin" ? getAdminCustomRun : getCustomRun;
         const nextRun = await api(token, customRun.id);
 
@@ -541,7 +540,6 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
     };
   }, [customRun?.id, customRun?.status, token, user.role]);
 
-    //trigger codeblock
   const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -551,7 +549,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
           hljs.highlightElement(block as HTMLElement);
         });
       }
-    }, 300); // 延長到 300ms 確保 DOM 已渲染
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [problem]);
@@ -604,7 +602,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
           language,
           sourceCode,
           stdin: customInput,
-          candidateId: user.id 
+          candidateId: user.id
         });
       } else {
         created = await createCustomRun(token, {

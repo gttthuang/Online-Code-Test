@@ -231,7 +231,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     setFormError(null);
 
     try {
-      // 1. 驗證測試資料完整性
       const incompleteIndex = testcases.findIndex(
         (tc) => Boolean(tc.input) !== Boolean(tc.output)
       );
@@ -244,7 +243,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         throw new Error("At least one testcase is required.");
       }
 
-      // 2. 組裝 FormData
       const formData = new FormData();
       formData.append("title", form.title);
       formData.append("description", form.description);
@@ -260,28 +258,22 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       formData.append("sampleExplanation", form.sampleExplanation);
 
       completeTestcases.forEach((tc, index) => {
-        // 若是編輯模式，且 tc.input 是 null (代表沒更動)，有些後端可能需要標記
-        // 這裡依照你現有邏輯，直接 append 檔案
         if (tc.input) formData.append(`testcases[${index}][input]`, tc.input);
         if (tc.output) formData.append(`testcases[${index}][output]`, tc.output);
       });
 
-      // 3. 執行 API 動作
       if (editingId) {
-        // 更新模式
         await updateAdminProblem(token, editingId, formData);
         setProblems((prev) =>
           prev.map((p) => (p.id === editingId ? { ...p, title: form.title, difficulty: form.difficulty } : p))
         );
         showNotice({ type: "success", title: "Updated", message: "Problem updated successfully." });
       } else {
-        // 建立模式
         const response = await createProblem(token, formData);
         setProblems((current) => [response.problem, ...current]);
         showNotice({ type: "success", title: "Created", message: "Problem created successfully." });
       }
 
-      // 4. 重置狀態
       setForm(initialFormState);
       setTestcases([createEmptyTestcase()]);
       setEditingId(null);
@@ -897,7 +889,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   if (previewProblemId) {
     return (
       <div className="fullscreen-preview-container">
-        {/* 上側工具列 */}
         <div className="preview-top-bar">
           <button
             className="chip-button"
@@ -911,18 +902,16 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </span>
         </div>
 
-        {/* 下方內容區 */}
         <div className="preview-workspace-body">
           <CandidateWorkspace
             key={previewProblemId}
             initialProblemId={previewProblemId}
             token={token}
             user={{
-              // id: "admin-preview",
               id: currentUserId,
               name: "Admin",
               role: "problem_admin",
-              email: "admin-preview@example.com"
+              email: "admin@example.com"
             }}
           />
         </div>

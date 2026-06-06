@@ -8,7 +8,7 @@ REPO_ROOT=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
 AWS_REGION=${AWS_REGION:-$(aws configure get region 2>/dev/null || true)}
 AWS_REGION=${AWS_REGION:-ap-northeast-1}
 APP_NAME=${APP_NAME:-online-code-test}
-STAGE=${STAGE:-prod}
+STAGE=${STAGE:-dev}
 
 DEPLOY_ENV_FILE=${DEPLOY_ENV_FILE:-"${SCRIPT_DIR}/deploy.env"}
 
@@ -19,7 +19,7 @@ fi
 
 AWS_REGION=${AWS_REGION:-ap-northeast-1}
 APP_NAME=${APP_NAME:-online-code-test}
-STAGE=${STAGE:-prod}
+STAGE=${STAGE:-dev}
 
 function log_step() {
   printf '\n==> %s\n' "$1"

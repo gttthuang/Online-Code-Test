@@ -178,17 +178,15 @@ export async function registerProblemRoutes(app: FastifyInstance, context: AppCo
 
     return problem;
   });
-  // 在 registerProblemRoutes 中加入：
+
   app.put("/admin/problems/:problemId", async (request) => {
     const user = await requireUser(request, context);
     requireRole(user, ["problem_admin"]);
 
     const params = problemIdParamsSchema.parse(request.params);
-    // 記得這裡要解析 FormData，使用你現有的 parseCreateProblemRequest 函數
-    const body = await parseCreateProblemRequest(request); 
-
+    const body = await parseCreateProblemRequest(request);
     const updatedProblem = await context.store.updateProblem(params.problemId, body);
-    
+
     if (!updatedProblem) {
       throw new AppError(404, "problem_not_found", "Problem does not exist");
     }

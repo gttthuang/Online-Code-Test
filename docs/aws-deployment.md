@@ -118,8 +118,8 @@ DB_PASSWORD_SECRET_NAME=your/custom/secret/name
 如果你不想把密碼直接放在 `deploy.env`，也可以改成放 AWS SSM Parameter，然後只填 parameter name：
 
 ```bash
-DB_PASSWORD_SSM_PARAMETER=/online-code-test/prod/db/password
-REDIS_PASSWORD_SSM_PARAMETER=/online-code-test/prod/redis/password
+DB_PASSWORD_SSM_PARAMETER=/online-code-test/dev/db/password
+REDIS_PASSWORD_SSM_PARAMETER=/online-code-test/dev/redis/password
 ```
 
 腳本邏輯是：

@@ -78,58 +78,37 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
   });
 
   app.post("/admin/custom-runs", async (request) => {
-    try {
-      const user = await requireUser(request, context);
-      requireRole(user, ["interviewer", "problem_admin"]);
+    const user = await requireUser(request, context);
+    requireRole(user, ["interviewer", "problem_admin"]);
 
-      // 這裡 body.candidateId 現在已經是前端傳過來的真實 currentUserId 了！
-      const body = adminCustomRunSchema.parse(request.body);
-      
-      const isProblemAdmin = user.role === "problem_admin";
-      let finalCandidateId = body.candidateId;
+    const { candidateId: requestedCandidateId, ...runPayload } = adminCustomRunSchema.parse(request.body);
+    const candidateId = user.role === "problem_admin" ? user.id : requestedCandidateId;
 
-      if (isProblemAdmin) {
-        // 管理員預覽流程：安全起見，如果前端不小心還是傳了 "admin-preview"，我們就保底用目前登入的 user.id
-        if (finalCandidateId === "admin-preview") {
-          finalCandidateId = user.id;
-        }
-
-        const problem = await context.store.getProblem(body.problemId);
-        if (!problem) {
-          const error = new Error("Problem does not exist") as any;
-          error.statusCode = 404;
-          error.code = "problem_not_found";
-          throw error;
-        }
-      } else {
-        // 常規考生流程
-        await assertCanViewCandidateProblem(context, user, body.candidateId, body.problemId);
-        await assertCanRunProblem(context, body.candidateId, body.problemId, body.language);
-      }
-
-      // 🎯 這裡直接傳入安全、合法的 finalCandidateId，再也沒有 findUsers 的事了！
-      const run = await context.store.createCustomRun({
-        candidateId: finalCandidateId, 
-        problemId: body.problemId,
-        requestedBy: user.id, 
-        run: body
-      });
-
-      await context.judgeQueue.enqueue({
-        kind: "custom_run",
-        runId: run.id
-      });
-
-      return {
-        runId: run.id,
-        status: run.status
-      };
-
-    } catch (error) {
-      request.log.error(error, "🔴 Custom Run 路由發生致命錯誤");
-      throw error;
+    if (user.role === "problem_admin") {
+      await assertProblemSupportsLanguage(context, runPayload.problemId, runPayload.language);
+    } else {
+      await assertCanViewCandidateProblem(context, user, requestedCandidateId, runPayload.problemId);
+      await assertCanRunProblem(context, requestedCandidateId, runPayload.problemId, runPayload.language);
     }
+
+    const run = await context.store.createCustomRun({
+      candidateId,
+      problemId: runPayload.problemId,
+      requestedBy: user.id,
+      run: runPayload
+    });
+
+    await context.judgeQueue.enqueue({
+      kind: "custom_run",
+      runId: run.id
+    });
+
+    return {
+      runId: run.id,
+      status: run.status
+    };
   });
+
   app.get("/admin/custom-runs/:runId", async (request) => {
     const user = await requireUser(request, context);
     requireRole(user, ["interviewer", "problem_admin"]);
@@ -141,15 +120,28 @@ export async function registerCustomRunRoutes(app: FastifyInstance, context: App
       throw new AppError(404, "custom_run_not_found", "Custom run does not exist");
     }
 
-    // 🚀 關鍵修正：如果是管理員在預覽，直接跳過常規考生的權限檢查
-    const isProblemAdmin = user.role === "problem_admin";
-    if (!isProblemAdmin) {
-      // 只有當不是最高管理員時（例如一般面試官），才需要嚴格檢查指派關係
+    if (user.role !== "problem_admin") {
       await assertCanViewCandidateProblem(context, user, run.candidateId, run.problemId);
     }
 
     return run;
   });
+}
+
+async function assertProblemSupportsLanguage(
+  context: AppContext,
+  problemId: string,
+  language: string
+) {
+  const problem = await context.store.getProblem(problemId);
+
+  if (!problem) {
+    throw new AppError(404, "problem_not_found", "Problem does not exist");
+  }
+
+  if (!problem.supportedLanguages.includes(language as typeof problem.supportedLanguages[number])) {
+    throw new AppError(400, "language_not_supported", "Problem does not support this language");
+  }
 }
 
 async function assertCanRunProblem(

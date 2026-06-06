@@ -1490,7 +1490,6 @@ export class PostgresStore implements AppStore {
       templateCode: "template_code" in problem ? problem.template_code : problem.templateCode
     };
   }
-  // 給 Admin 用的 (包含所有機密資訊)
   private toAdminProblemDetail(problem: ProblemRecord): ProblemDetail {
     return {
       ...this.toProblemDetail(problem),
@@ -1507,7 +1506,6 @@ export class PostgresStore implements AppStore {
     try {
       await client.query("begin");
 
-      // 1. 更新題目主表資料
       await client.query(
         `
           update problems
@@ -1545,8 +1543,6 @@ export class PostgresStore implements AppStore {
         ]
       );
 
-      // 2. 更新測試案例 (先刪除舊的，再寫入新的)
-      // 注意：這會刪除所有該問題相關的 "hidden" 測試案例
       await client.query(`delete from test_cases where problem_id = $1 and is_hidden = true`, [problemId]);
 
       if (input.hiddenTestCases) {
@@ -1569,7 +1565,6 @@ export class PostgresStore implements AppStore {
       client.release();
     }
 
-    // 3. 回傳最新的詳細資料
     return await this.getAdminProblemDetail(problemId);
   }
 

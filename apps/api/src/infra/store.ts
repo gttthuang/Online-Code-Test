@@ -119,5 +119,5 @@ export interface AppStore {
   }): Promise<InterviewReview | null>;
   deleteInterviewReview(candidateId: string, problemId: string, interviewerId: string): Promise<boolean>;
   getInternalStats(): Promise<InternalStats>;
-  updateProblem(problemId: string, data: any): Promise<any | null>;
+  updateProblem(problemId: string, data: CreateProblemRequest): Promise<ProblemDetail | null>;
 }
