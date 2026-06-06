@@ -1079,7 +1079,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       <div className="modal-backdrop">
         <div className="modal modal-wide">
           {/* 根據 operationMode 顯示標題 */}
-          <p>{operationMode === "modify" ? "Edit Problem" : "Delete Problem"}</p>
+          <p>{operationMode === "modify" ? "Edit Problem" : "Delete problem"}</p>
           <p className="modal-target-title">{confirmProblem?.title}</p>
 
           {/* 載入中狀態 */}
