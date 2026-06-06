@@ -72,6 +72,7 @@ Vite 會把 `/auth`、`/me`、`/admin`、`/healthz` 和 `/internal` proxy 到本
 ```bash
 npm run typecheck
 POSTGRES_PORT=5433 npm run test:coverage --workspace @oct/api
+npm run test:coverage --workspace @oct/judge-worker
 npm run test:coverage --workspace @oct/web
 npm run build:web
 npm run verify:infra

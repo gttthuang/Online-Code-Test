@@ -27,7 +27,8 @@ const defaultExecutors: JudgeExecutors = {
 };
 
 export class JudgeWorker {
-  private lastRecoveryAt = 0;
+  private lastSubmissionRecoveryAt = 0;
+  private lastCustomRunRecoveryAt = 0;
 
   constructor(
     private readonly repository: JudgeRepository,
@@ -82,7 +83,8 @@ export class JudgeWorker {
   }
 
   private async processClaimedSubmission(submission: ClaimedSubmission) {
-    let stopHeartbeat = () => {};
+    const stopHeartbeat = this.startSubmissionHeartbeat(submission.id, submission.attemptId);
+    const startedAt = Date.now();
 
     try {
       logInfo("submission_claimed", {
@@ -91,20 +93,37 @@ export class JudgeWorker {
         problemId: submission.problemId,
         language: submission.language
       });
-      stopHeartbeat = this.startHeartbeat(submission.id);
-      const startedAt = Date.now();
 
-      const result = await this.executors.executeSubmission({
-        submissionId: submission.id,
-        language: submission.language,
-        sourceCode: submission.sourceCode,
-        timeLimitMs: submission.timeLimitMs,
-        hiddenTestCases: submission.hiddenTestCases,
-        sandbox: this.sandbox
-      });
+      let result: JudgeResult;
 
-      stopHeartbeat();
-      await this.repository.completeSubmission(submission.id, result);
+      try {
+        result = await this.executors.executeSubmission({
+          submissionId: submission.id,
+          language: submission.language,
+          sourceCode: submission.sourceCode,
+          timeLimitMs: submission.timeLimitMs,
+          hiddenTestCases: submission.hiddenTestCases,
+          sandbox: this.sandbox
+        });
+      } catch (error) {
+        await this.persistSubmissionFailure(submission, error);
+        return;
+      }
+
+      const committed = await this.repository.completeSubmission(
+        submission.id,
+        submission.attemptId,
+        result
+      );
+
+      if (!committed) {
+        logInfo("stale_submission_result_discarded", {
+          submissionId: submission.id,
+          attemptId: submission.attemptId
+        });
+        return;
+      }
+
       logInfo("submission_completed", {
         submissionId: submission.id,
         candidateId: submission.candidateId,
@@ -115,42 +134,57 @@ export class JudgeWorker {
         errorType: result.errorType ?? null,
         durationMs: Date.now() - startedAt
       });
-    } catch (error) {
+    } finally {
       stopHeartbeat();
+    }
+  }
 
-      const failureResult: JudgeResult = {
-        submissionId: submission.id,
-        status: "failed",
-        score: 0,
-        cases: [],
-        errorType: toFailureType(error),
-        errorMessage: toErrorMessage(error)
-      };
+  private async persistSubmissionFailure(submission: ClaimedSubmission, error: unknown) {
+    const failureResult: JudgeResult = {
+      submissionId: submission.id,
+      status: "failed",
+      score: 0,
+      cases: [],
+      errorType: toFailureType(error),
+      errorMessage: toErrorMessage(error)
+    };
 
-      try {
-        await this.repository.completeSubmission(submission.id, failureResult);
-        logError("submission_failed", {
+    try {
+      const committed = await this.repository.completeSubmission(
+        submission.id,
+        submission.attemptId,
+        failureResult
+      );
+
+      if (!committed) {
+        logInfo("stale_submission_result_discarded", {
           submissionId: submission.id,
-          candidateId: submission.candidateId,
-          problemId: submission.problemId,
-          language: submission.language,
-          score: 0,
-          errorType: failureResult.errorType ?? null,
-          message: failureResult.errorMessage ?? null
+          attemptId: submission.attemptId
         });
-      } catch (completionError) {
-        logError("submission_failure_persist_error", {
-          submissionId: submission.id,
-          message: toErrorMessage(completionError)
-        });
+        return;
       }
 
-      throw error;
+      logError("submission_failed", {
+        submissionId: submission.id,
+        candidateId: submission.candidateId,
+        problemId: submission.problemId,
+        language: submission.language,
+        score: 0,
+        errorType: failureResult.errorType ?? null,
+        message: failureResult.errorMessage ?? null
+      });
+    } catch (completionError) {
+      logError("submission_failure_persist_error", {
+        submissionId: submission.id,
+        message: toErrorMessage(completionError)
+      });
+      throw completionError;
     }
   }
 
   private async processClaimedCustomRun(run: ClaimedCustomRun) {
     const startedAt = Date.now();
+    const stopHeartbeat = this.startCustomRunHeartbeat(run.id, run.attemptId);
 
     try {
       logInfo("custom_run_claimed", {
@@ -160,16 +194,36 @@ export class JudgeWorker {
         language: run.language
       });
 
-      const result = await this.executors.executeCustomRun({
-        runId: run.id,
-        language: run.language,
-        sourceCode: run.sourceCode,
-        stdin: run.stdin,
-        timeLimitMs: run.timeLimitMs,
-        sandbox: this.sandbox
-      });
+      let result: CustomRunExecutionResult;
 
-      await this.repository.completeCustomRun(run.id, result);
+      try {
+        result = await this.executors.executeCustomRun({
+          runId: run.id,
+          language: run.language,
+          sourceCode: run.sourceCode,
+          stdin: run.stdin,
+          timeLimitMs: run.timeLimitMs,
+          sandbox: this.sandbox
+        });
+      } catch (error) {
+        await this.persistCustomRunFailure(run, error, Date.now() - startedAt);
+        return;
+      }
+
+      const committed = await this.repository.completeCustomRun(
+        run.id,
+        run.attemptId,
+        result
+      );
+
+      if (!committed) {
+        logInfo("stale_custom_run_result_discarded", {
+          runId: run.id,
+          attemptId: run.attemptId
+        });
+        return;
+      }
+
       logInfo("custom_run_completed", {
         runId: run.id,
         candidateId: run.candidateId,
@@ -179,32 +233,79 @@ export class JudgeWorker {
         errorType: result.errorType ?? null,
         durationMs: Date.now() - startedAt
       });
-    } catch (error) {
-      try {
-        await this.repository.completeCustomRun(run.id, {
+    } finally {
+      stopHeartbeat();
+    }
+  }
+
+  private async persistCustomRunFailure(
+    run: ClaimedCustomRun,
+    error: unknown,
+    executionTimeMs: number
+  ) {
+    try {
+      const committed = await this.repository.completeCustomRun(
+        run.id,
+        run.attemptId,
+        {
           status: "failed",
           stdout: "",
           stderr: "",
           errorType: toFailureType(error),
           errorMessage: toErrorMessage(error),
-          executionTimeMs: Date.now() - startedAt
-        });
-      } catch (completionError) {
-        logError("custom_run_failure_persist_error", {
+          executionTimeMs
+        }
+      );
+
+      if (!committed) {
+        logInfo("stale_custom_run_result_discarded", {
           runId: run.id,
-          message: toErrorMessage(completionError)
+          attemptId: run.attemptId
         });
+        return;
       }
 
-      throw error;
+      logError("custom_run_failed", {
+        runId: run.id,
+        candidateId: run.candidateId,
+        problemId: run.problemId,
+        language: run.language,
+        errorType: toFailureType(error),
+        message: toErrorMessage(error)
+      });
+    } catch (completionError) {
+      logError("custom_run_failure_persist_error", {
+        runId: run.id,
+        message: toErrorMessage(completionError)
+      });
+      throw completionError;
     }
   }
 
-  private startHeartbeat(submissionId: string) {
+  private startSubmissionHeartbeat(submissionId: string, attemptId: string) {
     const timer = setInterval(() => {
-      void this.repository.touchRunningSubmission(submissionId).catch((error) => {
-        logError("submission_heartbeat_error", {
-          submissionId,
+      void this.repository
+        .touchRunningSubmission(submissionId, attemptId)
+        .catch((error) => {
+          logError("submission_heartbeat_error", {
+            submissionId,
+            attemptId,
+            message: toErrorMessage(error)
+          });
+        });
+    }, this.heartbeatIntervalMs);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }
+
+  private startCustomRunHeartbeat(runId: string, attemptId: string) {
+    const timer = setInterval(() => {
+      void this.repository.touchRunningCustomRun(runId, attemptId).catch((error) => {
+        logError("custom_run_heartbeat_error", {
+          runId,
+          attemptId,
           message: toErrorMessage(error)
         });
       });
@@ -218,7 +319,7 @@ export class JudgeWorker {
   private async maybeRecoverStaleSubmissions() {
     const now = Date.now();
 
-    if (now - this.lastRecoveryAt < this.staleThresholdMs) {
+    if (now - this.lastSubmissionRecoveryAt < this.staleThresholdMs) {
       return [];
     }
 
@@ -228,7 +329,7 @@ export class JudgeWorker {
   private async maybeRecoverStaleRuns() {
     const now = Date.now();
 
-    if (now - this.lastRecoveryAt < this.staleThresholdMs) {
+    if (now - this.lastCustomRunRecoveryAt < this.staleThresholdMs) {
       return [];
     }
 
@@ -236,7 +337,7 @@ export class JudgeWorker {
   }
 
   private async recoverStaleSubmissions() {
-    this.lastRecoveryAt = Date.now();
+    this.lastSubmissionRecoveryAt = Date.now();
     const ids = await this.repository.recoverStaleSubmissions(this.staleThresholdMs);
 
     if (ids.length > 0) {
@@ -249,7 +350,7 @@ export class JudgeWorker {
   }
 
   private async recoverStaleCustomRuns() {
-    this.lastRecoveryAt = Date.now();
+    this.lastCustomRunRecoveryAt = Date.now();
     const ids = await this.repository.recoverStaleCustomRuns(this.staleThresholdMs);
 
     if (ids.length > 0) {

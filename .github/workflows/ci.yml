@@ -74,11 +74,16 @@ jobs:
       - name: Run API and judge integration tests with coverage
         run: npm run test:coverage --workspace @oct/api
 
+      - name: Run judge worker tests with coverage
+        run: npm run test:coverage --workspace @oct/judge-worker
+
       - name: Upload backend coverage
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
-          path: apps/api/coverage/lcov.info
+          path: |
+            apps/api/coverage/lcov.info
+            apps/judge-worker/coverage/lcov.info
           if-no-files-found: error
 
   frontend:

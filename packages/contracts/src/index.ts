@@ -25,6 +25,15 @@ export const reviewRecommendations = [
 export type ReviewRecommendation = (typeof reviewRecommendations)[number];
 
 export const judgeQueueName = "judge-submissions";
+export const judgeQueueJobOptions = {
+  attempts: 3,
+  backoff: {
+    type: "exponential",
+    delay: 1_000
+  },
+  removeOnComplete: 500,
+  removeOnFail: 500
+};
 
 export interface AuthUser {
   id: string;

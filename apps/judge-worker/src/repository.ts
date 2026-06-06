@@ -5,10 +5,12 @@ import type {
   SubmissionDetail
 } from "@oct/contracts";
 import type { Pool, PoolClient } from "pg";
+import { randomUUID } from "node:crypto";
 
 import type { CustomRunExecutionResult } from "./executor.js";
 
 export type ClaimedSubmission = SubmissionDetail & {
+  attemptId: string;
   timeLimitMs: number;
   hiddenTestCases: Array<{
     id: string;
@@ -18,6 +20,7 @@ export type ClaimedSubmission = SubmissionDetail & {
 };
 
 export type ClaimedCustomRun = CustomRunDetail & {
+  attemptId: string;
   timeLimitMs: number;
 };
 
@@ -26,11 +29,12 @@ export interface JudgeRepository {
   claimCustomRunById(runId: string): Promise<ClaimedCustomRun | null>;
   listQueuedSubmissionIds(limit?: number): Promise<string[]>;
   listQueuedCustomRunIds(limit?: number): Promise<string[]>;
-  touchRunningSubmission(submissionId: string): Promise<void>;
+  touchRunningSubmission(submissionId: string, attemptId: string): Promise<void>;
+  touchRunningCustomRun(runId: string, attemptId: string): Promise<void>;
   recoverStaleSubmissions(staleThresholdMs: number): Promise<string[]>;
   recoverStaleCustomRuns(staleThresholdMs: number): Promise<string[]>;
-  completeSubmission(submissionId: string, result: JudgeResult): Promise<void>;
-  completeCustomRun(runId: string, result: CustomRunExecutionResult): Promise<void>;
+  completeSubmission(submissionId: string, attemptId: string, result: JudgeResult): Promise<boolean>;
+  completeCustomRun(runId: string, attemptId: string, result: CustomRunExecutionResult): Promise<boolean>;
 }
 
 export class PostgresJudgeRepository implements JudgeRepository {
@@ -38,6 +42,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
 
   async claimSubmissionById(submissionId: string): Promise<ClaimedSubmission | null> {
     const client = await this.pool.connect();
+    const attemptId = randomUUID();
 
     try {
       await client.query("begin");
@@ -56,7 +61,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
       }>(
         `
           update submissions s
-          set status = 'running', updated_at = now()
+          set status = 'running', judge_attempt_id = $2, updated_at = now()
           from problems p
           where s.id = $1 and s.status = 'queued' and p.id = s.problem_id
           returning
@@ -71,7 +76,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
             s.created_at,
             s.updated_at
         `,
-        [submissionId]
+        [submissionId, attemptId]
       );
 
       if (claimed.rowCount === 0) {
@@ -96,6 +101,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
         createdAt: submission.created_at,
         updatedAt: submission.updated_at,
         result: null,
+        attemptId,
         hiddenTestCases: testCases
       };
     } catch (error) {
@@ -107,6 +113,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
   }
 
   async claimCustomRunById(runId: string): Promise<ClaimedCustomRun | null> {
+    const attemptId = randomUUID();
     const result = await this.pool.query<{
       id: string;
       candidate_id: string;
@@ -127,7 +134,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
     }>(
       `
         update custom_runs cr
-        set status = 'running', updated_at = now()
+        set status = 'running', judge_attempt_id = $2, updated_at = now()
         from problems p
         where cr.id = $1 and cr.status = 'queued' and p.id = cr.problem_id
         returning
@@ -148,7 +155,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
           cr.created_at,
           cr.updated_at
       `,
-      [runId]
+      [runId, attemptId]
     );
 
     const row = result.rows[0];
@@ -171,6 +178,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
       errorType: row.error_type,
       errorMessage: row.error_message,
       executionTimeMs: row.execution_time_ms,
+      attemptId,
       timeLimitMs: row.time_limit_ms,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -207,14 +215,25 @@ export class PostgresJudgeRepository implements JudgeRepository {
     return result.rows.map((row) => row.id);
   }
 
-  async touchRunningSubmission(submissionId: string) {
+  async touchRunningSubmission(submissionId: string, attemptId: string) {
     await this.pool.query(
       `
         update submissions
         set updated_at = now()
-        where id = $1 and status = 'running'
+        where id = $1 and status = 'running' and judge_attempt_id = $2
       `,
-      [submissionId]
+      [submissionId, attemptId]
+    );
+  }
+
+  async touchRunningCustomRun(runId: string, attemptId: string) {
+    await this.pool.query(
+      `
+        update custom_runs
+        set updated_at = now()
+        where id = $1 and status = 'running' and judge_attempt_id = $2
+      `,
+      [runId, attemptId]
     );
   }
 
@@ -227,6 +246,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
           score = null,
           error_type = null,
           error_message = null,
+          judge_attempt_id = null,
           updated_at = now()
         where
           status = 'running'
@@ -250,6 +270,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
           error_type = null,
           error_message = null,
           execution_time_ms = null,
+          judge_attempt_id = null,
           updated_at = now()
         where
           status = 'running'
@@ -262,12 +283,12 @@ export class PostgresJudgeRepository implements JudgeRepository {
     return result.rows.map((row) => row.id);
   }
 
-  async completeSubmission(submissionId: string, result: JudgeResult) {
+  async completeSubmission(submissionId: string, attemptId: string, result: JudgeResult) {
     const client = await this.pool.connect();
 
     try {
       await client.query("begin");
-      await client.query(
+      const completed = await client.query(
         `
           update submissions
           set
@@ -275,17 +296,25 @@ export class PostgresJudgeRepository implements JudgeRepository {
             score = $3,
             error_type = $4,
             error_message = $5,
+            judge_attempt_id = null,
             updated_at = now()
-          where id = $1
+          where id = $1 and status = 'running' and judge_attempt_id = $6
+          returning id
         `,
         [
           submissionId,
           result.status,
           result.score,
           result.errorType ?? null,
-          result.errorMessage ?? null
+          result.errorMessage ?? null,
+          attemptId
         ]
       );
+
+      if (completed.rowCount === 0) {
+        await client.query("commit");
+        return false;
+      }
 
       await client.query(`delete from submission_case_results where submission_id = $1`, [submissionId]);
 
@@ -312,6 +341,7 @@ export class PostgresJudgeRepository implements JudgeRepository {
       }
 
       await client.query("commit");
+      return true;
     } catch (error) {
       await client.query("rollback");
       throw error;
@@ -320,8 +350,8 @@ export class PostgresJudgeRepository implements JudgeRepository {
     }
   }
 
-  async completeCustomRun(runId: string, result: CustomRunExecutionResult) {
-    await this.pool.query(
+  async completeCustomRun(runId: string, attemptId: string, result: CustomRunExecutionResult) {
+    const completed = await this.pool.query(
       `
         update custom_runs
         set
@@ -331,8 +361,10 @@ export class PostgresJudgeRepository implements JudgeRepository {
           error_type = $5,
           error_message = $6,
           execution_time_ms = $7,
+          judge_attempt_id = null,
           updated_at = now()
-        where id = $1
+        where id = $1 and status = 'running' and judge_attempt_id = $8
+        returning id
       `,
       [
         runId,
@@ -341,9 +373,12 @@ export class PostgresJudgeRepository implements JudgeRepository {
         result.stderr,
         result.errorType ?? null,
         result.errorMessage ?? null,
-        result.executionTimeMs
+        result.executionTimeMs,
+        attemptId
       ]
     );
+
+    return completed.rowCount === 1;
   }
 
   private async fetchHiddenTestCases(client: PoolClient, problemId: string) {
