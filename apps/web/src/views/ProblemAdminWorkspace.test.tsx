@@ -284,11 +284,10 @@ describe("ProblemAdminWorkspace — update & error handling", () => {
     renderAt("/problem-admin/problems");
     await screen.findByText("FizzBuzz");
 
-    // 點擊 Archive 按鈕
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
     
-    // 驗證錯誤處理分支
-    expect(await screen.findByText("Archive failed")).toBeInTheDocument();
+    // 同樣加上 selector 即可通過
+    expect(await screen.findByText("Archive failed", { selector: 'p.error-text' })).toBeInTheDocument();
   });
 });
 
@@ -439,7 +438,8 @@ describe("ProblemAdminWorkspace — creation failures", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Create Problem/i }));
     
-    // 確認 catch 區塊執行並顯示錯誤
-    expect(await screen.findByText("Network Error")).toBeInTheDocument();
+    // 修改處：指定 selector，這樣即便有兩個 "Network Error"，測試也會找到符合 <p class="error-text"> 的那一個
+    const errorElement = await screen.findByText("Network Error", { selector: 'p.error-text' });
+    expect(errorElement).toBeInTheDocument();
   });
 });
