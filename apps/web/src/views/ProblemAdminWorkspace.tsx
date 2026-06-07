@@ -147,6 +147,21 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [operationMode, setOperationMode] = useState<"delete" | "modify">("delete");
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredProblems = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return problems.filter((problem) => {
+      // 1. 確保 title 是字串，並處理 null
+      const title = (problem.title || "").toLowerCase();
+      
+      // 2. 核心修正：將 displayId 轉為字串後再轉小寫
+      // String(value) 可以安全地將 number 或 null/undefined 轉換為字串
+      const displayId = String(problem.displayId ?? "").toLowerCase();
+      
+      return title.includes(query) || displayId.includes(query);
+    });
+  }, [problems, searchQuery]);
   useEffect(() => {
     if (activeSection !== "new" && editingId !== null) {
       setEditingId(null);
@@ -832,28 +847,44 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       </article>
     );
   }
-
   function renderInventoryCard() {
     return (
       <article className="status-card panel-column">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Problem Inventory</p>
-            <h2>{problems.length} problem(s)</h2>
+            <h2>{filteredProblems.length} / {problems.length} problem(s)</h2>
           </div>
+          <label className="field">
+            <span>Search</span>
+            <input
+              type="text"
+              placeholder="Search by title or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </label>
+          {/* <input
+            type="text"
+            placeholder="Search by title or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          /> */}
         </div>
 
         {inventoryError ? <p className="error-text">{inventoryError}</p> : null}
 
         <div className="result-table">
-          {problems.length === 0 ? (
-            <div className="empty-state">No problems yet.</div>
+          {filteredProblems.length === 0 ? (
+            <div className="empty-state">No problems found.</div>
           ) : (
-            problems.map((problem) => (
+            filteredProblems.map((problem) => (
               <div className="problem-table-row" key={problem.id}>
                 <div className="problem-title-box">
                   <span style={{ color: '#666', marginRight: '8px', fontWeight: 'bold' }}>
-                    #{problem.displayId}
+                    #{problem.displayId ?? "N/A"}
                   </span>
                   <strong>{problem.title}</strong>
                 </div>
@@ -862,6 +893,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                   <span>{problem.difficulty}</span>
                   {problem.archivedAt ? <span className="badge badge-warning">archived</span> : <span className="badge badge-success">active</span>}
                 </div>
+                
                 <button className="chip-button" onClick={() => navigate(`/problem-admin/problems/${problem.id}/preview`)} type="button">
                   Preview
                 </button>
@@ -874,11 +906,15 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                 >
                   {problem.archivedAt ? "Restore" : "Archive"}
                 </button>
+                
                 <button 
                   className="chip-button" 
                   onClick={() => requestModifyProblem(problem)}
                   type="button"
-                >modify</button>
+                >
+                  modify
+                </button>
+                
                 <button className="delete-button" onClick={() => requestDeleteProblem(problem.id)} type="button">
                   x
                 </button>
