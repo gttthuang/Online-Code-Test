@@ -52,10 +52,24 @@ describe("InterviewerWorkspace", () => {
     expect(screen.queryByTestId("assignment-form")).not.toBeInTheDocument();
   });
 
+  it("shows only the assign panel on the assign section", () => {
+    renderAt("/interviewer/assign");
+    expect(screen.getByTestId("assignment-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("candidate-results")).not.toBeInTheDocument();
+  });
+
   it("renders a workspace error when the initial load fails", async () => {
     mocked.getAdminProblems.mockRejectedValue(new Error("ws boom"));
     renderAt("/interviewer");
     await waitFor(() => expect(screen.getByText(/ws boom/)).toBeInTheDocument());
+  });
+
+  it("handles getCandidates failure gracefully", async () => {
+    mocked.getCandidates.mockRejectedValue(new Error("c boom"));
+    renderAt("/interviewer");
+    // still renders problems and results even if candidates fail
+    expect(await screen.findByText("problems:1")).toBeInTheDocument();
+    expect(screen.getByTestId("candidate-results")).toBeInTheDocument();
   });
 });
 
