@@ -25,8 +25,8 @@ Browser
 - login
 - 依角色導向不同 workspace route
 - candidate submission flow、custom stdin terminal、submission history
-- interviewer candidate management、assignment、notes / rubric、scratch terminal
-- admin problem authoring、batch testcase import、user management、submission review
+- interviewer candidate management、assignment、notes / rubric、scratch terminal、user management
+- admin problem authoring、batch testcase import、submission review
 - 輪詢 submission / custom run 結果
 
 目前狀態：
@@ -44,12 +44,12 @@ Browser
 - `/interviewer`
 - `/interviewer/candidates`
 - `/interviewer/results`
+- `/interviewer/users`
 - `/problem-admin`
 - `/problem-admin/new`
 - `/problem-admin/problems`
 - `/problem-admin/problems/:problemId/preview`
 - `/problem-admin/submissions`
-- `/problem-admin/users`
 
 ### `apps/api`
 

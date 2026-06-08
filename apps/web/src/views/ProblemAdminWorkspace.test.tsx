@@ -1,5 +1,5 @@
-import type { AuthUser, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -57,7 +57,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(globalThis, "setInterval").mockReturnValue(0 as unknown as ReturnType<typeof setInterval>);
   mocked.getAdminProblems.mockResolvedValue([]);
-  mocked.getUsers.mockResolvedValue([]);
   mocked.getAdminSubmissionHistory.mockResolvedValue([]);
 });
 
@@ -288,51 +287,6 @@ describe("ProblemAdminWorkspace — update & error handling", () => {
     
     // 同樣加上 selector 即可通過
     expect(await screen.findByText("Archive failed", { selector: 'p.error-text' })).toBeInTheDocument();
-  });
-});
-
-describe("ProblemAdminWorkspace — user management", () => {
-  function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
-    return { id: "user_1", name: "Bob", email: "bob@example.com", role: "candidate", ...overrides };
-  }
-
-  it("lists users and creates a new one", async () => {
-    mocked.getUsers.mockResolvedValue([makeUser({ id: "admin_1", name: "Self", role: "problem_admin" })]);
-    mocked.createUser.mockResolvedValue({ user: makeUser({ id: "user_9", name: "Carol", email: "carol@example.com" }) });
-    renderAt("/problem-admin/users");
-
-    expect(await screen.findByText("Self")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByPlaceholderText("New teammate"), { target: { value: "Carol" } });
-    fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: "carol@example.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create User" }));
-
-    await waitFor(() => expect(mocked.createUser).toHaveBeenCalled());
-    expect(await screen.findByText("User created")).toBeInTheDocument();
-  });
-
-  it("disables deleting the current user and deletes others", async () => {
-    mocked.getUsers.mockResolvedValue([
-      makeUser({ id: "admin_1", name: "Self", role: "problem_admin" }),
-      makeUser({ id: "user_2", name: "Other" })
-    ]);
-    mocked.deleteUser.mockResolvedValue(undefined);
-    renderAt("/problem-admin/users");
-    await screen.findByText("Other");
-
-    const selfRow = screen.getByText("Self").closest(".user-table-row") as HTMLElement;
-    expect(within(selfRow).getByRole("button")).toBeDisabled();
-
-    const otherRow = screen.getByText("Other").closest(".user-table-row") as HTMLElement;
-    fireEvent.click(within(otherRow).getByRole("button"));
-    await waitFor(() => expect(mocked.deleteUser).toHaveBeenCalledWith("t", "user_2"));
-    expect(await screen.findByText("User deleted")).toBeInTheDocument();
-  });
-
-  it("shows an error when users fail to load", async () => {
-    mocked.getUsers.mockRejectedValue(new Error("users boom"));
-    renderAt("/problem-admin/users");
-    expect((await screen.findAllByText("users boom")).length).toBeGreaterThan(0);
   });
 });
 

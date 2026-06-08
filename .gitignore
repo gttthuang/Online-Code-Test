@@ -13,3 +13,5 @@ infra/aws/deploy.env
 deploy-*.zip
 .scannerwork/
 coverage/
+
+CLAUDE.md

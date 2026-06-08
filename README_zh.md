@@ -20,8 +20,8 @@
 
 - login
 - candidate 看 assignment / 題目 / custom stdin terminal / submission history
-- interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、用 terminal 跑程式片段
-- admin 建題、批次匯入測資、preview、archive / force delete、管理 users、查看全站 submissions
+- interviewer 建 candidate / assignment、查 submission history、寫 notes / rubric、用 terminal 跑程式片段、管理 users
+- admin 建題、批次匯入測資、preview、archive / force delete、查看全站 submissions
 - worker 會在背景消化 queued submissions
 - API 提供 `/healthz` liveness、`/readyz` dependency readiness、`/metrics` Prometheus 指標與 `/internal/stats` judge 統計
 

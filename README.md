@@ -16,7 +16,7 @@ An online coding interview system with a working React frontend, Fastify API, Po
 - execution: Docker-isolated `python` / `cpp` runners with timeout
 - frontend routing: role-based routes for candidate, interviewer, and admin workspaces
 
-The app supports candidate submissions, custom stdin runs, interviewer private notes/rubric, admin problem authoring, user management, and AWS deployment. Sandboxing is currently Docker-based rather than a fully hardened production judge environment.
+The app supports candidate submissions, custom stdin runs, interviewer private notes/rubric and user management, admin problem authoring, and AWS deployment. Sandboxing is currently Docker-based rather than a fully hardened production judge environment.
 
 Operational endpoints include lightweight liveness at `GET /healthz`, dependency
 readiness at `GET /readyz`, Prometheus metrics at `GET /metrics`, and detailed

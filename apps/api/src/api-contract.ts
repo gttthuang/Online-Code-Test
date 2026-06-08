@@ -79,15 +79,15 @@ export const apiRouteDefinitions = [
     204
   ),
 
-  roleRoute("GET", "/admin/users", "listUsers", "List all user accounts", "Admin", ["problem_admin"]),
-  roleRoute("POST", "/admin/users", "createUser", "Create a user account with a role", "Admin", ["problem_admin"]),
+  roleRoute("GET", "/admin/users", "listUsers", "List all user accounts", "Interviewer", ["interviewer"]),
+  roleRoute("POST", "/admin/users", "createUser", "Create a user account with a role", "Interviewer", ["interviewer"]),
   roleRoute(
     "DELETE",
     "/admin/users/:userId",
     "deleteUser",
     "Delete an unused user account",
-    "Admin",
-    ["problem_admin"],
+    "Interviewer",
+    ["interviewer"],
     204
   ),
   roleRoute(

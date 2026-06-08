@@ -6,8 +6,10 @@ import { getAdminProblems, getCandidates } from "../lib/api";
 import { CandidateManager } from "./interviewer/CandidateManager";
 import { AssignmentForm } from "./interviewer/AssignmentForm";
 import { CandidateResults } from "./interviewer/CandidateResults";
+import { UserManager } from "./interviewer/UserManager";
 
 interface InterviewerWorkspaceProps {
+  readonly currentUserId: string;
   readonly token: string;
 }
 
@@ -21,10 +23,13 @@ function resolveActiveSection(pathname: string) {
   if (pathname.includes("/assign")) {
     return "assign";
   }
+  if (pathname.includes("/users")) {
+    return "users";
+  }
   return "dashboard";
 }
 
-export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
+export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [candidates, setCandidates] = useState<AuthUser[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +102,12 @@ export function InterviewerWorkspace({ token }: InterviewerWorkspaceProps) {
       {activeSection === "results" ? (
         <section className="workspace-grid single-column-grid">
           <CandidateResults token={token} candidates={candidates} />
+        </section>
+      ) : null}
+
+      {activeSection === "users" ? (
+        <section className="workspace-grid single-column-grid">
+          <UserManager currentUserId={currentUserId} token={token} />
         </section>
       ) : null}
     </div>
