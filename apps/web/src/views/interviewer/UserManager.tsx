@@ -8,7 +8,7 @@ import { createUser, deleteUser, getUsers } from "../../lib/api";
 const roleLabels = {
   candidate: "Candidate",
   interviewer: "Interviewer",
-  problem_admin: "Admin"
+  problem_admin: "Problem Admin"
 } satisfies Record<UserRole, string>;
 
 type Notice = {
@@ -189,7 +189,6 @@ export function UserManager({
                 <div className="candidate-info">
                   <strong className="candidate-name">{user.name}</strong>
                   <span className="candidate-email">{user.email}</span>
-                  <small>{user.id}</small>
                 </div>
 
                 <span className="badge badge-outline">{roleLabels[user.role]}</span>
