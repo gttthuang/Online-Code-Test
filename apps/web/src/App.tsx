@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
-import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, UserRoundCog } from "lucide-react";
+import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, Users } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
@@ -51,16 +51,15 @@ const workspaceNav = {
   ],
   interviewer: [
     { label: "Dashboard", path: "/interviewer", icon: LayoutDashboard },
-    { label: "Candidates", path: "/interviewer/candidates", icon: UserRoundCog },
     { label: "Assign", path: "/interviewer/assign", icon: ClipboardList },
-    { label: "Results", path: "/interviewer/results", icon: Activity }
+    { label: "Results", path: "/interviewer/results", icon: Activity },
+    { label: "Users", path: "/interviewer/users", icon: Users }
   ],
   problem_admin: [
     // { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },
     { label: "New Problem", path: "/problem-admin/new", icon: PlusCircle },
     { label: "Problems", path: "/problem-admin/problems", icon: Database },
-    { label: "Submissions", path: "/problem-admin/submissions", icon: Activity },
-    { label: "Users", path: "/problem-admin/users", icon: UserRoundCog }
+    { label: "Submissions", path: "/problem-admin/submissions", icon: Activity }
   ]
 } satisfies Record<AuthUser["role"], Array<{ label: string; path: string; icon: typeof LayoutDashboard }>>;
 
@@ -336,7 +335,7 @@ function AppRoutes() {
       <Route
         element={
           <ProtectedWorkspace expectedRole="interviewer" onLogout={handleLogout} session={session}>
-            {session ? <InterviewerWorkspace token={session.token} /> : null}
+            {session ? <InterviewerWorkspace currentUserId={session.user.id} token={session.token} /> : null}
           </ProtectedWorkspace>
         }
         path="/interviewer/*"

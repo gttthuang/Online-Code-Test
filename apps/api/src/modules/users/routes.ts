@@ -19,14 +19,14 @@ const createUserSchema = z.object({
 export async function registerUserRoutes(app: FastifyInstance, context: AppContext) {
   app.get("/admin/users", async (request) => {
     const user = await requireUser(request, context);
-    requireRole(user, ["problem_admin"]);
+    requireRole(user, ["interviewer"]);
 
     return context.store.listUsers();
   });
 
   app.post("/admin/users", async (request) => {
     const user = await requireUser(request, context);
-    requireRole(user, ["problem_admin"]);
+    requireRole(user, ["interviewer"]);
 
     const body = createUserSchema.parse(request.body);
     const existingUser = await context.store.findUserByEmail(body.email);
@@ -44,7 +44,7 @@ export async function registerUserRoutes(app: FastifyInstance, context: AppConte
 
   app.delete("/admin/users/:userId", async (request, reply) => {
     const user = await requireUser(request, context);
-    requireRole(user, ["problem_admin"]);
+    requireRole(user, ["interviewer"]);
 
     const params = userIdParamsSchema.parse(request.params);
 

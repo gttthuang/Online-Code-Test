@@ -99,9 +99,6 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /admin/problems/:problemId/impact`
 - `PATCH /admin/problems/:problemId/archive`
 - `DELETE /admin/problems/:problemId`
-- `GET /admin/users`
-- `POST /admin/users`
-- `DELETE /admin/users/:userId`
 - `GET /admin/submissions`
 - `POST /admin/submissions/preview`
 
@@ -116,6 +113,9 @@ Validation error 會在 `details.fieldErrors` 內列出欄位錯誤；前端應�
 - `GET /admin/candidates/:candidateId/reviews`
 - `PUT /admin/candidates/:candidateId/reviews/:problemId`
 - `DELETE /admin/candidates/:candidateId/reviews/:problemId`
+- `GET /admin/users`
+- `POST /admin/users`
+- `DELETE /admin/users/:userId`
 
 ## 主要 Request / Response
 
@@ -195,7 +195,7 @@ Response:
 
 用途：
 
-- admin 查看所有帳號與角色
+- interviewer 查看所有帳號與角色
 - UI 用這個列表確認目前有哪些 candidate / interviewer / admin
 
 Response:
@@ -215,7 +215,7 @@ Response:
 
 用途：
 
-- admin 建立任意角色帳號
+- interviewer 建立任意角色帳號
 - role 只能是 `candidate`、`interviewer`、`problem_admin`
 
 Request:
@@ -245,7 +245,7 @@ Response:
 
 用途：
 
-- admin 刪除還沒有被題目、assignment、submission 引用的帳號
+- interviewer 刪除還沒有被題目、assignment、submission 引用的帳號
 - 不能刪除目前登入中的自己
 
 常見失敗：

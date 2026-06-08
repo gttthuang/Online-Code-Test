@@ -12,12 +12,12 @@ import {
   login
 } from "./helpers.js";
 
-test("problem admin can create, list, and delete users", async () => {
+test("interviewer can create, list, and delete users", async () => {
   const harness = await createHarness();
 
   try {
-    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
-    const user = await createUser(harness.app, problemAdmin.token, {
+    const interviewer = await login(harness.app, "bob.interviewer@example.com");
+    const user = await createUser(harness.app, interviewer.token, {
       name: "Dana Interviewer",
       email: "dana.interviewer@example.com",
       role: "interviewer"
@@ -26,7 +26,7 @@ test("problem admin can create, list, and delete users", async () => {
     const listResponse = await harness.app.inject({
       method: "GET",
       url: "/admin/users",
-      headers: authHeader(problemAdmin.token)
+      headers: authHeader(interviewer.token)
     });
 
     assert.equal(listResponse.statusCode, 200);
@@ -35,7 +35,7 @@ test("problem admin can create, list, and delete users", async () => {
     const deleteResponse = await harness.app.inject({
       method: "DELETE",
       url: `/admin/users/${user.id}`,
-      headers: authHeader(problemAdmin.token)
+      headers: authHeader(interviewer.token)
     });
 
     assert.equal(deleteResponse.statusCode, 204);
@@ -44,28 +44,27 @@ test("problem admin can create, list, and delete users", async () => {
   }
 });
 
-test("candidate accounts are shared between admin users and interviewer candidates", async () => {
+test("candidate accounts are shared between user management and interviewer candidates", async () => {
   const harness = await createHarness();
 
   try {
-    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
 
-    const adminCreatedCandidate = await createUser(harness.app, problemAdmin.token, {
-      name: "Admin Created Candidate",
-      email: "admin.created.candidate@example.com",
+    const userManagedCandidate = await createUser(harness.app, interviewer.token, {
+      name: "User Managed Candidate",
+      email: "user.managed.candidate@example.com",
       role: "candidate"
     });
 
-    const interviewerCandidateListResponse = await harness.app.inject({
+    const candidateListResponse = await harness.app.inject({
       method: "GET",
       url: "/admin/candidates",
       headers: authHeader(interviewer.token)
     });
 
-    assert.equal(interviewerCandidateListResponse.statusCode, 200);
-    assert.ok(interviewerCandidateListResponse.json().some((item: { id: string; role: string }) =>
-      item.id === adminCreatedCandidate.id && item.role === "candidate"
+    assert.equal(candidateListResponse.statusCode, 200);
+    assert.ok(candidateListResponse.json().some((item: { id: string; role: string }) =>
+      item.id === userManagedCandidate.id && item.role === "candidate"
     ));
 
     const interviewerCreatedCandidate = await createCandidate(harness.app, interviewer.token, {
@@ -73,14 +72,14 @@ test("candidate accounts are shared between admin users and interviewer candidat
       email: "interviewer.created.candidate@example.com"
     });
 
-    const adminUserListResponse = await harness.app.inject({
+    const userListResponse = await harness.app.inject({
       method: "GET",
       url: "/admin/users",
-      headers: authHeader(problemAdmin.token)
+      headers: authHeader(interviewer.token)
     });
 
-    assert.equal(adminUserListResponse.statusCode, 200);
-    assert.ok(adminUserListResponse.json().some((item: { id: string; role: string }) =>
+    assert.equal(userListResponse.statusCode, 200);
+    assert.ok(userListResponse.json().some((item: { id: string; role: string }) =>
       item.id === interviewerCreatedCandidate.id && item.role === "candidate"
     ));
   } finally {
@@ -88,16 +87,16 @@ test("candidate accounts are shared between admin users and interviewer candidat
   }
 });
 
-test("non problem admins cannot manage users", async () => {
+test("non interviewers cannot manage users", async () => {
   const harness = await createHarness();
 
   try {
-    const interviewer = await login(harness.app, "bob.interviewer@example.com");
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
 
     const response = await harness.app.inject({
       method: "POST",
       url: "/admin/users",
-      headers: authHeader(interviewer.token),
+      headers: authHeader(problemAdmin.token),
       payload: {
         name: "Forbidden User",
         email: "forbidden@example.com",
@@ -112,16 +111,16 @@ test("non problem admins cannot manage users", async () => {
   }
 });
 
-test("problem admin cannot delete self", async () => {
+test("interviewer cannot delete self", async () => {
   const harness = await createHarness();
 
   try {
-    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const interviewer = await login(harness.app, "bob.interviewer@example.com");
 
     const response = await harness.app.inject({
       method: "DELETE",
-      url: `/admin/users/${problemAdmin.user.id}`,
-      headers: authHeader(problemAdmin.token)
+      url: `/admin/users/${interviewer.user.id}`,
+      headers: authHeader(interviewer.token)
     });
 
     assert.equal(response.statusCode, 400);
@@ -135,9 +134,9 @@ test("referenced users cannot be deleted", async () => {
   const harness = await createHarness();
 
   try {
-    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
-    const candidate = await createUser(harness.app, problemAdmin.token, {
+    const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
+    const candidate = await createUser(harness.app, interviewer.token, {
       name: "Assigned Candidate",
       role: "candidate"
     });
@@ -149,7 +148,7 @@ test("referenced users cannot be deleted", async () => {
     const response = await harness.app.inject({
       method: "DELETE",
       url: `/admin/users/${candidate.id}`,
-      headers: authHeader(problemAdmin.token)
+      headers: authHeader(interviewer.token)
     });
 
     assert.equal(response.statusCode, 400);

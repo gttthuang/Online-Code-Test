@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
-import { roles } from "@oct/contracts";
-import type { AuthUser, ProblemDetail, ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem, UserRole } from "@oct/contracts";
+import type { ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
 import ReactQuill from "react-quill-new";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { archiveProblem, createProblem, createUser, deleteProblem, deleteUser, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getUsers, getAdminProblem, updateAdminProblem } from "../lib/api";
+import { archiveProblem, createProblem, deleteProblem, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getAdminProblem, updateAdminProblem } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
@@ -58,12 +56,6 @@ const initialFormState: ProblemFormState = {
   sampleExplanation: ""
 };
 
-const roleLabels = {
-  candidate: "Candidate",
-  interviewer: "Interviewer",
-  problem_admin: "Admin"
-} satisfies Record<UserRole, string>;
-
 const hiddenTestcaseMaxCount = 50;
 
 function createTestcaseId() {
@@ -110,9 +102,6 @@ function getTestcaseFileParts(fileName: string) {
 function resolveActiveSection(pathname: string) {
   if (pathname.includes("/submissions")) {
     return "submissions";
-  }
-  if (pathname.includes("/users")) {
-    return "users";
   }
   if (pathname.includes("/new")) {
     return "new";
@@ -1001,12 +990,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             <AdminSubmissionHistory token={token} />
           </section>
         ) : null}
-
-        {activeSection === "users" ? (
-          <section className="workspace-grid single-column-grid">
-            <UserManager currentUserId={currentUserId} onNotice={showNotice} token={token} />
-          </section>
-        ) : null}
       </div>
 
       {notice ? (
@@ -1173,198 +1156,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
   );
 }
 
-function UserManager({
-  currentUserId,
-  onNotice,
-  token
-}: {
-  readonly currentUserId: string;
-  readonly onNotice: (notice: NoticeState) => void;
-  readonly token: string;
-}) {
-  const [users, setUsers] = useState<AuthUser[]>([]);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<UserRole>("candidate");
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    setLoading(true);
-    setError(null);
-
-    getUsers(token)
-      .then((items) => {
-        if (!cancelled) {
-          setUsers(items);
-        }
-      })
-      .catch((nextError) => {
-        if (!cancelled) {
-          const message = nextError instanceof Error ? nextError.message : "Failed to load users";
-          setError(message);
-          onNotice({
-            type: "error",
-            title: "Users not loaded",
-            message
-          });
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [onNotice, token]);
-
-  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCreating(true);
-    setError(null);
-
-    try {
-      const response = await createUser(token, {
-        name: name.trim(),
-        email: email.trim(),
-        role
-      });
-
-      setUsers((current) => [...current, response.user].sort(compareUsers));
-      setName("");
-      setEmail("");
-      setRole("candidate");
-      onNotice({
-        type: "success",
-        title: "User created",
-        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}.`
-      });
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : "Failed to create user";
-      setError(message);
-      onNotice({
-        type: "error",
-        title: "User not created",
-        message
-      });
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleDeleteUser(user: AuthUser) {
-    setDeletingId(user.id);
-    setError(null);
-
-    try {
-      await deleteUser(token, user.id);
-      setUsers((current) => current.filter((item) => item.id !== user.id));
-      onNotice({
-        type: "success",
-        title: "User deleted",
-        message: `${user.name} was removed.`
-      });
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : "Failed to delete user";
-      setError(message);
-      onNotice({
-        type: "error",
-        title: "User not deleted",
-        message
-      });
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  return (
-    <article className="status-card panel-column">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">User Management</p>
-          <h2>Accounts and roles</h2>
-        </div>
-      </div>
-
-      <div className="user-management-grid">
-        <form className="stack-form admin-user-form" onSubmit={handleCreateUser}>
-          <label className="field">
-            <span>Name</span>
-            <input onChange={(event) => setName(event.target.value)} placeholder="New teammate" value={name} />
-          </label>
-
-          <label className="field">
-            <span>Email</span>
-            <input
-              autoComplete="email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@example.com"
-              type="email"
-              value={email}
-            />
-          </label>
-
-          <label className="field">
-            <span>Role</span>
-            <select onChange={(event) => setRole(event.target.value as UserRole)} value={role}>
-              {roles.map((item) => (
-                <option key={item} value={item}>
-                  {roleLabels[item]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button className="primary-button" disabled={creating || !name.trim() || !email.trim()} type="submit">
-            {creating ? "Creating..." : "Create User"}
-          </button>
-
-          {error ? <p className="error-text">{error}</p> : null}
-        </form>
-
-        <div className="result-table user-table">
-          {loading && (
-            <div className="empty-state">Loading users...</div>
-          )}
-          {!loading && users.length === 0 && (
-            <div className="empty-state">No users yet.</div>
-          )}
-          {!loading && users.length > 0 && (
-            users.map((user) => (
-              <div className="user-table-row" key={user.id}>
-                <div className="candidate-info">
-                  <strong className="candidate-name">{user.name}</strong>
-                  <span className="candidate-email">{user.email}</span>
-                  <small>{user.id}</small>
-                </div>
-
-                <span className="badge badge-outline">{roleLabels[user.role]}</span>
-
-                <button
-                  className="delete-button"
-                  disabled={user.id === currentUserId || deletingId === user.id}
-                  onClick={() => handleDeleteUser(user)}
-                  title={user.id === currentUserId ? "You cannot delete the account currently signed in." : "Delete user"}
-                  type="button"
-                >
-                  {deletingId === user.id ? "..." : "x"}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function AdminSubmissionHistory({ token }: { readonly token: string }) {
   const [submissions, setSubmissions] = useState<SubmissionHistoryItem[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
@@ -1463,8 +1254,4 @@ function AdminSubmissionHistory({ token }: { readonly token: string }) {
       />
     </article>
   );
-}
-
-function compareUsers(left: AuthUser, right: AuthUser) {
-  return `${left.role}:${left.name}:${left.email}`.localeCompare(`${right.role}:${right.name}:${right.email}`);
 }

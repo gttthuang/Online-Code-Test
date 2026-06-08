@@ -133,7 +133,7 @@ export async function createCandidate(app: FastifyInstance, interviewerToken: st
   return response.json<CreateCandidateResponse>().candidate;
 }
 
-export async function createUser(app: FastifyInstance, problemAdminToken: string, input?: {
+export async function createUser(app: FastifyInstance, interviewerToken: string, input?: {
   name?: string;
   email?: string;
   role?: "candidate" | "interviewer" | "problem_admin";
@@ -141,7 +141,7 @@ export async function createUser(app: FastifyInstance, problemAdminToken: string
   const response = await app.inject({
     method: "POST",
     url: "/admin/users",
-    headers: authHeader(problemAdminToken),
+    headers: authHeader(interviewerToken),
     payload: {
       name: input?.name ?? "Test User",
       email: input?.email ?? `user.${randomUUID()}@example.com`,

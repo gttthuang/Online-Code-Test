@@ -64,14 +64,13 @@ Authorization: Bearer <OPS_TOKEN>
 - `/candidate/assignments`
 - `/candidate/problems/:problemId`
 - `/interviewer`
-- `/interviewer/candidates`
 - `/interviewer/results`
+- `/interviewer/users`
 - `/problem-admin`
 - `/problem-admin/new`
 - `/problem-admin/problems`
 - `/problem-admin/problems/:problemId/preview`
 - `/problem-admin/submissions`
-- `/problem-admin/users`
 
 如果登入角色不符合路由需求，前端會導回該角色自己的 workspace。
 
