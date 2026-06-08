@@ -3,7 +3,6 @@ import type { ProblemSummary, AuthUser } from "@oct/contracts";
 import { useLocation } from "react-router-dom";
 import { getAdminProblems, getCandidates } from "../lib/api";
 
-import { CandidateManager } from "./interviewer/CandidateManager";
 import { AssignmentForm } from "./interviewer/AssignmentForm";
 import { CandidateResults } from "./interviewer/CandidateResults";
 import { UserManager } from "./interviewer/UserManager";
@@ -14,9 +13,6 @@ interface InterviewerWorkspaceProps {
 }
 
 function resolveActiveSection(pathname: string) {
-  if (pathname.includes("/candidates")) {
-    return "candidates";
-  }
   if (pathname.includes("/results")) {
     return "results";
   }
@@ -78,7 +74,7 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
         <section className="workspace-grid interviewer-grid">
           <div className="grid-col-main">
             <div className="grid-row-split mb-lg">
-              <CandidateManager token={token} onCandidatesUpdated={setCandidates} />
+              <UserManager currentUserId={currentUserId} token={token} />
               <AssignmentForm token={token} candidates={candidates} problems={problems} />
             </div>
 
@@ -90,12 +86,6 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
       {activeSection === "assign" ? (
         <section className="workspace-grid single-column-grid">
           <AssignmentForm token={token} candidates={candidates} problems={problems} />
-        </section>
-      ) : null}
-
-      {activeSection === "candidates" ? (
-        <section className="workspace-grid single-column-grid">
-          <CandidateManager token={token} onCandidatesUpdated={setCandidates} />
         </section>
       ) : null}
 

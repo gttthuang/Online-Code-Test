@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
-import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, UserRoundCog, Users } from "lucide-react";
+import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, Users } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
@@ -51,7 +51,6 @@ const workspaceNav = {
   ],
   interviewer: [
     { label: "Dashboard", path: "/interviewer", icon: LayoutDashboard },
-    { label: "Candidates", path: "/interviewer/candidates", icon: UserRoundCog },
     { label: "Assign", path: "/interviewer/assign", icon: ClipboardList },
     { label: "Results", path: "/interviewer/results", icon: Activity },
     { label: "Users", path: "/interviewer/users", icon: Users }

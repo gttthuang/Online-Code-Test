@@ -8,9 +8,6 @@ import { InterviewerWorkspace } from "./InterviewerWorkspace";
 
 vi.mock("../lib/api");
 
-vi.mock("./interviewer/CandidateManager", () => ({
-  CandidateManager: () => <div data-testid="candidate-manager">manager</div>
-}));
 vi.mock("./interviewer/AssignmentForm", () => ({
   AssignmentForm: ({ problems }: { problems: ProblemSummary[] }) => (
     <div data-testid="assignment-form">problems:{problems.length}</div>
@@ -45,21 +42,14 @@ describe("InterviewerWorkspace", () => {
   it("renders the full dashboard and threads loaded problems to children", async () => {
     renderAt("/interviewer");
     expect(screen.getByText("Interviewer Dashboard")).toBeInTheDocument();
-    expect(screen.getByTestId("candidate-manager")).toBeInTheDocument();
     expect(screen.getByTestId("candidate-results")).toBeInTheDocument();
     expect(await screen.findByText("problems:1")).toBeInTheDocument();
-  });
-
-  it("shows only the candidate manager on the candidates section", () => {
-    renderAt("/interviewer/candidates");
-    expect(screen.getByTestId("candidate-manager")).toBeInTheDocument();
-    expect(screen.queryByTestId("assignment-form")).not.toBeInTheDocument();
   });
 
   it("shows only the results panel on the results section", () => {
     renderAt("/interviewer/results");
     expect(screen.getByTestId("candidate-results")).toBeInTheDocument();
-    expect(screen.queryByTestId("candidate-manager")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("assignment-form")).not.toBeInTheDocument();
   });
 
   it("renders a workspace error when the initial load fails", async () => {

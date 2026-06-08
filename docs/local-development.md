@@ -64,7 +64,6 @@ Authorization: Bearer <OPS_TOKEN>
 - `/candidate/assignments`
 - `/candidate/problems/:problemId`
 - `/interviewer`
-- `/interviewer/candidates`
 - `/interviewer/results`
 - `/interviewer/users`
 - `/problem-admin`
