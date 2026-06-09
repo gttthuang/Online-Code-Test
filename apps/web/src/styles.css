@@ -681,24 +681,9 @@ textarea {
 .problem-checkbox-list {
   display: grid;
   gap: 0.65rem;
-  flex: 1;
-  min-height: 0;
+  max-height: 22rem;
   overflow: auto;
   padding-right: 0.25rem;
-}
-
-/* Let the assignment form fill the card so its problem list can scroll
-   within the card's capped height (mirrors the user list). */
-.assignment-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.assignment-form .field:has(.problem-checkbox-list) {
-  flex: 1;
-  min-height: 0;
 }
 
 .problem-checkbox-row {
@@ -1174,30 +1159,11 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  align-items: stretch;
-}
-
-/* Cap the two dashboard cards so they stay compact; the lists inside
-   scroll instead of growing the cards. Adjust the value to taste. */
-.grid-row-split > .status-card {
-  max-height: 32rem;
 }
 
 @media (max-width: 900px) {
   .grid-row-split {
     grid-template-columns: 1fr;
-  }
-
-  /* When the cards stack, drop the height cap and let each list scroll
-     at a fixed size instead of filling. */
-  .grid-row-split > .status-card {
-    max-height: none;
-  }
-
-  .user-table,
-  .problem-checkbox-list {
-    flex: none;
-    max-height: 24rem;
   }
 
   .dashboard-metrics {
@@ -1774,11 +1740,8 @@ textarea {
 .user-management-grid {
   display: grid;
   grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.4fr);
-  grid-template-rows: 1fr;
   gap: 1rem;
-  align-items: stretch;
-  flex: 1;
-  min-height: 0;
+  align-items: start;
 }
 
 .admin-user-form {
@@ -1786,16 +1749,11 @@ textarea {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.55);
   padding: 1rem;
-  align-self: start;
 }
 
 .user-table {
   display: grid;
   gap: 0.65rem;
-  align-content: start;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 0.25rem;
 }
 
 .user-table-row {

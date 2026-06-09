@@ -39,11 +39,11 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("InterviewerWorkspace", () => {
-  it("renders the full dashboard and threads loaded problems to children", async () => {
+  it("defaults to the assign section and threads loaded problems to it", async () => {
     renderAt("/interviewer");
-    expect(screen.getByText("Interviewer Dashboard")).toBeInTheDocument();
-    expect(screen.getByTestId("candidate-results")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Assign" })).toBeInTheDocument();
     expect(await screen.findByText("problems:1")).toBeInTheDocument();
+    expect(screen.queryByTestId("candidate-results")).not.toBeInTheDocument();
   });
 
   it("shows only the results panel on the results section", () => {
@@ -67,9 +67,8 @@ describe("InterviewerWorkspace", () => {
   it("handles getCandidates failure gracefully", async () => {
     mocked.getCandidates.mockRejectedValue(new Error("c boom"));
     renderAt("/interviewer");
-    // still renders problems and results even if candidates fail
+    // still renders the assign form even if candidates fail
     expect(await screen.findByText("problems:1")).toBeInTheDocument();
-    expect(screen.getByTestId("candidate-results")).toBeInTheDocument();
   });
 });
 

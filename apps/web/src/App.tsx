@@ -28,7 +28,7 @@ interface SessionState {
 
 const roleHomePath = {
   candidate: "/candidate",
-  interviewer: "/interviewer",
+  interviewer: "/interviewer/assign",
   problem_admin: "/problem-admin"
 } satisfies Record<AuthUser["role"], string>;
 
@@ -50,7 +50,6 @@ const workspaceNav = {
     { label: "Assignments", path: "/candidate/assignments", icon: ClipboardList }
   ],
   interviewer: [
-    { label: "Dashboard", path: "/interviewer", icon: LayoutDashboard },
     { label: "Assign", path: "/interviewer/assign", icon: ClipboardList },
     { label: "Results", path: "/interviewer/results", icon: Activity },
     { label: "Users", path: "/interviewer/users", icon: Users }
