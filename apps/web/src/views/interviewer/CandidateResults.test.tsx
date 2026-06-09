@@ -1,6 +1,7 @@
 import type {
   AuthUser,
   CandidateReviewContextResponse,
+  CustomRunDetail,
   InterviewReview,
   SubmissionHistoryItem
 } from "@oct/contracts";
@@ -79,6 +80,27 @@ function reviewContext(overrides: Partial<CandidateReviewContextResponse> = {}):
       }
     ],
     reviews: [],
+    ...overrides
+  };
+}
+
+function customRunDetail(overrides: Partial<CustomRunDetail> = {}): CustomRunDetail {
+  return {
+    id: "run_1",
+    candidateId: "cand_1",
+    problemId: "problem_1",
+    requestedBy: "int_1",
+    language: "python",
+    sourceCode: "print(1)",
+    stdin: "5",
+    status: "running",
+    stdout: null,
+    stderr: null,
+    errorType: null,
+    errorMessage: null,
+    executionTimeMs: null,
+    createdAt: "2026-06-01T10:00:00.000Z",
+    updatedAt: "2026-06-01T10:00:00.000Z",
     ...overrides
   };
 }
@@ -183,6 +205,20 @@ describe("CandidateResults", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByText("run boom")).toBeInTheDocument();
+  });
+
+  it("polls a running custom run until it reaches a terminal status", async () => {
+    mocked.createAdminCustomRun.mockResolvedValue({ runId: "run_1", status: "running" });
+    mocked.getAdminCustomRun
+      .mockResolvedValueOnce(customRunDetail({ status: "running" }))
+      .mockResolvedValue(customRunDetail({ status: "finished", stdout: "done" }));
+    await loadResults();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    // The effect schedules a 500ms poll, then an 800ms poll while still running,
+    // and stops once the run finishes.
+    await waitFor(() => expect(mocked.getAdminCustomRun).toHaveBeenCalledTimes(2), { timeout: 3000 });
   });
 
   it("shows empty review options when no problems are assigned", async () => {

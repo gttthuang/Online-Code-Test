@@ -16,4 +16,4 @@ ENV API_PORT=3000
 
 EXPOSE 3000
 
-CMD ["npx", "tsx", "apps/api/src/index.ts"]
+CMD ["node", "--import", "tsx", "apps/api/src/index.ts"]

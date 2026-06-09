@@ -18,4 +18,4 @@ COPY apps/judge-worker ./apps/judge-worker
 ENV NODE_ENV=production
 ENV JUDGE_SANDBOX_WORK_ROOT=/var/lib/oct-judge-work
 
-CMD ["npx", "tsx", "apps/judge-worker/src/index.ts"]
+CMD ["node", "--import", "tsx", "apps/judge-worker/src/index.ts"]
