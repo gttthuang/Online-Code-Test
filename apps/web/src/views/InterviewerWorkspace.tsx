@@ -35,6 +35,9 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   const location = useLocation();
   const activeSection = resolveActiveSection(location.pathname);
   const heading = sectionHeadings[activeSection];
+  // Assign + Users fit the viewport so only their inner list scrolls.
+  // Results keeps its own internal scroll areas, so let the page scroll.
+  const fitViewport = activeSection === "assign" || activeSection === "users";
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +65,7 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   }, [token]);
 
   return (
-    <div className="workspace-container">
+    <div className={fitViewport ? "workspace-container workspace-fit" : "workspace-container"}>
       <header className="workspace-header mb-lg">
         <h1>{heading.title}</h1>
         <p className="subtitle text-muted">{heading.subtitle}</p>

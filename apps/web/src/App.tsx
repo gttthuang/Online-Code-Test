@@ -50,9 +50,9 @@ const workspaceNav = {
     { label: "Assignments", path: "/candidate/assignments", icon: ClipboardList }
   ],
   interviewer: [
+    { label: "Users", path: "/interviewer/users", icon: Users },
     { label: "Assign", path: "/interviewer/assign", icon: ClipboardList },
-    { label: "Results", path: "/interviewer/results", icon: Activity },
-    { label: "Users", path: "/interviewer/users", icon: Users }
+    { label: "Results", path: "/interviewer/results", icon: Activity }
   ],
   problem_admin: [
     // { label: "Dashboard", path: "/problem-admin", icon: LayoutDashboard },

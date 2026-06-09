@@ -271,6 +271,80 @@ textarea {
   overflow: auto;
 }
 
+/* Pages that fill the viewport so the page itself doesn't scroll —
+   only a designated inner list scrolls. */
+.app-route-content > .workspace-container.workspace-fit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The header is a flex item here, so unlike a normal block page its
+   children's margins don't collapse out — zero them and set the header's
+   own margins so the layout matches the other (scrolling) pages. */
+.workspace-fit .workspace-header {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.workspace-fit .workspace-header h1 {
+  margin-top: 0;
+}
+
+.workspace-fit .workspace-header .subtitle {
+  margin-bottom: 0;
+}
+
+.workspace-fit .workspace-grid {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace-fit .status-card {
+  min-height: 0;
+}
+
+/* Users page: only the user list (right column) scrolls. */
+.workspace-fit .user-management-grid {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.workspace-fit .admin-user-form {
+  align-self: start;
+}
+
+.workspace-fit .user-table {
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  padding-right: 0.25rem;
+}
+
+/* Assign page: only the problems checklist scrolls. */
+.workspace-fit .assignment-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-fit .assignment-form .field:has(.problem-checkbox-list) {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-fit .problem-checkbox-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
 .session-user {
   display: flex;
   flex-direction: column;
