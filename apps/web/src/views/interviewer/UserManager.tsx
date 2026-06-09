@@ -144,7 +144,7 @@ export function UserManager({
         <form className="stack-form admin-user-form" onSubmit={handleCreateUser}>
           <label className="field">
             <span>Name</span>
-            <input onChange={(event) => setName(event.target.value)} placeholder="New teammate" value={name} />
+            <input onChange={(event) => setName(event.target.value)} placeholder="name" value={name} />
           </label>
 
           <label className="field">

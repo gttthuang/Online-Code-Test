@@ -85,7 +85,7 @@ describe("InterviewerWorkspace — user management", () => {
 
     expect(await screen.findByText("Self")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("New teammate"), { target: { value: "Carol" } });
+    fireEvent.change(screen.getByPlaceholderText("name"), { target: { value: "Carol" } });
     fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: "carol@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Create User" }));
 
