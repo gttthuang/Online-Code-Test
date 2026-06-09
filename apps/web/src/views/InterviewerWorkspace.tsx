@@ -16,14 +16,17 @@ function resolveActiveSection(pathname: string) {
   if (pathname.includes("/results")) {
     return "results";
   }
-  if (pathname.includes("/assign")) {
-    return "assign";
-  }
   if (pathname.includes("/users")) {
     return "users";
   }
-  return "dashboard";
+  return "assign";
 }
+
+const sectionHeadings = {
+  assign: { title: "Assign", subtitle: "Assign problems to candidates and set their time limit." },
+  results: { title: "Results", subtitle: "Review candidate submissions, run scratch code, and record reviews." },
+  users: { title: "Users", subtitle: "Manage accounts and roles." }
+} satisfies Record<string, { title: string; subtitle: string }>;
 
 export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorkspaceProps) {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
@@ -31,6 +34,10 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
   const activeSection = resolveActiveSection(location.pathname);
+  const heading = sectionHeadings[activeSection];
+  // Assign + Users fit the viewport so only their inner list scrolls.
+  // Results keeps its own internal scroll areas, so let the page scroll.
+  const fitViewport = activeSection === "assign" || activeSection === "users";
 
   useEffect(() => {
     let cancelled = false;
@@ -58,10 +65,10 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   }, [token]);
 
   return (
-    <div className="workspace-container">
+    <div className={fitViewport ? "workspace-container workspace-fit" : "workspace-container"}>
       <header className="workspace-header mb-lg">
-        <h1>Interviewer Dashboard</h1>
-        <p className="subtitle text-muted">Manage candidates, assign problems, and review performance.</p>
+        <h1>{heading.title}</h1>
+        <p className="subtitle text-muted">{heading.subtitle}</p>
       </header>
 
       {error && (
@@ -69,19 +76,6 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
           <strong>Workspace Error:</strong> {error}
         </div>
       )}
-
-      {activeSection === "dashboard" ? (
-        <section className="workspace-grid interviewer-grid">
-          <div className="grid-col-main">
-            <div className="grid-row-split mb-lg">
-              <UserManager currentUserId={currentUserId} token={token} />
-              <AssignmentForm token={token} candidates={candidates} problems={problems} />
-            </div>
-
-            <CandidateResults token={token} candidates={candidates} />
-          </div>
-        </section>
-      ) : null}
 
       {activeSection === "assign" ? (
         <section className="workspace-grid single-column-grid">
