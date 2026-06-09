@@ -1,4 +1,5 @@
-sonar.projectKey=online-code-test
+sonar.projectKey=<your-sonarcloud-project-key>
+sonar.organization=<your-sonarcloud-org-key>
 sonar.projectName=Online Code Test
 
 sonar.sources=apps,packages
@@ -6,8 +7,8 @@ sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.test.ts,**/*.
 
 sonar.typescript.lcov.reportPaths=apps/api/coverage/lcov.info,apps/judge-worker/coverage/lcov.info,apps/web/coverage/lcov.info
 
-sonar.host.url=http://localhost:9000
+sonar.host.url=https://sonarcloud.io
 
 sonar.sourceEncoding=UTF-8
 
-sonar.token=<paste-your-token-here>
+# Token is NOT stored here. Pass it at run time via the SONAR_TOKEN env var.

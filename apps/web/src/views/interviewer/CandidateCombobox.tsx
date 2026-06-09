@@ -62,7 +62,7 @@ export function CandidateCombobox({ candidates, value, onChange, placeholder, id
   }
 
   function handleBlur(event: React.FocusEvent<HTMLDivElement>) {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
       setOpen(false);
       setActiveIndex(-1);
     }

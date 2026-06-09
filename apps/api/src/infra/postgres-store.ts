@@ -215,28 +215,6 @@ export class PostgresStore implements AppStore {
     return this.createUser({ ...input, role: "candidate" });
   }
 
-  // async listProblems(): Promise<ProblemSummary[]> {
-  //   const result = await this.pool.query<ProblemRow>(
-  //     `
-  //       select
-  //         id,
-  //         title,
-  //         description,
-  //         difficulty,
-  //         time_limit_ms,
-  //         memory_limit_kb,
-  //         supported_languages,
-  //         sample_input,
-  //         sample_output,
-  //         created_by,
-  //         archived_at
-  //       from problems
-  //       order by title asc
-  //     `
-  //   );
-
-  //   return result.rows.map((row) => this.toProblemSummary(row));
-  // }
   async listProblems(): Promise<ProblemSummary[]> {
     const result = await this.pool.query<ProblemRow>(
       `
@@ -256,30 +234,6 @@ export class PostgresStore implements AppStore {
   }
 
   async getProblem(problemId: string): Promise<ProblemRecord | null> {
-    // const problemResult = await this.pool.query<ProblemRow>(
-    //   `
-    //     select
-    //       id,
-    //       title,
-    //       description,
-    //       difficulty,
-    //       time_limit_ms,
-    //       memory_limit_kb,
-    //       supported_languages,
-    //       sample_input,
-    //       sample_output,
-    //       created_by,
-    //       archived_at,
-    //       constraints as "constraints",
-    //       input_spec as "inputSpec",
-    //       output_spec as "outputSpec",
-    //       sample_explanation as "sampleExplanation",
-    //       template_code as "templateCode"
-    //     from problems
-    //     where id = $1
-    //   `,
-    //   [problemId]
-    // );
     const problemResult = await this.pool.query<ProblemRow>(
       `
         select

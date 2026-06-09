@@ -6,7 +6,7 @@ COPY package*.json tsconfig.base.json ./
 COPY packages/contracts/package.json ./packages/contracts/
 COPY apps/api/package.json ./apps/api/
 
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY packages/contracts ./packages/contracts
 COPY apps/api ./apps/api
