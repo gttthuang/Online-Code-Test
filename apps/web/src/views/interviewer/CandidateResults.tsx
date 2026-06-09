@@ -272,7 +272,7 @@ function ScratchRunPanel({
     }
 
     let cancelled = false;
-    let timer = 0;
+    let timer!: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
         const nextRun = await getAdminCustomRun(token, customRun.id);
@@ -283,7 +283,7 @@ function ScratchRunPanel({
 
         setCustomRun(nextRun);
         if (["queued", "running"].includes(nextRun.status)) {
-          timer = window.setTimeout(poll, 800);
+          timer = setTimeout(poll, 800);
         }
       } catch (err) {
         if (!cancelled) {
@@ -292,10 +292,10 @@ function ScratchRunPanel({
       }
     };
 
-    timer = window.setTimeout(poll, 500);
+    timer = setTimeout(poll, 500);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      clearTimeout(timer);
     };
   }, [customRun?.id, customRun?.status, token]);
 

@@ -20,7 +20,6 @@
     "verify:infra": "bash infra/verify.sh",
     "ci:verify": "npm run typecheck && npm run test:coverage && npm run test:system && npm run build:web && npm run verify:infra",
     "test:coverage": "npm run test:coverage --workspace @oct/api && npm run test:coverage --workspace @oct/judge-worker && npm run test:coverage --workspace @oct/web",
-    "presonar-scanner": "npm run test:coverage",
     "sonar-scanner": "npx sonarqube-scanner"
   },
   "devDependencies": {

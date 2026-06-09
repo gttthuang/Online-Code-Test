@@ -109,8 +109,7 @@ function resolveActiveSection(pathname: string) {
   if (pathname.includes("/problems")) {
     return "problems";
   }
-  // return "dashboard";
-  return "problems"
+  return "problems";
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
@@ -168,7 +167,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       const impact = await getProblemImpact(token, problem.id);
       setConfirmImpact(impact);
     } catch (err) {
-      showNotice({ type: "error", title: "無法檢查影響", message: "無法獲取題目狀態" });
+      showNotice({ type: "error", title: "無法檢查影響", message: `無法獲取題目狀態：${err}` });
     } finally {
       setConfirmLoading(false);
     }
@@ -221,10 +220,10 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       setConfirmImpact(null);
       
     } catch (err) {
-      showNotice({ 
-        type: "error", 
-        title: "載入失敗", 
-        message: "無法獲取題目詳細資料" 
+      showNotice({
+        type: "error",
+        title: "載入失敗",
+        message: `無法獲取題目詳細資料：${err}`
       });
     } finally {
       setConfirmLoading(false);
@@ -778,14 +777,27 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     );
   }
 
+  function handleCancelEdit() {
+    setEditingId(null);
+    setForm(initialFormState);
+    setTestcases([createEmptyTestcase()]);
+    navigate("/problem-admin/problems"); // 回到列表頁
+  }
+
+  function confirmActionLabel() {
+    if (operationMode === "modify") {
+      return forceModifyConfirmed ? "Force Update" : "Continue Editing";
+    }
+    return forceDeleteConfirmed ? "Force Delete" : "Delete";
+  }
+
   function renderBuilderCard() {
     const isEditing = !!editingId;
-    // 新增一個取消編輯的處理函式
-    function handleCancelEdit() {
-      setEditingId(null);
-      setForm(initialFormState);
-      setTestcases([createEmptyTestcase()]);
-      navigate("/problem-admin/problems"); // 回到列表頁
+    let primaryLabel: string;
+    if (submitting) {
+      primaryLabel = isEditing ? "Saving..." : "Creating...";
+    } else {
+      primaryLabel = isEditing ? "Save Changes" : "Create Problem";
     }
     return (
       <article className="status-card panel-column">
@@ -814,10 +826,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
             onClick={isEditing ? handleSaveProblem : handleCreateProblem} 
             type="button"
           >
-            {submitting 
-              ? (isEditing ? "Saving..." : "Creating...") 
-              : (isEditing ? "Save Changes" : "Create Problem")
-            }
+            {primaryLabel}
           </button>
 
           {/* 取消更新按鈕：只有在編輯模式下平行顯示 */}
@@ -974,13 +983,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
           </article>
         </section>
 
-        {/* {activeSection === "dashboard" ? (
-          <section className="workspace-grid">
-            {renderBuilderCard()}
-            {renderInventoryCard()}
-          </section>
-        ) : null} */}
-
         {activeSection === "new" ? <section className="workspace-grid single-column-grid">{renderBuilderCard()}</section> : null}
 
         {activeSection === "problems" ? <section className="workspace-grid single-column-grid">{renderInventoryCard()}</section> : null}
@@ -1002,68 +1004,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
         </output>
       ) : null}
 
-      {/* {confirmId ? (
-        <div className="modal-backdrop">
-          <div className="modal modal-wide">
-            <p>Delete problem</p>
-            <p className="modal-target-title">{confirmProblem?.title}</p>
-
-            {confirmLoading && (
-              <div className="empty-state">Loading impact...</div>
-            )}
-            {!confirmLoading && confirmImpact && (
-              <div className="impact-grid">
-                <div>
-                  <span>Assignments</span>
-                  <strong>{confirmImpact.assignments}</strong>
-                </div>
-                <div>
-                  <span>Candidate submissions</span>
-                  <strong>{confirmImpact.candidateSubmissions}</strong>
-                </div>
-                <div>
-                  <span>Preview submissions</span>
-                  <strong>{confirmImpact.previewSubmissions}</strong>
-                </div>
-                <div>
-                  <span>Reviews</span>
-                  <strong>{confirmImpact.reviews}</strong>
-                </div>
-              </div>
-            )}
-
-            {confirmImpact && !confirmImpact.canDeleteWithoutForce ? (
-              <label className="force-delete-check">
-                <input
-                  checked={forceDeleteConfirmed}
-                  onChange={(event) => setForceDeleteConfirmed(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>Force delete assignments, submissions, testcase results, and reviews for this problem.</span>
-              </label>
-            ) : null}
-
-            <div className="modal-actions">
-              <button className="chip-button" onClick={() => {
-                setConfirmId(null);
-                setConfirmImpact(null);
-                setForceDeleteConfirmed(false);
-              }} type="button">
-                Cancel
-              </button>
-
-              <button
-                className="chip-button"
-                disabled={confirmLoading || Boolean(confirmImpact && !confirmImpact.canDeleteWithoutForce && !forceDeleteConfirmed)}
-                onClick={confirmDelete}
-                type="button"
-              >
-                {forceDeleteConfirmed ? "Force Delete" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null} */}
       {confirmId ? (
       <div className="modal-backdrop">
         <div className="modal modal-wide">
@@ -1143,10 +1083,7 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
               onClick={operationMode === "modify" ? confirmModify : confirmDelete}
               type="button"
             >
-              {operationMode === "modify" 
-                ? (forceModifyConfirmed ? "Force Update" : "Continue Editing")
-                : (forceDeleteConfirmed ? "Force Delete" : "Delete")
-              }
+              {confirmActionLabel()}
             </button>
           </div>
         </div>

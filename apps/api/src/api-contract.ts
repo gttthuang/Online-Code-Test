@@ -184,8 +184,12 @@ export function assertApiRouteContract(registeredRoutes: ReadonlySet<string>) {
   const documentedRoutes = new Set(
     apiRouteDefinitions.map(({ method, path }) => apiRouteKey(method, path))
   );
-  const undocumented = [...registeredRoutes].filter((key) => !documentedRoutes.has(key)).sort();
-  const missing = [...documentedRoutes].filter((key) => !registeredRoutes.has(key)).sort();
+  const undocumented = [...registeredRoutes]
+    .filter((key) => !documentedRoutes.has(key))
+    .sort((a, b) => a.localeCompare(b));
+  const missing = [...documentedRoutes]
+    .filter((key) => !registeredRoutes.has(key))
+    .sort((a, b) => a.localeCompare(b));
 
   if (undocumented.length === 0 && missing.length === 0) {
     return;
@@ -202,8 +206,8 @@ export function createOpenApiDocument() {
   const paths: Record<string, Record<string, unknown>> = {};
 
   for (const definition of apiRouteDefinitions) {
-    const openApiPath = definition.path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
-    const parameters = [...definition.path.matchAll(/:([A-Za-z0-9_]+)/g)].map((match) => ({
+    const openApiPath = definition.path.replace(/:(\w+)/g, "{$1}");
+    const parameters = [...definition.path.matchAll(/:(\w+)/g)].map((match) => ({
       name: match[1],
       in: "path",
       required: true,

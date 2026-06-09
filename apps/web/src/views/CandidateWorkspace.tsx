@@ -546,7 +546,7 @@ export function CandidateWorkspace({ token, user, initialProblemId }: CandidateW
       if (contentRef.current) {
         const blocks = contentRef.current.querySelectorAll('pre');
         blocks.forEach((block) => {
-          hljs.highlightElement(block as HTMLElement);
+          hljs.highlightElement(block);
         });
       }
     }, 300);
