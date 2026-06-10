@@ -79,7 +79,10 @@ describe("InterviewerWorkspace — user management", () => {
 
   it("lists users and creates a new one", async () => {
     mocked.getUsers.mockResolvedValue([makeUser({ id: "interviewer_self", name: "Self", role: "interviewer" })]);
-    mocked.createUser.mockResolvedValue({ user: makeUser({ id: "user_9", name: "Carol", email: "carol@example.com" }) });
+    mocked.createUser.mockResolvedValue({
+      user: makeUser({ id: "user_9", name: "Carol", email: "carol@example.com" }),
+      password: "Gen3ratedPass"
+    });
     renderAt("/interviewer/users");
 
     expect(await screen.findByText("Self")).toBeInTheDocument();
@@ -90,6 +93,8 @@ describe("InterviewerWorkspace — user management", () => {
 
     await waitFor(() => expect(mocked.createUser).toHaveBeenCalled());
     expect(await screen.findByText("User created")).toBeInTheDocument();
+    // The one-time generated password is surfaced to the interviewer.
+    expect(screen.getByText("Gen3ratedPass")).toBeInTheDocument();
   });
 
   it("disables deleting the current user and deletes others", async () => {
@@ -102,12 +107,29 @@ describe("InterviewerWorkspace — user management", () => {
     await screen.findByText("Other");
 
     const selfRow = screen.getByText("Self").closest(".user-table-row") as HTMLElement;
-    expect(within(selfRow).getByRole("button")).toBeDisabled();
+    expect(within(selfRow).getByRole("button", { name: "x" })).toBeDisabled();
 
     const otherRow = screen.getByText("Other").closest(".user-table-row") as HTMLElement;
-    fireEvent.click(within(otherRow).getByRole("button"));
+    fireEvent.click(within(otherRow).getByRole("button", { name: "x" }));
     await waitFor(() => expect(mocked.deleteUser).toHaveBeenCalledWith("t", "user_2"));
     expect(await screen.findByText("User deleted")).toBeInTheDocument();
+  });
+
+  it("resets a user's password and surfaces the new credentials", async () => {
+    mocked.getUsers.mockResolvedValue([
+      makeUser({ id: "interviewer_self", name: "Self", role: "interviewer" }),
+      makeUser({ id: "user_2", name: "Other", email: "other@example.com" })
+    ]);
+    mocked.resetUserPassword.mockResolvedValue({ password: "Fresh3rPass" });
+    renderAt("/interviewer/users");
+    await screen.findByText("Other");
+
+    const otherRow = screen.getByText("Other").closest(".user-table-row") as HTMLElement;
+    fireEvent.click(within(otherRow).getByRole("button", { name: "Reset password" }));
+
+    await waitFor(() => expect(mocked.resetUserPassword).toHaveBeenCalledWith("t", "user_2"));
+    expect(await screen.findByText("Password reset")).toBeInTheDocument();
+    expect(screen.getByText("Fresh3rPass")).toBeInTheDocument();
   });
 
   it("shows an error when users fail to load", async () => {

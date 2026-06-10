@@ -199,7 +199,9 @@ describe("endpoint wrappers", () => {
   });
 
   it.each<[string, () => Promise<unknown>, string, string | undefined]>([
-    ["loginWithEmail", () => api.loginWithEmail("a@b.com"), "/auth/login", "POST"],
+    ["login", () => api.login("a@b.com", "secret"), "/auth/login", "POST"],
+    ["changePassword", () => api.changePassword("t", "old", "newpassword"), "/me/password", "POST"],
+    ["resetUserPassword", () => api.resetUserPassword("t", "u1"), "/admin/users/u1/reset-password", "POST"],
     ["getMe", () => api.getMe("t"), "/auth/me", undefined],
     ["getAssignments", () => api.getAssignments("t"), "/me/assignments", undefined],
     ["getCandidateExam", () => api.getCandidateExam("t"), "/me/exam", undefined],

@@ -4,9 +4,10 @@ import type { AuthUser, CandidateExamSummary } from "@oct/contracts";
 import { Activity, ClipboardList, Code2, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, PlusCircle, Users } from "lucide-react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { getCandidateExam, getMe, loginWithEmail, startCandidateExam } from "./lib/api";
+import { getCandidateExam, getMe, login, startCandidateExam } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
 import { LoginPanel } from "./views/LoginPanel";
+import { ChangePasswordButton } from "./views/ChangePasswordButton";
 
 const CandidateWorkspace = lazy(async () => {
   const module = await import("./views/CandidateWorkspace");
@@ -257,12 +258,12 @@ function AppRoutes() {
     };
   }, [session?.token]);
 
-  async function handleLogin(email: string) {
+  async function handleLogin(email: string, password: string) {
     setLoginLoading(true);
     setLoginError(null);
 
     try {
-      const response = await loginWithEmail(email);
+      const response = await login(email, password);
       const nextSession = {
         token: response.token,
         user: response.user
@@ -364,7 +365,7 @@ function LoginPage({
 }: {
   readonly error: string | null;
   readonly isLoading: boolean;
-  readonly onLogin: (email: string) => Promise<void>;
+  readonly onLogin: (email: string, password: string) => Promise<void>;
 }) {
   return (
     <main className="app-shell login-shell">
@@ -478,6 +479,7 @@ function WorkspaceFrame({ children, onLogout, session }: { readonly children: Re
               <span>{session.user.email}</span>
             </div>
             <span className="role-badge">{roleDisplayName[session.user.role]}</span>
+            <ChangePasswordButton token={session.token} />
             <button className="secondary-button icon-button-text" onClick={onLogout} type="button">
               <LogOut aria-hidden="true" size={16} />
               <span>Log Out</span>

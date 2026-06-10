@@ -52,6 +52,7 @@ export interface ApiErrorBody {
 
 export interface LoginRequest {
   email: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -66,6 +67,8 @@ export interface CreateCandidateRequest {
 
 export interface CreateCandidateResponse {
   candidate: AuthUser;
+  /** One-time generated password to hand to the candidate; shown only at creation. */
+  password: string;
 }
 
 export interface CreateUserRequest {
@@ -76,7 +79,22 @@ export interface CreateUserRequest {
 
 export interface CreateUserResponse {
   user: AuthUser;
+  /** One-time generated password to hand to the account holder; shown only at creation. */
+  password: string;
 }
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  /** One-time generated replacement password to hand to the account holder. */
+  password: string;
+}
+
+/** Minimum length enforced on a chosen password (server and client). */
+export const MIN_PASSWORD_LENGTH = 8;
 
 export interface ProblemSummary {
   id: string;

@@ -22,10 +22,10 @@ vi.mock("./views/ProblemAdminWorkspace", () => ({
   ProblemAdminWorkspace: () => <div data-testid="admin-workspace">admin</div>
 }));
 vi.mock("./views/LoginPanel", () => ({
-  LoginPanel: ({ error, onLogin }: { error: string | null; onLogin: (email: string) => void }) => (
+  LoginPanel: ({ error, onLogin }: { error: string | null; onLogin: (email: string, password: string) => void }) => (
     <div data-testid="login-panel">
       {error ? <p>{error}</p> : null}
-      <button type="button" onClick={() => onLogin("user@example.com")}>
+      <button type="button" onClick={() => onLogin("user@example.com", "secret")}>
         do-login
       </button>
     </div>
@@ -61,7 +61,7 @@ describe("App — authentication flow", () => {
   });
 
   it("logs in and routes to the role home", async () => {
-    mockedApi.loginWithEmail.mockResolvedValue({ token: "tok", user: candidate });
+    mockedApi.login.mockResolvedValue({ token: "tok", user: candidate });
     mockedApi.getMe.mockResolvedValue(candidate);
     renderApp("/login");
 
@@ -72,7 +72,7 @@ describe("App — authentication flow", () => {
   });
 
   it("renders a login error when login fails", async () => {
-    mockedApi.loginWithEmail.mockRejectedValue(new Error("bad credentials"));
+    mockedApi.login.mockRejectedValue(new Error("bad credentials"));
     renderApp("/login");
 
     fireEvent.click(screen.getByRole("button", { name: "do-login" }));

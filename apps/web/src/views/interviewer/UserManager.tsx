@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type { AuthUser, UserRole } from "@oct/contracts";
 import { roles } from "@oct/contracts";
 
-import { createUser, deleteUser, getUsers } from "../../lib/api";
+import { createUser, deleteUser, getUsers, resetUserPassword } from "../../lib/api";
 
 const roleLabels = {
   candidate: "Candidate",
@@ -11,10 +11,21 @@ const roleLabels = {
   problem_admin: "Problem Admin"
 } satisfies Record<UserRole, string>;
 
+const roleBadgeClass = {
+  candidate: "badge-role-candidate",
+  interviewer: "badge-role-interviewer",
+  problem_admin: "badge-role-admin"
+} satisfies Record<UserRole, string>;
+
 type Notice = {
   type: "success" | "error";
   title: string;
   message: string;
+  /** Newly generated login credentials, shown once right after creation. */
+  credentials?: {
+    email: string;
+    password: string;
+  };
 };
 
 function compareUsers(left: AuthUser, right: AuthUser) {
@@ -35,6 +46,7 @@ export function UserManager({
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -91,7 +103,11 @@ export function UserManager({
       setNotice({
         type: "success",
         title: "User created",
-        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}.`
+        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}. Share these credentials — the password is shown only once.`,
+        credentials: {
+          email: response.user.email,
+          password: response.password
+        }
       });
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : "Failed to create user";
@@ -103,6 +119,34 @@ export function UserManager({
       });
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleResetPassword(user: AuthUser) {
+    setResettingId(user.id);
+    setError(null);
+
+    try {
+      const response = await resetUserPassword(token, user.id);
+      setNotice({
+        type: "success",
+        title: "Password reset",
+        message: `${user.name}'s password was regenerated. Share these credentials — it is shown only once.`,
+        credentials: {
+          email: user.email,
+          password: response.password
+        }
+      });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to reset password";
+      setError(message);
+      setNotice({
+        type: "error",
+        title: "Password not reset",
+        message
+      });
+    } finally {
+      setResettingId(null);
     }
   }
 
@@ -191,7 +235,17 @@ export function UserManager({
                   <span className="candidate-email">{user.email}</span>
                 </div>
 
-                <span className="badge badge-outline">{roleLabels[user.role]}</span>
+                <span className={`badge ${roleBadgeClass[user.role]}`}>{roleLabels[user.role]}</span>
+
+                <button
+                  className="secondary-button"
+                  disabled={resettingId === user.id}
+                  onClick={() => handleResetPassword(user)}
+                  title="Generate a new password for this account"
+                  type="button"
+                >
+                  {resettingId === user.id ? "Resetting..." : "Reset password"}
+                </button>
 
                 <button
                   className="delete-button"
@@ -212,6 +266,18 @@ export function UserManager({
         <output className={`toast floating-toast toast-${notice.type}`}>
           <strong>{notice.title}</strong>
           <span>{notice.message}</span>
+          {notice.credentials ? (
+            <dl className="credential-readout">
+              <div>
+                <dt>Email</dt>
+                <dd>{notice.credentials.email}</dd>
+              </div>
+              <div>
+                <dt>Password</dt>
+                <dd><code>{notice.credentials.password}</code></dd>
+              </div>
+            </dl>
+          ) : null}
           <button className="toast-close-button" onClick={() => setNotice(null)} type="button">
             x
           </button>

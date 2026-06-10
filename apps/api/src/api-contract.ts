@@ -20,8 +20,9 @@ export const apiRouteDefinitions = [
   route("GET", "/metrics", "getMetrics", "Read Prometheus operational metrics", "System", "ops"),
   route("GET", "/internal/stats", "getInternalStats", "Read judge and submission statistics", "System", "ops"),
   route("GET", "/openapi.json", "getOpenApiDocument", "Read the machine-readable API contract", "System", "public"),
-  route("POST", "/auth/login", "login", "Sign in with a demo account email", "Auth", "public"),
+  route("POST", "/auth/login", "login", "Sign in with an account email and password", "Auth", "public"),
   route("GET", "/auth/me", "getCurrentUser", "Read the authenticated user", "Auth", "authenticated"),
+  route("POST", "/me/password", "changePassword", "Change the authenticated user's password", "Auth", "authenticated", 204),
 
   roleRoute("GET", "/me/exam", "getCandidateExam", "Read candidate exam state", "Candidate", ["candidate"]),
   roleRoute("POST", "/me/exam/start", "startCandidateExam", "Start the candidate exam timer", "Candidate", ["candidate"]),
@@ -89,6 +90,14 @@ export const apiRouteDefinitions = [
     "Interviewer",
     ["interviewer"],
     204
+  ),
+  roleRoute(
+    "POST",
+    "/admin/users/:userId/reset-password",
+    "resetUserPassword",
+    "Generate a new password for a user account",
+    "Interviewer",
+    ["interviewer"]
   ),
   roleRoute(
     "GET",

@@ -560,6 +560,34 @@ textarea {
   min-width: 10rem;
 }
 
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  /* Leave room for the show/hide toggle so text never sits under it. */
+  padding-right: 2.6rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--accent);
+}
+
 .demo-list,
 .assignment-list,
 .case-list {
@@ -1132,6 +1160,16 @@ textarea {
   width: min(560px, calc(100vw - 2rem));
 }
 
+.change-password-modal {
+  width: min(420px, calc(100vw - 2rem));
+  display: grid;
+  gap: 1rem;
+}
+
+.field-hint {
+  color: var(--muted);
+}
+
 .impact-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1352,6 +1390,40 @@ textarea {
   line-height: 1.45;
 }
 
+.credential-readout {
+  grid-column: 1;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.credential-readout > div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.credential-readout dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.credential-readout dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.credential-readout code {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .toast-close-button {
   grid-column: 2;
   grid-row: 1 / span 2;
@@ -1467,6 +1539,26 @@ textarea {
   background: #fbf1dc;
   color: #92400e;
   border: 1px solid rgba(211, 154, 44, 0.3);
+}
+
+/* Role-colored chips, so an account's role reads at a glance and is visually
+   distinct from neighbouring action buttons. */
+.badge-role-candidate {
+  background: #e6effb;
+  color: #1e40af;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.badge-role-interviewer {
+  background: #e2f1ef;
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.3);
+}
+
+.badge-role-admin {
+  background: #f1e9fb;
+  color: #6b21a8;
+  border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
 .result-grid {
@@ -1895,7 +1987,7 @@ textarea {
 
 .user-table-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 0.75rem;
   align-items: center;
   border: 1px solid var(--line);

@@ -167,7 +167,7 @@ test("candidate cannot fetch another candidate's submission", async () => {
     const problem = await createProblem(harness.app, problemAdmin.token);
     await createAssignment(harness.app, interviewer.token, secondCandidate.id, problem.id);
 
-    const secondCandidateLogin = await login(harness.app, secondCandidate.email);
+    const secondCandidateLogin = await login(harness.app, secondCandidate.email, secondCandidate.password);
     const submission = await createSubmission(harness.app, secondCandidateLogin.token, {
       problemId: problem.id,
       language: "python",
