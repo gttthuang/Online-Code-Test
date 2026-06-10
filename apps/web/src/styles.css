@@ -326,25 +326,6 @@ textarea {
   padding-right: 0.25rem;
 }
 
-/* Assign page: only the problems checklist scrolls. */
-.workspace-fit .assignment-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-fit .assignment-form .field:has(.problem-checkbox-list) {
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-fit .problem-checkbox-list {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
-}
-
 .session-user {
   display: flex;
   flex-direction: column;
@@ -680,6 +661,17 @@ textarea {
   background: rgba(255, 255, 255, 0.65);
 }
 
+.case-item {
+  align-items: flex-start;
+}
+
+.case-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .case-pass {
   color: var(--success);
   font-weight: 700;
@@ -688,6 +680,34 @@ textarea {
 .case-fail,
 .error-text {
   color: var(--danger);
+}
+
+.error-block {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-left: 4px solid var(--danger);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.error-block-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.error-block-message {
+  margin: 0;
+  max-height: 16rem;
+  overflow: auto;
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #7f1d1d;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .empty-state {
@@ -1578,7 +1598,8 @@ textarea {
   width: min(1100px, calc(100vw - 2rem));
 }
 
-.submission-modal-meta {
+.submission-modal-meta,
+.submission-detail-meta {
   align-items: center;
   overflow-wrap: anywhere;
 }
@@ -1626,6 +1647,48 @@ textarea {
 
 .review-editor h3 {
   margin: 0;
+}
+
+.collapsible-section {
+  align-content: start;
+}
+
+.collapsible-header {
+  align-items: center;
+}
+
+.collapsible-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.collapsible-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.collapsible-chevron {
+  transition: transform 180ms ease;
+}
+
+.collapsible-chevron-open {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  display: grid;
+  gap: 1rem;
 }
 
 .scratch-run-editor {

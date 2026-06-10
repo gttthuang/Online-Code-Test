@@ -35,9 +35,10 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   const location = useLocation();
   const activeSection = resolveActiveSection(location.pathname);
   const heading = sectionHeadings[activeSection];
-  // Assign + Users fit the viewport so only their inner list scrolls.
-  // Results keeps its own internal scroll areas, so let the page scroll.
-  const fitViewport = activeSection === "assign" || activeSection === "users";
+  // Users fits the viewport so only its inner user list scrolls.
+  // Assign and Results scroll the page (Assign's problem list is bounded with
+  // its own scroll; Results keeps internal scroll areas).
+  const fitViewport = activeSection === "users";
 
   useEffect(() => {
     let cancelled = false;

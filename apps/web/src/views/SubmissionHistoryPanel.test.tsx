@@ -95,6 +95,35 @@ describe("SubmissionHistoryPanel", () => {
     expect(screen.queryByText("Submission Detail")).not.toBeInTheDocument();
   });
 
+  it("expands a row inline and collapses it again when inlineExpand is set", () => {
+    const onSelect = vi.fn();
+    render(
+      <SubmissionHistoryPanel
+        emptyMessage="none"
+        inlineExpand
+        onSelect={onSelect}
+        submissions={[makeSubmission()]}
+      />
+    );
+
+    // Collapsed: summary is visible, but the detail (code + cases) is not.
+    expect(screen.getByText("Reverse a string")).toBeInTheDocument();
+    expect(screen.queryByText("case-1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Submission Detail")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /view/i }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("print('hi')")).toBeInTheDocument();
+    expect(screen.getByText("case-1")).toBeInTheDocument();
+    // No modal in inline mode.
+    expect(screen.queryByText("Submission Detail")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /hide/i }));
+    expect(screen.queryByText("case-1")).not.toBeInTheDocument();
+    // Collapsing does not re-fire selection.
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
   it("closes the modal when clicking the backdrop but not the modal body", () => {
     const { container } = render(
       <SubmissionHistoryPanel emptyMessage="none" onSelect={vi.fn()} submissions={[makeSubmission()]} />
