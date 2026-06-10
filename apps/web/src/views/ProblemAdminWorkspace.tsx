@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
-import ReactQuill, {Quill} from "react-quill-new";
+import ReactQuill from "react-quill-new";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { archiveProblem, createProblem, deleteProblem, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getAdminProblem, updateAdminProblem } from "../lib/api";
@@ -8,8 +8,9 @@ import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
 import "react-quill-new/dist/quill.snow.css";
+import Quill from "quill";
 import ImageResize from 'quill-image-resize-module-react';
-Quill.register('modules/imageResize', ImageResize);
+
 
 interface ProblemAdminWorkspaceProps {
   readonly currentUserId: string;
@@ -115,6 +116,12 @@ function resolveActiveSection(pathname: string) {
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
+  useEffect(() => {
+    if (!(Quill as any).__imageResizeRegistered) {
+      Quill.register("modules/imageResize", ImageResize);
+      (Quill as any).__imageResizeRegistered = true;
+    }
+  }, []);
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
