@@ -12,7 +12,7 @@ import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import { loadDraft, saveDraft, loadEditorSettings, saveEditorSettings } from "../lib/drafts";
 import "./candidate.css";
 import "highlight.js/styles/default.min.css";
-import "react-quill-new/dist/quill.snow.css";
+import "react-quill/dist/quill.snow.css";
 
 type LeftTab = "description" | "submissions";
 type RightTab = "testcases" | "terminal" | "output";

@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
-import ReactQuill from "react-quill-new";
+import ReactQuill from "react-quill";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { archiveProblem, createProblem, deleteProblem, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getAdminProblem, updateAdminProblem } from "../lib/api";
 import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
-import "react-quill-new/dist/quill.snow.css";
+import "react-quill/dist/quill.snow.css";
 import Quill from "quill";
 import ImageResize from 'quill-image-resize-module-react';
+if (typeof window !== "undefined") {
+  const q = Quill as any;
 
+  if (!q.__imageResizeRegistered) {
+    Quill.register("modules/imageResize", ImageResize);
+    q.__imageResizeRegistered = true;
+  }
+}
 
 interface ProblemAdminWorkspaceProps {
   readonly currentUserId: string;
@@ -116,12 +123,12 @@ function resolveActiveSection(pathname: string) {
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
-  useEffect(() => {
-    if (!(Quill as any).__imageResizeRegistered) {
-      Quill.register("modules/imageResize", ImageResize);
-      (Quill as any).__imageResizeRegistered = true;
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (!(Quill as any).__imageResizeRegistered) {
+  //     Quill.register("modules/imageResize", ImageResize);
+  //     (Quill as any).__imageResizeRegistered = true;
+  //   }
+  // }, []);
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
