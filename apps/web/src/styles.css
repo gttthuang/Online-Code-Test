@@ -326,25 +326,6 @@ textarea {
   padding-right: 0.25rem;
 }
 
-/* Assign page: only the problems checklist scrolls. */
-.workspace-fit .assignment-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-fit .assignment-form .field:has(.problem-checkbox-list) {
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-fit .problem-checkbox-list {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
-}
-
 .session-user {
   display: flex;
   flex-direction: column;
