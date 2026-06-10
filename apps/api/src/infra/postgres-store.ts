@@ -370,13 +370,22 @@ export class PostgresStore implements AppStore {
           input.templateCode
         ]
       );
-      // 2. 寫入題號對照表
-      // 使用 COALESCE 處理第一筆題目（若無資料則從 1 開始）
+      
       await client.query(
+        // `
+        //   insert into problem_display_numbers (problem_id, display_number)
+        //   select $1, COALESCE(MAX(display_number), 0) + 1 
+        //   from problem_display_numbers
+        // `,
         `
           insert into problem_display_numbers (problem_id, display_number)
-          select $1, COALESCE(MAX(display_number), 0) + 1 
-          from problem_display_numbers
+          select $1, COALESCE((
+            SELECT MIN(t1.display_number + 1)
+            FROM problem_display_numbers t1
+            LEFT JOIN problem_display_numbers t2
+              ON t2.display_number = t1.display_number + 1
+            WHERE t2.display_number IS NULL
+          ), 1)
         `,
         [problemId]
       );
