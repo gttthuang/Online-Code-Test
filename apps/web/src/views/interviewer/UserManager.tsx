@@ -11,6 +11,12 @@ const roleLabels = {
   problem_admin: "Problem Admin"
 } satisfies Record<UserRole, string>;
 
+const roleBadgeClass = {
+  candidate: "badge-role-candidate",
+  interviewer: "badge-role-interviewer",
+  problem_admin: "badge-role-admin"
+} satisfies Record<UserRole, string>;
+
 type Notice = {
   type: "success" | "error";
   title: string;
@@ -229,7 +235,7 @@ export function UserManager({
                   <span className="candidate-email">{user.email}</span>
                 </div>
 
-                <span className="badge badge-outline">{roleLabels[user.role]}</span>
+                <span className={`badge ${roleBadgeClass[user.role]}`}>{roleLabels[user.role]}</span>
 
                 <button
                   className="secondary-button"

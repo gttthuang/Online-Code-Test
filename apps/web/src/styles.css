@@ -1513,6 +1513,26 @@ textarea {
   border: 1px solid rgba(211, 154, 44, 0.3);
 }
 
+/* Role-colored chips, so an account's role reads at a glance and is visually
+   distinct from neighbouring action buttons. */
+.badge-role-candidate {
+  background: #e6effb;
+  color: #1e40af;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.badge-role-interviewer {
+  background: #e2f1ef;
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.3);
+}
+
+.badge-role-admin {
+  background: #f1e9fb;
+  color: #6b21a8;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
 .result-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
