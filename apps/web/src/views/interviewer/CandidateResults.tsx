@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { reviewRecommendations } from "@oct/contracts";
 import type { AuthUser, CandidateReviewContextResponse, CustomRunDetail, InterviewReview, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
 import { createAdminCustomRun, deleteCandidateReview, getAdminCustomRun, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
@@ -206,32 +208,38 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
         )}
         {!loading && results && (
           <div className="review-results-layout">
-            <ReviewEditor
-              disabled={reviewSaving}
-              form={reviewForm}
-              hasSavedReview={Boolean(reviewContext?.reviews.some((review) => review.problemId === selectedProblemId))}
-              message={reviewMessage}
-              onDelete={handleDeleteReview}
-              onSave={handleSaveReview}
-              onSelectProblem={setSelectedProblemId}
-              onUpdate={setReviewForm}
-              problemOptions={reviewContext?.assignments ?? []}
-              selectedProblemId={selectedProblemId}
-            />
+            <CollapsibleSection eyebrow="Private Review" title="Notes and rubric">
+              <ReviewEditor
+                disabled={reviewSaving}
+                form={reviewForm}
+                hasSavedReview={Boolean(reviewContext?.reviews.some((review) => review.problemId === selectedProblemId))}
+                message={reviewMessage}
+                onDelete={handleDeleteReview}
+                onSave={handleSaveReview}
+                onSelectProblem={setSelectedProblemId}
+                onUpdate={setReviewForm}
+                problemOptions={reviewContext?.assignments ?? []}
+                selectedProblemId={selectedProblemId}
+              />
+            </CollapsibleSection>
 
-            <ScratchRunPanel
-              candidate={results.candidate}
-              problemId={selectedProblemId}
-              token={token}
-            />
+            <CollapsibleSection eyebrow="Scratch Terminal" title={`Run code for ${results.candidate.name}`}>
+              <ScratchRunPanel
+                candidate={results.candidate}
+                problemId={selectedProblemId}
+                token={token}
+              />
+            </CollapsibleSection>
 
-            <SubmissionHistoryPanel
-              emptyMessage="No submissions found for this candidate."
-              onSelect={(submission) => setSelectedSubmissionId(submission.id)}
-              selectedId={selectedSubmissionId}
-              submissions={results.submissions}
-              showCodeInline={true}
-            />
+            <CollapsibleSection eyebrow="Submission History" title="Submissions">
+              <SubmissionHistoryPanel
+                emptyMessage="No submissions found for this candidate."
+                onSelect={(submission) => setSelectedSubmissionId(submission.id)}
+                selectedId={selectedSubmissionId}
+                submissions={results.submissions}
+                showCodeInline={true}
+              />
+            </CollapsibleSection>
           </div>
         )}
         {!loading && !results && (
@@ -241,6 +249,45 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
         )}
       </div>
     </article>
+  );
+}
+
+function CollapsibleSection({
+  eyebrow,
+  title,
+  defaultOpen = true,
+  children
+}: {
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly defaultOpen?: boolean;
+  readonly children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section className="review-editor collapsible-section">
+      <div className="panel-header collapsible-header">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h3>{title}</h3>
+        </div>
+        <button
+          aria-expanded={open}
+          aria-label={open ? `Collapse ${eyebrow}` : `Expand ${eyebrow}`}
+          className="collapsible-toggle"
+          onClick={() => setOpen((value) => !value)}
+          type="button"
+        >
+          <ChevronDown
+            aria-hidden="true"
+            className={open ? "collapsible-chevron collapsible-chevron-open" : "collapsible-chevron"}
+            size={18}
+          />
+        </button>
+      </div>
+      {open ? children : null}
+    </section>
   );
 }
 
@@ -342,14 +389,7 @@ function ScratchRunPanel({
   }
 
   return (
-    <section className="review-editor">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Scratch Terminal</p>
-          <h3>Run code for {candidate.name}</h3>
-        </div>
-      </div>
-
+    <div className="collapsible-content">
       <label className="field">
         <span>Language</span>
         <select
@@ -421,7 +461,7 @@ function ScratchRunPanel({
           <p className="helper-text">Run code with stdin without creating an official submission.</p>
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -449,14 +489,7 @@ function ReviewEditor({
   readonly selectedProblemId: string;
 }) {
   return (
-    <form className="review-editor" onSubmit={onSave}>
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Private Review</p>
-          <h3>Notes and rubric</h3>
-        </div>
-      </div>
-
+    <form className="collapsible-content" onSubmit={onSave}>
       <label className="field">
         <span>Problem</span>
         <select disabled={problemOptions.length === 0 || disabled} onChange={(event) => onSelectProblem(event.target.value)} value={selectedProblemId}>

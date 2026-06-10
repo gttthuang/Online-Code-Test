@@ -1609,6 +1609,48 @@ textarea {
   margin: 0;
 }
 
+.collapsible-section {
+  align-content: start;
+}
+
+.collapsible-header {
+  align-items: center;
+}
+
+.collapsible-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.collapsible-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.collapsible-chevron {
+  transition: transform 180ms ease;
+}
+
+.collapsible-chevron-open {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  display: grid;
+  gap: 1rem;
+}
+
 .scratch-run-editor {
   border: 1px solid var(--line);
   border-radius: 12px;
