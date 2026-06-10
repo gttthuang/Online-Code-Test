@@ -335,6 +335,7 @@ export class PostgresStore implements AppStore {
 
     try {
       await client.query("begin");
+      
       await client.query(
         `
           insert into problems (
@@ -369,6 +370,9 @@ export class PostgresStore implements AppStore {
           input.sampleExplanation,
           input.templateCode
         ]
+      );
+      await client.query(
+        `LOCK TABLE problem_display_numbers IN EXCLUSIVE MODE`
       );
       
       await client.query(
