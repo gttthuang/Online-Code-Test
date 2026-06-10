@@ -177,7 +177,10 @@ function SubmissionDetailBody({
       </div>
 
       {submission.result?.errorMessage ? (
-        <p className="error-text">{submission.result.errorMessage}</p>
+        <div className="error-block" role="alert">
+          <p className="error-block-title">{verdict.label}</p>
+          <pre className="error-block-message">{submission.result.errorMessage}</pre>
+        </div>
       ) : null}
 
       <div className={isModal ? "submission-detail-grid submission-modal-grid" : "submission-detail-grid"}>
@@ -192,10 +195,10 @@ function SubmissionDetailBody({
             {submission.result?.cases.length ? (
               submission.result.cases.map((testCase) => (
                 <div className="case-item" key={testCase.testCaseId}>
-                  <div>
+                  <div className="case-item-info">
                     <strong>{testCase.testCaseId}</strong>
                     <small>
-                      {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+                      {testCase.executionTimeMs} ms · {testCase.memoryKb} KB
                     </small>
                   </div>
                   <span className={testCase.passed ? "case-pass" : "case-fail"}>
