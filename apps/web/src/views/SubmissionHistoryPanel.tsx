@@ -1,6 +1,6 @@
 import type { SubmissionHistoryItem } from "@oct/contracts";
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import { ChevronDown, Eye } from "lucide-react";
 
 interface SubmissionHistoryPanelProps {
   readonly emptyMessage: string;
@@ -9,6 +9,11 @@ interface SubmissionHistoryPanelProps {
   readonly selectedId?: string | null;
   readonly submissions: SubmissionHistoryItem[];
   readonly showCodeInline?: boolean;
+  /**
+   * When true, each row expands its full detail (code, per-case results, meta)
+   * inline as a collapsible block instead of opening the View modal.
+   */
+  readonly inlineExpand?: boolean;
 }
 
 export function SubmissionHistoryPanel({
@@ -17,10 +22,28 @@ export function SubmissionHistoryPanel({
   onSelect,
   selectedId,
   submissions,
-  showCodeInline
+  showCodeInline,
+  inlineExpand = false
 }: SubmissionHistoryPanelProps) {
   const [activeSubmission, setActiveSubmission] = useState<SubmissionHistoryItem | null>(null);
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
   const activeId = activeSubmission?.id ?? selectedId;
+
+  const toggleExpanded = (submission: SubmissionHistoryItem) => {
+    const willExpand = !expandedIds.has(submission.id);
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(submission.id)) {
+        next.delete(submission.id);
+      } else {
+        next.add(submission.id);
+      }
+      return next;
+    });
+    if (willExpand) {
+      onSelect(submission);
+    }
+  };
 
   if (loading) {
     return (
@@ -38,48 +61,72 @@ export function SubmissionHistoryPanel({
   return (
     <div className="submission-history-layout">
       <div className="submission-history-list">
-        {submissions.map((submission) => (
-          <div key={submission.id}>
-            <div
-              className={submission.id === activeId ? "submission-history-row submission-history-row-active" : "submission-history-row"}
-            >
-              <div className="submission-history-main">
-                <strong>{submission.problemTitle}</strong>
-                <span>{new Date(submission.createdAt).toLocaleString()}</span>
-                {/* <small>{submission.id}</small> */}
-              </div>
-
-              <div className="submission-history-meta">
-                {(() => {
-                  const verdict = getSubmissionVerdict(submission);
-                  return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
-                })()}
-                <span>{submission.language}</span>
-                <span>{submission.passedCases} / {submission.totalCases} cases</span>
-              </div>
-
-              <button
-                className="secondary-button icon-button-text"
-                onClick={() => {
-                  setActiveSubmission(submission);
-                  onSelect(submission);
-                }}
-                type="button"
+        {submissions.map((submission) => {
+          const verdict = getSubmissionVerdict(submission);
+          const expanded = inlineExpand && expandedIds.has(submission.id);
+          const rowActive = inlineExpand ? expanded : submission.id === activeId;
+          return (
+            <div key={submission.id}>
+              <div
+                className={rowActive ? "submission-history-row submission-history-row-active" : "submission-history-row"}
               >
-                <Eye aria-hidden="true" size={15} />
-                <span>View</span>
-              </button>
-            </div>
-            {showCodeInline && (
-              <div className="submission-history-code-inline mt-sm mb-lg">
-                <pre className="code-snapshot">{submission.sourceCode}</pre>
+                <div className="submission-history-main">
+                  <strong>{submission.problemTitle}</strong>
+                  <span>{new Date(submission.createdAt).toLocaleString()}</span>
+                </div>
+
+                <div className="submission-history-meta">
+                  <span className={`badge ${verdict.className}`}>{verdict.label}</span>
+                  <span>{submission.language}</span>
+                  <span>{submission.passedCases} / {submission.totalCases} cases</span>
+                </div>
+
+                {inlineExpand ? (
+                  <button
+                    aria-expanded={expanded}
+                    className="secondary-button icon-button-text"
+                    onClick={() => toggleExpanded(submission)}
+                    type="button"
+                  >
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={expanded ? "collapsible-chevron collapsible-chevron-open" : "collapsible-chevron"}
+                      size={15}
+                    />
+                    <span>{expanded ? "Hide" : "View"}</span>
+                  </button>
+                ) : (
+                  <button
+                    className="secondary-button icon-button-text"
+                    onClick={() => {
+                      setActiveSubmission(submission);
+                      onSelect(submission);
+                    }}
+                    type="button"
+                  >
+                    <Eye aria-hidden="true" size={15} />
+                    <span>View</span>
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+
+              {inlineExpand && expanded ? (
+                <div className="submission-history-detail mt-sm mb-lg">
+                  <SubmissionDetailBody submission={submission} variant="inline" />
+                </div>
+              ) : null}
+
+              {!inlineExpand && showCodeInline && (
+                <div className="submission-history-code-inline mt-sm mb-lg">
+                  <pre className="code-snapshot">{submission.sourceCode}</pre>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {activeSubmission ? (
+      {!inlineExpand && activeSubmission ? (
         <div className="modal-backdrop submission-modal-backdrop">
           <button
             aria-label="Close submission detail"
@@ -98,58 +145,71 @@ export function SubmissionHistoryPanel({
               </button>
             </div>
 
-            <div className="result-summary">
-              <strong>{activeSubmission.passedCases} / {activeSubmission.totalCases} cases</strong>
-              <span>{activeSubmission.score ?? "--"} / 100</span>
-            </div>
-
-            <div className="meta-row submission-modal-meta">
-              <span>{activeSubmission.candidateName}</span>
-              <span>{activeSubmission.language}</span>
-              <span>{new Date(activeSubmission.createdAt).toLocaleString()}</span>
-              {(() => {
-                const verdict = getSubmissionVerdict(activeSubmission);
-                return <span className={`badge ${verdict.className}`}>{verdict.label}</span>;
-              })()}
-            </div>
-
-            {activeSubmission.result?.errorMessage ? (
-              <p className="error-text">{activeSubmission.result.errorMessage}</p>
-            ) : null}
-
-            <div className="submission-detail-grid submission-modal-grid">
-              <div>
-                <p className="label-text">Code</p>
-                <pre className="code-snapshot submission-modal-code">{activeSubmission.sourceCode}</pre>
-              </div>
-
-              <div>
-                <p className="label-text">Result</p>
-                <div className="case-list">
-                  {activeSubmission.result?.cases.length ? (
-                    activeSubmission.result.cases.map((testCase) => (
-                      <div className="case-item" key={testCase.testCaseId}>
-                        <div>
-                          <strong>{testCase.testCaseId}</strong>
-                          <small>
-                            {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
-                          </small>
-                        </div>
-                        <span className={testCase.passed ? "case-pass" : "case-fail"}>
-                          {testCase.passed ? "PASS" : "FAIL"}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="empty-state">Judge result is not available yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <SubmissionDetailBody submission={activeSubmission} variant="modal" />
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SubmissionDetailBody({
+  submission,
+  variant
+}: {
+  readonly submission: SubmissionHistoryItem;
+  readonly variant: "modal" | "inline";
+}) {
+  const verdict = getSubmissionVerdict(submission);
+  const isModal = variant === "modal";
+  return (
+    <>
+      <div className="result-summary">
+        <strong>{submission.passedCases} / {submission.totalCases} cases</strong>
+        <span>{submission.score ?? "--"} / 100</span>
+      </div>
+
+      <div className={isModal ? "meta-row submission-modal-meta" : "meta-row submission-detail-meta"}>
+        <span>{submission.candidateName}</span>
+        <span>{submission.language}</span>
+        <span>{new Date(submission.createdAt).toLocaleString()}</span>
+        <span className={`badge ${verdict.className}`}>{verdict.label}</span>
+      </div>
+
+      {submission.result?.errorMessage ? (
+        <p className="error-text">{submission.result.errorMessage}</p>
+      ) : null}
+
+      <div className={isModal ? "submission-detail-grid submission-modal-grid" : "submission-detail-grid"}>
+        <div>
+          <p className="label-text">Code</p>
+          <pre className={isModal ? "code-snapshot submission-modal-code" : "code-snapshot"}>{submission.sourceCode}</pre>
+        </div>
+
+        <div>
+          <p className="label-text">Result</p>
+          <div className="case-list">
+            {submission.result?.cases.length ? (
+              submission.result.cases.map((testCase) => (
+                <div className="case-item" key={testCase.testCaseId}>
+                  <div>
+                    <strong>{testCase.testCaseId}</strong>
+                    <small>
+                      {testCase.executionTimeMs} ms / {testCase.memoryKb} KB
+                    </small>
+                  </div>
+                  <span className={testCase.passed ? "case-pass" : "case-fail"}>
+                    {testCase.passed ? "PASS" : "FAIL"}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="empty-state">Judge result is not available yet.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

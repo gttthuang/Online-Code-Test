@@ -1559,7 +1559,8 @@ textarea {
   width: min(1100px, calc(100vw - 2rem));
 }
 
-.submission-modal-meta {
+.submission-modal-meta,
+.submission-detail-meta {
   align-items: center;
   overflow-wrap: anywhere;
 }
