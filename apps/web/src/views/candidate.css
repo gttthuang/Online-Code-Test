@@ -237,3 +237,15 @@
     font-weight: 700 !important;
     color: #111827 !important;
 }
+
+/* description */
+.fullscreen-wrapper .ql-editor ul {
+    list-style-type: disc !important;
+    padding-left: 25px !important;
+    display: block !important;
+}
+.fullscreen-wrapper .ql-editor li {
+    display: list-item !important;
+    list-style-type: disc !important;
+    margin-bottom: 8px !important;
+}
