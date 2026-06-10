@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProblemDifficulty, ProblemLifecycleImpact, ProblemSummary, SubmissionHistoryItem } from "@oct/contracts";
-import ReactQuill from "react-quill-new";
+import ReactQuill, {Quill} from "react-quill-new";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { archiveProblem, createProblem, deleteProblem, getAdminProblems, getAdminSubmissionHistory, getProblemImpact, getAdminProblem, updateAdminProblem } from "../lib/api";
@@ -8,6 +8,8 @@ import { CandidateWorkspace } from "../views/CandidateWorkspace";
 import { SubmissionHistoryPanel, getSubmissionVerdict, verdictFilterOptions } from "./SubmissionHistoryPanel";
 import type { VerdictKind } from "./SubmissionHistoryPanel";
 import "react-quill-new/dist/quill.snow.css";
+import ImageResize from 'quill-image-resize-module-react';
+Quill.register('modules/imageResize', ImageResize);
 
 interface ProblemAdminWorkspaceProps {
   readonly currentUserId: string;
@@ -650,7 +652,11 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
                   ['bold', 'italic', 'underline', 'strike'],
                   [{ 'color': [] }, { 'background': [] }],
                   ['link', 'code-block']
-                ]
+                ],
+                imageResize: {
+                  parchment: Quill.import('parchment'),
+                  modules: ['Resize', 'DisplaySize'] // 啟用調整大小與顯示尺寸
+                }
               }}
             />
             
