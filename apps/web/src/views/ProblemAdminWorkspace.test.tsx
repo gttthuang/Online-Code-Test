@@ -19,7 +19,9 @@ vi.mock("@monaco-editor/react", () => ({
     return <textarea data-testid="monaco" value={value ?? ""} onChange={(event) => onChange?.(event.target.value)} />;
   }
 }));
-
+vi.mock("quill-image-resize-module-react", () => ({
+  default: class {}
+}));
 const mocked = vi.mocked(api);
 
 function makeProblem(overrides: Partial<ProblemSummary> = {}): ProblemSummary {
