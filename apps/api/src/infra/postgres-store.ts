@@ -25,7 +25,7 @@ import type {
 } from "@oct/contracts";
 import type { Pool } from "pg";
 
-import type { AppStore, HiddenTestCaseRecord, InternalStats, ProblemRecord } from "./store.js";
+import type { AppStore, HiddenTestCaseRecord, InternalStats, ProblemRecord, UserCredential } from "./store.js";
 
 type ProblemRow = {
   id: string;
@@ -142,6 +142,21 @@ export class PostgresStore implements AppStore {
     return result.rows[0] ?? null;
   }
 
+  async findUserCredentialByEmail(email: string): Promise<UserCredential | null> {
+    const result = await this.pool.query<AuthUser & { password_hash: string }>(
+      `select id, name, email, role, password_hash from users where email = $1`,
+      [email]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const { password_hash, ...user } = row;
+    return { user, passwordHash: password_hash };
+  }
+
   async listUsers(): Promise<AuthUser[]> {
     const result = await this.pool.query<AuthUser>(
       `
@@ -154,16 +169,16 @@ export class PostgresStore implements AppStore {
     return result.rows;
   }
 
-  async createUser(input: CreateUserRequest): Promise<AuthUser> {
+  async createUser(input: CreateUserRequest, passwordHash: string): Promise<AuthUser> {
     const userId = `${input.role}_${randomUUID()}`;
 
     const result = await this.pool.query<AuthUser>(
       `
-        insert into users (id, name, email, role)
-        values ($1, $2, $3, $4)
+        insert into users (id, name, email, role, password_hash)
+        values ($1, $2, $3, $4, $5)
         returning id, name, email, role
       `,
-      [userId, input.name, input.email, input.role]
+      [userId, input.name, input.email, input.role, passwordHash]
     );
 
     return result.rows[0];
@@ -211,8 +226,8 @@ export class PostgresStore implements AppStore {
     return result.rows;
   }
 
-  async createCandidate(input: CreateCandidateRequest): Promise<AuthUser> {
-    return this.createUser({ ...input, role: "candidate" });
+  async createCandidate(input: CreateCandidateRequest, passwordHash: string): Promise<AuthUser> {
+    return this.createUser({ ...input, role: "candidate" }, passwordHash);
   }
 
   async listProblems(): Promise<ProblemSummary[]> {

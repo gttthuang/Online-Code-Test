@@ -52,6 +52,7 @@ export interface ApiErrorBody {
 
 export interface LoginRequest {
   email: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -66,6 +67,8 @@ export interface CreateCandidateRequest {
 
 export interface CreateCandidateResponse {
   candidate: AuthUser;
+  /** One-time generated password to hand to the candidate; shown only at creation. */
+  password: string;
 }
 
 export interface CreateUserRequest {
@@ -76,6 +79,8 @@ export interface CreateUserRequest {
 
 export interface CreateUserResponse {
   user: AuthUser;
+  /** One-time generated password to hand to the account holder; shown only at creation. */
+  password: string;
 }
 
 export interface ProblemSummary {

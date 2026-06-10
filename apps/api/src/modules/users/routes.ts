@@ -5,6 +5,7 @@ import { roles } from "@oct/contracts";
 import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
+import { generatePassword, hashPassword } from "../../core/password.js";
 
 const userIdParamsSchema = z.object({
   userId: z.string().min(1)
@@ -37,8 +38,12 @@ export async function registerUserRoutes(app: FastifyInstance, context: AppConte
       });
     }
 
+    const password = generatePassword();
+    const createdUser = await context.store.createUser(body, hashPassword(password));
+
     return {
-      user: await context.store.createUser(body)
+      user: createdUser,
+      password
     };
   });
 

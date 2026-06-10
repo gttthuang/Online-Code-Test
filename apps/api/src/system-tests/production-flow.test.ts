@@ -62,7 +62,7 @@ test("production journey from account creation to judged and reviewed submission
     assert.equal(assignments.assignments.length, 1);
     assert.equal(assignments.assignment.durationMinutes, 45);
 
-    const candidate = await login(harness.app, candidateRecord.email);
+    const candidate = await login(harness.app, candidateRecord.email, candidateRecord.password);
     const lockedExamResponse = await harness.app.inject({
       method: "GET",
       url: "/me/exam",

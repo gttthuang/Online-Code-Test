@@ -79,7 +79,10 @@ describe("InterviewerWorkspace — user management", () => {
 
   it("lists users and creates a new one", async () => {
     mocked.getUsers.mockResolvedValue([makeUser({ id: "interviewer_self", name: "Self", role: "interviewer" })]);
-    mocked.createUser.mockResolvedValue({ user: makeUser({ id: "user_9", name: "Carol", email: "carol@example.com" }) });
+    mocked.createUser.mockResolvedValue({
+      user: makeUser({ id: "user_9", name: "Carol", email: "carol@example.com" }),
+      password: "Gen3ratedPass"
+    });
     renderAt("/interviewer/users");
 
     expect(await screen.findByText("Self")).toBeInTheDocument();
@@ -90,6 +93,8 @@ describe("InterviewerWorkspace — user management", () => {
 
     await waitFor(() => expect(mocked.createUser).toHaveBeenCalled());
     expect(await screen.findByText("User created")).toBeInTheDocument();
+    // The one-time generated password is surfaced to the interviewer.
+    expect(screen.getByText("Gen3ratedPass")).toBeInTheDocument();
   });
 
   it("disables deleting the current user and deletes others", async () => {

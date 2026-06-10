@@ -16,6 +16,7 @@ import type { FastifyInstance } from "fastify";
 import { Pool } from "pg";
 
 import { buildApp } from "../app.js";
+import { DEFAULT_SEED_PASSWORD } from "../core/password.js";
 import type { JudgeQueue } from "../infra/judge-queue.js";
 import { createPostgresPool } from "../infra/postgres.js";
 import { JudgeWorker } from "../../../judge-worker/src/worker.js";
@@ -89,11 +90,11 @@ export async function destroyHarness(harness: TestHarness) {
   await dropDatabase(harness.dbName);
 }
 
-export async function login(app: FastifyInstance, email: string) {
+export async function login(app: FastifyInstance, email: string, password: string = DEFAULT_SEED_PASSWORD) {
   const response = await app.inject({
     method: "POST",
     url: "/auth/login",
-    payload: { email }
+    payload: { email, password }
   });
 
   assert.equal(response.statusCode, 200);
@@ -130,7 +131,8 @@ export async function createCandidate(app: FastifyInstance, interviewerToken: st
   });
 
   assert.equal(response.statusCode, 200);
-  return response.json<CreateCandidateResponse>().candidate;
+  const { candidate, password } = response.json<CreateCandidateResponse>();
+  return { ...candidate, password };
 }
 
 export async function createUser(app: FastifyInstance, interviewerToken: string, input?: {
@@ -150,7 +152,8 @@ export async function createUser(app: FastifyInstance, interviewerToken: string,
   });
 
   assert.equal(response.statusCode, 200);
-  return response.json<CreateUserResponse>().user;
+  const { user, password } = response.json<CreateUserResponse>();
+  return { ...user, password };
 }
 
 export async function createProblem(

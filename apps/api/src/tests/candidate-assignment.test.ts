@@ -93,7 +93,7 @@ test("interviewer can assign multiple problems with a time limit", async () => {
     assert.equal(body.assignments.length, 2);
     assert.equal(body.assignment.durationMinutes, 45);
 
-    const candidateLogin = await login(harness.app, candidate.email);
+    const candidateLogin = await login(harness.app, candidate.email, candidate.password);
     const examResponse = await harness.app.inject({
       method: "GET",
       url: "/me/exam",
@@ -171,7 +171,7 @@ test("assignments cannot change after a candidate starts", async () => {
     });
 
     await createAssignment(harness.app, interviewer.token, candidate.id, "problem_reverse_string");
-    const candidateLogin = await login(harness.app, candidate.email);
+    const candidateLogin = await login(harness.app, candidate.email, candidate.password);
     await startCandidateExam(harness.app, candidateLogin.token);
 
     const response = await harness.app.inject({

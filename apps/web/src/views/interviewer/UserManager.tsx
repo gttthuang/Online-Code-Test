@@ -15,6 +15,11 @@ type Notice = {
   type: "success" | "error";
   title: string;
   message: string;
+  /** Newly generated login credentials, shown once right after creation. */
+  credentials?: {
+    email: string;
+    password: string;
+  };
 };
 
 function compareUsers(left: AuthUser, right: AuthUser) {
@@ -91,7 +96,11 @@ export function UserManager({
       setNotice({
         type: "success",
         title: "User created",
-        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}.`
+        message: `${response.user.name} can now sign in as ${roleLabels[response.user.role]}. Share these credentials — the password is shown only once.`,
+        credentials: {
+          email: response.user.email,
+          password: response.password
+        }
       });
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : "Failed to create user";
@@ -212,6 +221,18 @@ export function UserManager({
         <output className={`toast floating-toast toast-${notice.type}`}>
           <strong>{notice.title}</strong>
           <span>{notice.message}</span>
+          {notice.credentials ? (
+            <dl className="credential-readout">
+              <div>
+                <dt>Email</dt>
+                <dd>{notice.credentials.email}</dd>
+              </div>
+              <div>
+                <dt>Password</dt>
+                <dd><code>{notice.credentials.password}</code></dd>
+              </div>
+            </dl>
+          ) : null}
           <button className="toast-close-button" onClick={() => setNotice(null)} type="button">
             x
           </button>

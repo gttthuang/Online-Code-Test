@@ -47,15 +47,21 @@ export interface InternalStats {
   };
 }
 
+export interface UserCredential {
+  user: AuthUser;
+  passwordHash: string;
+}
+
 export interface AppStore {
   getUserById(userId: string): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<AuthUser | null>;
+  findUserCredentialByEmail(email: string): Promise<UserCredential | null>;
   listUsers(): Promise<AuthUser[]>;
-  createUser(input: CreateUserRequest): Promise<AuthUser>;
+  createUser(input: CreateUserRequest, passwordHash: string): Promise<AuthUser>;
   deleteUser(userId: string): Promise<boolean>;
   hasUserReferences(userId: string): Promise<boolean>;
   listCandidates(): Promise<AuthUser[]>;
-  createCandidate(input: CreateCandidateRequest): Promise<AuthUser>;
+  createCandidate(input: CreateCandidateRequest, passwordHash: string): Promise<AuthUser>;
   listProblems(): Promise<ProblemSummary[]>;
   getProblem(problemId: string): Promise<ProblemRecord | null>;
   getProblemDetail(problemId: string): Promise<ProblemDetail | null>;

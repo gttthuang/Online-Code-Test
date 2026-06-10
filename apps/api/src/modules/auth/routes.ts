@@ -4,23 +4,25 @@ import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../../core/app-context.js";
 import { AppError } from "../../core/errors.js";
 import { requireUser } from "../../core/auth.js";
+import { verifyPassword } from "../../core/password.js";
 
 const loginSchema = z.object({
-  email: z.string().email()
+  email: z.string().email(),
+  password: z.string().min(1)
 });
 
 export async function registerAuthRoutes(app: FastifyInstance, context: AppContext) {
   app.post("/auth/login", async (request) => {
     const body = loginSchema.parse(request.body);
-    const user = await context.store.findUserByEmail(body.email);
+    const credential = await context.store.findUserCredentialByEmail(body.email);
 
-    if (!user) {
-      throw new AppError(401, "invalid_credentials", "Unknown email for demo login");
+    if (!credential || !verifyPassword(body.password, credential.passwordHash)) {
+      throw new AppError(401, "invalid_credentials", "Incorrect email or password");
     }
 
     return {
-      token: user.id,
-      user
+      token: credential.user.id,
+      user: credential.user
     };
   });
 

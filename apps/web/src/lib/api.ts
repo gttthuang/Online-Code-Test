@@ -175,10 +175,10 @@ export function getHealth() {
   return request<HealthResponse>("/healthz");
 }
 
-export function loginWithEmail(email: string) {
+export function login(email: string, password: string) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email, password })
   });
 }
 

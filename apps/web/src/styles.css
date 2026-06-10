@@ -1352,6 +1352,40 @@ textarea {
   line-height: 1.45;
 }
 
+.credential-readout {
+  grid-column: 1;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.credential-readout > div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.credential-readout dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.credential-readout dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.credential-readout code {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .toast-close-button {
   grid-column: 2;
   grid-row: 1 / span 2;

@@ -3,15 +3,16 @@ import { useState } from "react";
 interface LoginPanelProps {
   readonly isLoading: boolean;
   readonly error: string | null;
-  readonly onLogin: (email: string) => Promise<void>;
+  readonly onLogin: (email: string, password: string) => Promise<void>;
 }
 
 export function LoginPanel({ isLoading, error, onLogin }: LoginPanelProps) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await onLogin(email.trim());
+    await onLogin(email.trim(), password);
   }
 
   return (
@@ -42,7 +43,18 @@ export function LoginPanel({ isLoading, error, onLogin }: LoginPanelProps) {
             />
           </label>
 
-          <button className="primary-button" disabled={isLoading || !email.trim()} type="submit">
+          <label className="field">
+            <span>Password</span>
+            <input
+              autoComplete="current-password"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Your password"
+              type="password"
+              value={password}
+            />
+          </label>
+
+          <button className="primary-button" disabled={isLoading || !email.trim() || !password} type="submit">
             {isLoading ? "Signing In..." : "Sign In"}
           </button>
 

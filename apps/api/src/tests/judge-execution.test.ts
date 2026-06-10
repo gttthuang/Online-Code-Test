@@ -26,7 +26,7 @@ test("successful submission is judged and visible in interviewer results", async
     const problem = await createProblem(harness.app, problemAdmin.token);
     await createAssignment(harness.app, interviewer.token, candidateRecord.id, problem.id);
 
-    const candidate = await login(harness.app, candidateRecord.email);
+    const candidate = await login(harness.app, candidateRecord.email, candidateRecord.password);
     const submission = await createSubmission(harness.app, candidate.token, {
       problemId: problem.id,
       language: "python",

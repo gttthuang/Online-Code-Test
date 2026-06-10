@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 
+import { DEFAULT_SEED_PASSWORD, hashPassword } from "../core/password.js";
 import { buildSeedData } from "./seed.js";
 
 export async function seedPostgres(pool: Pool) {
@@ -8,11 +9,11 @@ export async function seedPostgres(pool: Pool) {
   for (const user of seed.users) {
     await pool.query(
       `
-        insert into users (id, name, email, role)
-        values ($1, $2, $3, $4)
+        insert into users (id, name, email, role, password_hash)
+        values ($1, $2, $3, $4, $5)
         on conflict (id) do nothing
       `,
-      [user.id, user.name, user.email, user.role]
+      [user.id, user.name, user.email, user.role, hashPassword(DEFAULT_SEED_PASSWORD)]
     );
   }
 

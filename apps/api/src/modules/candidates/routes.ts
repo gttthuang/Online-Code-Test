@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../../core/app-context.js";
 import { requireRole, requireUser } from "../../core/auth.js";
 import { AppError } from "../../core/errors.js";
+import { generatePassword, hashPassword } from "../../core/password.js";
 
 const createCandidateSchema = z.object({
   name: z.string().trim().min(1),
@@ -29,8 +30,12 @@ export async function registerCandidateRoutes(app: FastifyInstance, context: App
       throw new AppError(409, "candidate_email_exists", "This email is already in use");
     }
 
+    const password = generatePassword();
+    const candidate = await context.store.createCandidate(body, hashPassword(password));
+
     return {
-      candidate: await context.store.createCandidate(body)
+      candidate,
+      password
     };
   });
 
