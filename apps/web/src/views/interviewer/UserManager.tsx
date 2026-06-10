@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type { AuthUser, UserRole } from "@oct/contracts";
 import { roles } from "@oct/contracts";
 
-import { createUser, deleteUser, getUsers } from "../../lib/api";
+import { createUser, deleteUser, getUsers, resetUserPassword } from "../../lib/api";
 
 const roleLabels = {
   candidate: "Candidate",
@@ -40,6 +40,7 @@ export function UserManager({
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -112,6 +113,34 @@ export function UserManager({
       });
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleResetPassword(user: AuthUser) {
+    setResettingId(user.id);
+    setError(null);
+
+    try {
+      const response = await resetUserPassword(token, user.id);
+      setNotice({
+        type: "success",
+        title: "Password reset",
+        message: `${user.name}'s password was regenerated. Share these credentials — it is shown only once.`,
+        credentials: {
+          email: user.email,
+          password: response.password
+        }
+      });
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : "Failed to reset password";
+      setError(message);
+      setNotice({
+        type: "error",
+        title: "Password not reset",
+        message
+      });
+    } finally {
+      setResettingId(null);
     }
   }
 
@@ -201,6 +230,16 @@ export function UserManager({
                 </div>
 
                 <span className="badge badge-outline">{roleLabels[user.role]}</span>
+
+                <button
+                  className="secondary-button"
+                  disabled={resettingId === user.id}
+                  onClick={() => handleResetPassword(user)}
+                  title="Generate a new password for this account"
+                  type="button"
+                >
+                  {resettingId === user.id ? "Resetting..." : "Reset password"}
+                </button>
 
                 <button
                   className="delete-button"

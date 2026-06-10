@@ -47,6 +47,21 @@ export async function registerUserRoutes(app: FastifyInstance, context: AppConte
     };
   });
 
+  app.post("/admin/users/:userId/reset-password", async (request) => {
+    const user = await requireUser(request, context);
+    requireRole(user, ["interviewer"]);
+
+    const params = userIdParamsSchema.parse(request.params);
+    const password = generatePassword();
+    const updated = await context.store.updateUserPassword(params.userId, hashPassword(password));
+
+    if (!updated) {
+      throw new AppError(404, "user_not_found", "User not found");
+    }
+
+    return { password };
+  });
+
   app.delete("/admin/users/:userId", async (request, reply) => {
     const user = await requireUser(request, context);
     requireRole(user, ["interviewer"]);

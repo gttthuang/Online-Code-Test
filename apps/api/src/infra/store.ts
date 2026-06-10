@@ -56,6 +56,8 @@ export interface AppStore {
   getUserById(userId: string): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<AuthUser | null>;
   findUserCredentialByEmail(email: string): Promise<UserCredential | null>;
+  getUserCredentialById(userId: string): Promise<UserCredential | null>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<boolean>;
   listUsers(): Promise<AuthUser[]>;
   createUser(input: CreateUserRequest, passwordHash: string): Promise<AuthUser>;
   deleteUser(userId: string): Promise<boolean>;

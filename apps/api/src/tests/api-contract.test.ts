@@ -15,7 +15,7 @@ test("API route catalog has unique routes and operation IDs", () => {
 
   assert.equal(new Set(routeKeys).size, routeKeys.length);
   assert.equal(new Set(operationIds).size, operationIds.length);
-  assert.equal(apiRouteDefinitions.length, 41);
+  assert.equal(apiRouteDefinitions.length, 43);
 });
 
 test("OpenAPI document includes every canonical route and access rule", () => {

@@ -157,6 +157,30 @@ export class PostgresStore implements AppStore {
     return { user, passwordHash: password_hash };
   }
 
+  async getUserCredentialById(userId: string): Promise<UserCredential | null> {
+    const result = await this.pool.query<AuthUser & { password_hash: string }>(
+      `select id, name, email, role, password_hash from users where id = $1`,
+      [userId]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const { password_hash, ...user } = row;
+    return { user, passwordHash: password_hash };
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `update users set password_hash = $2 where id = $1`,
+      [userId, passwordHash]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async listUsers(): Promise<AuthUser[]> {
     const result = await this.pool.query<AuthUser>(
       `

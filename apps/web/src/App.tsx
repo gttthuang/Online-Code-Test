@@ -7,6 +7,7 @@ import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, usePa
 import { getCandidateExam, getMe, login, startCandidateExam } from "./lib/api";
 import { clearStoredSession, loadStoredSession, saveStoredSession } from "./lib/session";
 import { LoginPanel } from "./views/LoginPanel";
+import { ChangePasswordButton } from "./views/ChangePasswordButton";
 
 const CandidateWorkspace = lazy(async () => {
   const module = await import("./views/CandidateWorkspace");
@@ -478,6 +479,7 @@ function WorkspaceFrame({ children, onLogout, session }: { readonly children: Re
               <span>{session.user.email}</span>
             </div>
             <span className="role-badge">{roleDisplayName[session.user.role]}</span>
+            <ChangePasswordButton token={session.token} />
             <button className="secondary-button icon-button-text" onClick={onLogout} type="button">
               <LogOut aria-hidden="true" size={16} />
               <span>Log Out</span>

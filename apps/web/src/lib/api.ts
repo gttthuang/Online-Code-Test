@@ -18,6 +18,7 @@ import type {
   CustomRunDetail,
   InterviewReview,
   LoginResponse,
+  ResetPasswordResponse,
   ProblemArchiveResponse,
   ProblemLifecycleImpact,
   ProblemSummary,
@@ -184,6 +185,17 @@ export function login(email: string, password: string) {
 
 export function getMe(token: string) {
   return request<AuthUser>("/auth/me", undefined, token);
+}
+
+export function changePassword(token: string, currentPassword: string, newPassword: string) {
+  return request<void>(
+    "/me/password",
+    {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword })
+    },
+    token
+  );
 }
 
 export function getAssignments(token: string) {
@@ -394,6 +406,16 @@ export function createUser(token: string, payload: CreateUserRequest) {
     {
       method: "POST",
       body: JSON.stringify(payload)
+    },
+    token
+  );
+}
+
+export function resetUserPassword(token: string, userId: string) {
+  return request<ResetPasswordResponse>(
+    `/admin/users/${userId}/reset-password`,
+    {
+      method: "POST"
     },
     token
   );
