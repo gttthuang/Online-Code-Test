@@ -1184,6 +1184,7 @@ function AdminSubmissionHistory({ token }: { readonly token: string }) {
 
       <SubmissionHistoryPanel
         emptyMessage="No submissions found."
+        inlineExpand={true}
         loading={loading}
         onSelect={(submission) => setSelectedSubmissionId(submission.id)}
         selectedId={selectedSubmissionId}
