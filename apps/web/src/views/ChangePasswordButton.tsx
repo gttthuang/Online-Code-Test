@@ -4,6 +4,7 @@ import { KeyRound } from "lucide-react";
 import { MIN_PASSWORD_LENGTH } from "@oct/contracts";
 
 import { changePassword } from "../lib/api";
+import { PasswordInput } from "./PasswordInput";
 
 export function ChangePasswordButton({ token }: { readonly token: string }) {
   const [open, setOpen] = useState(false);
@@ -84,30 +85,27 @@ export function ChangePasswordButton({ token }: { readonly token: string }) {
               <form className="stack-form" onSubmit={handleSubmit}>
                 <label className="field">
                   <span>Current password</span>
-                  <input
+                  <PasswordInput
                     autoComplete="current-password"
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                    type="password"
+                    onChange={setCurrentPassword}
                     value={currentPassword}
                   />
                 </label>
 
                 <label className="field">
                   <span>New password</span>
-                  <input
+                  <PasswordInput
                     autoComplete="new-password"
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    type="password"
+                    onChange={setNewPassword}
                     value={newPassword}
                   />
                 </label>
 
                 <label className="field">
                   <span>Confirm new password</span>
-                  <input
+                  <PasswordInput
                     autoComplete="new-password"
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    type="password"
+                    onChange={setConfirmPassword}
                     value={confirmPassword}
                   />
                 </label>

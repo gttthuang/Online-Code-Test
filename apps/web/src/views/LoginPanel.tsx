@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { PasswordInput } from "./PasswordInput";
+
 interface LoginPanelProps {
   readonly isLoading: boolean;
   readonly error: string | null;
@@ -45,11 +47,10 @@ export function LoginPanel({ isLoading, error, onLogin }: LoginPanelProps) {
 
           <label className="field">
             <span>Password</span>
-            <input
+            <PasswordInput
               autoComplete="current-password"
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={setPassword}
               placeholder="Your password"
-              type="password"
               value={password}
             />
           </label>
