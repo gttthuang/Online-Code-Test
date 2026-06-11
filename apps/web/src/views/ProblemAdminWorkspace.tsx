@@ -10,7 +10,7 @@ import type { VerdictKind } from "./SubmissionHistoryPanel";
 import "react-quill/dist/quill.snow.css";
 import Quill from "quill";
 import ImageResize from 'quill-image-resize-module-react';
-if (typeof window !== "undefined") {
+if (globalThis.window !== undefined) {
   const q = Quill as any;
 
   if (!q.__imageResizeRegistered) {
@@ -123,12 +123,6 @@ function resolveActiveSection(pathname: string) {
 }
 
 export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWorkspaceProps) {
-  // useEffect(() => {
-  //   if (!(Quill as any).__imageResizeRegistered) {
-  //     Quill.register("modules/imageResize", ImageResize);
-  //     (Quill as any).__imageResizeRegistered = true;
-  //   }
-  // }, []);
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [form, setForm] = useState<ProblemFormState>(initialFormState);
   const [testcases, setTestcases] = useState<TestCaseState[]>(() => [createEmptyTestcase()]);
@@ -804,13 +798,6 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
     navigate("/problem-admin/problems"); // 回到列表頁
   }
 
-  function confirmActionLabel() {
-    if (operationMode === "modify") {
-      return forceModifyConfirmed ? "Force Update" : "Continue Editing";
-    }
-    return forceDeleteConfirmed ? "Force Delete" : "Delete";
-  }
-
   function renderBuilderCard() {
     const isEditing = !!editingId;
     let primaryLabel: string;
@@ -1025,91 +1012,122 @@ export function ProblemAdminWorkspace({ currentUserId, token }: ProblemAdminWork
       ) : null}
 
       {confirmId ? (
-      <div className="modal-backdrop">
-        <div className="modal modal-wide">
-          {/* 根據 operationMode 顯示標題 */}
-          <p>{operationMode === "modify" ? "Edit Problem" : "Delete problem"}</p>
-          <p className="modal-target-title">{confirmProblem?.title}</p>
+        <ProblemActionConfirmModal
+          operationMode={operationMode}
+          title={confirmProblem?.title}
+          loading={confirmLoading}
+          impact={confirmImpact}
+          forceConfirmed={operationMode === "modify" ? forceModifyConfirmed : forceDeleteConfirmed}
+          onForceConfirmedChange={(checked) => {
+            if (operationMode === "modify") {
+              setForceModifyConfirmed(checked);
+            } else {
+              setForceDeleteConfirmed(checked);
+            }
+          }}
+          onCancel={() => {
+            setConfirmId(null);
+            setConfirmImpact(null);
+            setForceDeleteConfirmed(false);
+          }}
+          onConfirm={operationMode === "modify" ? confirmModify : confirmDelete}
+        />
+      ) : null}
+    </>
+  );
+}
 
-          {/* 載入中狀態 */}
-          {confirmLoading && (
-            <div className="empty-state">Loading impact analysis...</div>
-          )}
+interface ProblemActionConfirmModalProps {
+  readonly operationMode: "delete" | "modify";
+  readonly title?: string;
+  readonly loading: boolean;
+  readonly impact: ProblemLifecycleImpact | null;
+  readonly forceConfirmed: boolean;
+  readonly onForceConfirmedChange: (value: boolean) => void;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}
 
-          {/* 顯示影響範圍 (共用) */}
-          {!confirmLoading && confirmImpact && (
-            <div className="impact-grid">
-              <div>
-                <span>Assignments</span>
-                <strong>{confirmImpact.assignments}</strong>
-              </div>
-              <div>
-                <span>Candidate submissions</span>
-                <strong>{confirmImpact.candidateSubmissions}</strong>
-              </div>
-              <div>
-                <span>Preview submissions</span>
-                <strong>{confirmImpact.previewSubmissions}</strong>
-              </div>
-              <div>
-                <span>Reviews</span>
-                <strong>{confirmImpact.reviews}</strong>
-              </div>
+function ProblemActionConfirmModal({
+  operationMode,
+  title,
+  loading,
+  impact,
+  forceConfirmed,
+  onForceConfirmedChange,
+  onCancel,
+  onConfirm
+}: ProblemActionConfirmModalProps) {
+  const isModify = operationMode === "modify";
+  const requiresForce = Boolean(impact && !impact.canDeleteWithoutForce);
+
+  let actionLabel: string;
+  if (isModify) {
+    actionLabel = forceConfirmed ? "Force Update" : "Continue Editing";
+  } else {
+    actionLabel = forceConfirmed ? "Force Delete" : "Delete";
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal modal-wide">
+        <p>{isModify ? "Edit Problem" : "Delete problem"}</p>
+        <p className="modal-target-title">{title}</p>
+
+        {loading ? <div className="empty-state">Loading impact analysis...</div> : null}
+
+        {!loading && impact ? (
+          <div className="impact-grid">
+            <div>
+              <span>Assignments</span>
+              <strong>{impact.assignments}</strong>
             </div>
-          )}
+            <div>
+              <span>Candidate submissions</span>
+              <strong>{impact.candidateSubmissions}</strong>
+            </div>
+            <div>
+              <span>Preview submissions</span>
+              <strong>{impact.previewSubmissions}</strong>
+            </div>
+            <div>
+              <span>Reviews</span>
+              <strong>{impact.reviews}</strong>
+            </div>
+          </div>
+        ) : null}
 
-          {/* 只有在刪除模式且不能直接刪除時，才顯示強制刪除選項 */}
-          {confirmImpact && !confirmImpact.canDeleteWithoutForce ? (
+        {requiresForce ? (
           <label className="force-delete-check">
             <input
               type="checkbox"
-              checked={operationMode === "modify" ? forceModifyConfirmed : forceDeleteConfirmed}
-              onChange={(e) => {
-                if (operationMode === "modify") {
-                  setForceModifyConfirmed(e.target.checked);
-                } else {
-                  setForceDeleteConfirmed(e.target.checked);
-                }
-              }}
+              checked={forceConfirmed}
+              onChange={(e) => onForceConfirmedChange(e.target.checked)}
             />
             <span>
-              {operationMode === "modify"
+              {isModify
                 ? "Force update: I understand this will impact existing submissions."
                 : "Force delete: This will remove all associated assignments and history."}
             </span>
           </label>
         ) : null}
 
-          <div className="modal-actions">
-            <button 
-              className="chip-button" 
-              onClick={() => {
-                setConfirmId(null);
-                setConfirmImpact(null);
-                setForceDeleteConfirmed(false);
-              }} 
-              type="button"
-            >
-              Cancel
-            </button>
+        <div className="modal-actions">
+          <button className="chip-button" onClick={onCancel} type="button">
+            Cancel
+          </button>
 
-            <button
-              className="chip-button"
-              disabled={
-                confirmLoading || 
-                Boolean(confirmImpact && !confirmImpact.canDeleteWithoutForce && 
-                (operationMode === "modify" ? !forceModifyConfirmed : !forceDeleteConfirmed))
-              }
-              onClick={operationMode === "modify" ? confirmModify : confirmDelete}
-              type="button"
-            >
-              {confirmActionLabel()}
-            </button>
-          </div>
+          <button
+            className="chip-button"
+            disabled={loading || (requiresForce && !forceConfirmed)}
+            onClick={onConfirm}
+            type="button"
+          >
+            {actionLabel}
+          </button>
         </div>
       </div>
-    ) : null}
-    </>
+    </div>
   );
 }
 
