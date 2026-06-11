@@ -11,7 +11,7 @@ test("judge queue job ids are BullMQ-safe", () => {
 });
 
 test("candidate can run custom stdin without creating a submission", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -53,7 +53,7 @@ test("candidate can run custom stdin without creating a submission", async () =>
 });
 
 test("interviewer can run current room code for an assigned candidate", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
