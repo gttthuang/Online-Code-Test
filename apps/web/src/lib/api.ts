@@ -95,8 +95,12 @@ function formatErrorDetails(details: unknown): string | null {
     return details.map(String).join("; ");
   }
 
-  if (typeof details !== "object") {
+  if (typeof details === "number" || typeof details === "boolean" || typeof details === "bigint") {
     return String(details);
+  }
+
+  if (typeof details !== "object") {
+    return null;
   }
 
   const detailObject = details as {
