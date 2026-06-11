@@ -11,7 +11,7 @@ import {
 } from "./helpers.js";
 
 test("internal stats report submission statuses and failure breakdown", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");

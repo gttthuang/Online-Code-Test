@@ -17,7 +17,7 @@ const reviewPayload = {
 } as const;
 
 test("interviewer can create, update, list, and delete a private review", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
