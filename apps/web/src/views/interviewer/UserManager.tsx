@@ -4,6 +4,7 @@ import type { AuthUser, UserRole } from "@oct/contracts";
 import { roles } from "@oct/contracts";
 
 import { createUser, deleteUser, getUsers, resetUserPassword } from "../../lib/api";
+import { CopyButton } from "../CopyButton";
 
 const roleLabels = {
   candidate: "Candidate",
@@ -274,7 +275,10 @@ export function UserManager({
               </div>
               <div>
                 <dt>Password</dt>
-                <dd><code>{notice.credentials.password}</code></dd>
+                <dd className="credential-secret">
+                  <code>{notice.credentials.password}</code>
+                  <CopyButton value={notice.credentials.password} />
+                </dd>
               </div>
             </dl>
           ) : null}
