@@ -14,7 +14,7 @@ import {
 import { PostgresJudgeRepository } from "../repository.js";
 
 test("Postgres repository protects claims and execution leases", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
