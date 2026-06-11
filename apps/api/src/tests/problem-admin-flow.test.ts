@@ -27,7 +27,7 @@ test("problem admin can create and list problems", async () => {
 });
 
 test("in-use problems cannot be deleted", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
@@ -47,7 +47,7 @@ test("in-use problems cannot be deleted", async () => {
 });
 
 test("problem admin can inspect delete impact and force delete an in-use problem", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const problemAdmin = await login(harness.app, "cindy.problem_admin@example.com");
