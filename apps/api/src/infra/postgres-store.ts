@@ -382,14 +382,26 @@ export class PostgresStore implements AppStore {
         //   from problem_display_numbers
         // `,
         `
-          insert into problem_display_numbers (problem_id, display_number)
-          select $1, COALESCE((
-            SELECT MIN(t1.display_number + 1)
-            FROM problem_display_numbers t1
-            LEFT JOIN problem_display_numbers t2
-              ON t2.display_number = t1.display_number + 1
-            WHERE t2.display_number IS NULL
-          ), 1)
+          INSERT INTO problem_display_numbers (problem_id, display_number)
+          SELECT $1,
+          COALESCE(
+              (
+                  SELECT MIN(missing_num)
+                  FROM generate_series(
+                      1,
+                      COALESCE(
+                          (SELECT MAX(display_number)
+                          FROM problem_display_numbers),
+                          0
+                      ) + 1
+                  ) AS missing_num
+                  WHERE missing_num NOT IN (
+                      SELECT display_number
+                      FROM problem_display_numbers
+                  )
+              ),
+              1
+          )
         `,
         [problemId]
       );
