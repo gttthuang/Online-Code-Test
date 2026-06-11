@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createHarness, createSubmission, createWorker, destroyHarness, fetchSubmission, login } from "./helpers.js";
 
 test("worker recovery re-queues stale running submissions", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");

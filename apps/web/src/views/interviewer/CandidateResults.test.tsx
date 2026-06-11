@@ -1,16 +1,22 @@
 import type {
   AuthUser,
   CandidateReviewContextResponse,
+  CustomRunDetail,
   InterviewReview,
   SubmissionHistoryItem
 } from "@oct/contracts";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../lib/api";
 import { CandidateResults } from "./CandidateResults";
 
 vi.mock("../../lib/api");
+vi.mock("@monaco-editor/react", () => ({
+  default: ({ value, onChange }: { value?: string; onChange?: (v?: string) => void }) => (
+    <textarea data-testid="monaco" value={value ?? ""} onChange={(event) => onChange?.(event.target.value)} />
+  )
+}));
 
 const mocked = vi.mocked(api);
 
@@ -78,6 +84,27 @@ function reviewContext(overrides: Partial<CandidateReviewContextResponse> = {}):
   };
 }
 
+function customRunDetail(overrides: Partial<CustomRunDetail> = {}): CustomRunDetail {
+  return {
+    id: "run_1",
+    candidateId: "cand_1",
+    problemId: "problem_1",
+    requestedBy: "int_1",
+    language: "python",
+    sourceCode: "print(1)",
+    stdin: "5",
+    status: "running",
+    stdout: null,
+    stderr: null,
+    errorType: null,
+    errorMessage: null,
+    executionTimeMs: null,
+    createdAt: "2026-06-01T10:00:00.000Z",
+    updatedAt: "2026-06-01T10:00:00.000Z",
+    ...overrides
+  };
+}
+
 async function loadResults(reviews: InterviewReview[] = []) {
   mocked.getCandidateSubmissionHistory.mockResolvedValue({ candidate, submissions: [submission()] });
   mocked.getCandidateReviewContext.mockResolvedValue(reviewContext({ reviews }));
@@ -85,7 +112,7 @@ async function loadResults(reviews: InterviewReview[] = []) {
   render(<CandidateResults token="t" candidates={[candidate]} />);
   // Selecting a candidate auto-loads their results (no "View" click needed).
   fireEvent.change(screen.getByPlaceholderText(/Type to search/), { target: { value: candidateLabel } });
-  await screen.findByText("Notes and Rubric");
+  await screen.findByText("Notes and rubric");
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -104,10 +131,11 @@ describe("CandidateResults", () => {
     expect(screen.getByText(/select a valid candidate from the dropdown/)).toBeInTheDocument();
   });
 
-  it("loads results and renders the review/history panels", async () => {
+  it("loads results and renders the review/scratch/history panels", async () => {
     await loadResults();
-    expect(screen.getByText("Notes and Rubric")).toBeInTheDocument();
+    expect(screen.getByText("Run code for Dave")).toBeInTheDocument();
     expect(screen.getAllByText("FizzBuzz").length).toBeGreaterThan(0);
+    expect(screen.getByText("Run current code")).toBeInTheDocument();
   });
 
   it("surfaces a load error", async () => {
@@ -128,7 +156,7 @@ describe("CandidateResults", () => {
     fireEvent.change(sliders[2], { target: { value: "3" } });
     fireEvent.change(sliders[3], { target: { value: "2" } });
     fireEvent.change(screen.getByDisplayValue("Lean hire"), { target: { value: "strong_hire" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Notes" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "" }) ?? screen.getAllByRole("textbox")[0], {
       target: { value: "great" }
     });
 
@@ -151,6 +179,48 @@ describe("CandidateResults", () => {
     expect(await screen.findByText("Review deleted.")).toBeInTheDocument();
   });
 
+  it("starts a scratch custom run", async () => {
+    mocked.createAdminCustomRun.mockResolvedValue({ runId: "run_1", status: "finished" });
+    await loadResults();
+
+    fireEvent.change(screen.getByTestId("monaco"), { target: { value: "print('hi')" } });
+    fireEvent.change(screen.getByPlaceholderText("Input passed to stdin"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    await waitFor(() =>
+      expect(mocked.createAdminCustomRun).toHaveBeenCalledWith("t", {
+        candidateId: "cand_1",
+        problemId: "problem_1",
+        language: "python",
+        sourceCode: "print('hi')",
+        stdin: "5"
+      })
+    );
+    expect(await screen.findByText("finished")).toBeInTheDocument();
+  });
+
+  it("reports a scratch run error", async () => {
+    mocked.createAdminCustomRun.mockRejectedValue(new Error("run boom"));
+    await loadResults();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("run boom")).toBeInTheDocument();
+  });
+
+  it("polls a running custom run until it reaches a terminal status", async () => {
+    mocked.createAdminCustomRun.mockResolvedValue({ runId: "run_1", status: "running" });
+    mocked.getAdminCustomRun
+      .mockResolvedValueOnce(customRunDetail({ status: "running" }))
+      .mockResolvedValue(customRunDetail({ status: "finished", stdout: "done" }));
+    await loadResults();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    // The effect schedules a 500ms poll, then an 800ms poll while still running,
+    // and stops once the run finishes.
+    await waitFor(() => expect(mocked.getAdminCustomRun).toHaveBeenCalledTimes(2), { timeout: 3000 });
+  });
+
   it("shows empty review options when no problems are assigned", async () => {
     mocked.getCandidateSubmissionHistory.mockResolvedValue({
       candidate,
@@ -166,6 +236,7 @@ describe("CandidateResults", () => {
     });
 
     expect(await screen.findByText("No assigned problems")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save Review" })).toBeDisabled();
   });
 

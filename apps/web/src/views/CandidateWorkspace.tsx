@@ -8,7 +8,7 @@ import type { VimAdapterInstance } from "monaco-vim";
 import { initVimMode } from "monaco-vim";
 
 import { createCustomRun, createSubmission, getCandidateExam, getProblem, getSubmission, getAdminProblem, createPreviewSubmission, getPreviewSubmission, getMySubmissionHistory, getAdminSubmissionHistory, getCustomRun, startCandidateExam, createAdminCustomRun, getAdminCustomRun } from "../lib/api";
-import { SubmissionHistoryPanel, getSubmissionVerdict } from "./SubmissionHistoryPanel";
+import { SubmissionHistoryPanel } from "./SubmissionHistoryPanel";
 import { loadDraft, saveDraft, loadEditorSettings, saveEditorSettings } from "../lib/drafts";
 import "./candidate.css";
 import "highlight.js/styles/default.min.css";
@@ -1070,16 +1070,9 @@ function SubmissionOutput({ submission }: { readonly submission: SubmissionDetai
     return <div className="empty-state">Submit code to see judge output.</div>;
   }
 
-  const verdict = getSubmissionVerdict(submission);
-
   return (
     <div className="result-stack">
-      {submission.result?.errorMessage ? (
-        <div className="error-block" role="alert">
-          <p className="error-block-title">{verdict.label}</p>
-          <pre className="error-block-message">{submission.result.errorMessage}</pre>
-        </div>
-      ) : null}
+      {submission.result?.errorMessage ? <p className="error-text">{submission.result.errorMessage}</p> : null}
       <div className="case-list">
         {submission.result?.cases.map((testCase) => (
           <div className="case-item" key={testCase.testCaseId}>

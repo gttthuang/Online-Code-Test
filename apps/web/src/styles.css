@@ -1811,6 +1811,49 @@ textarea {
   gap: 1rem;
 }
 
+.scratch-run-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.scratch-run-terminal {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.run-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.run-status-strip span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 0.2rem 0.5rem;
+}
+
+.run-status-ok span:first-child {
+  border-color: rgba(31, 136, 61, 0.35);
+  color: var(--success);
+}
+
+.run-status-error span:first-child {
+  border-color: rgba(196, 68, 68, 0.35);
+  color: var(--danger);
+}
+
+.compact-panel-header {
+  align-items: center;
+}
+
 .terminal-output-grid {
   display: grid;
   gap: 0.75rem;

@@ -42,7 +42,7 @@ test("interviewer can create candidates and duplicate email is rejected", async 
 });
 
 test("duplicate assignments are rejected", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
@@ -68,7 +68,7 @@ test("duplicate assignments are rejected", async () => {
 });
 
 test("interviewer can assign multiple problems with a time limit", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
@@ -110,7 +110,7 @@ test("interviewer can assign multiple problems with a time limit", async () => {
 });
 
 test("candidate sees only exam summary until starting", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -162,7 +162,7 @@ test("candidate sees only exam summary until starting", async () => {
 });
 
 test("assignments cannot change after a candidate starts", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");
@@ -229,7 +229,7 @@ test("archived problems cannot be assigned", async () => {
 });
 
 test("in-use candidates cannot be deleted", async () => {
-  const harness = await createHarness({ seedExample: true });
+  const harness = await createHarness();
 
   try {
     const interviewer = await login(harness.app, "bob.interviewer@example.com");

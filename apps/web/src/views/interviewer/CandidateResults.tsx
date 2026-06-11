@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { reviewRecommendations } from "@oct/contracts";
-import type { AuthUser, CandidateReviewContextResponse, InterviewReview, ReviewRecommendation, SubmissionHistoryItem } from "@oct/contracts";
-import { deleteCandidateReview, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
+import type { AuthUser, CandidateReviewContextResponse, CustomRunDetail, InterviewReview, ReviewRecommendation, SubmissionHistoryItem, SupportedLanguage } from "@oct/contracts";
+import { createAdminCustomRun, deleteCandidateReview, getAdminCustomRun, getCandidateReviewContext, getCandidateSubmissionHistory, saveCandidateReview } from "../../lib/api";
 import { SubmissionHistoryPanel } from "../SubmissionHistoryPanel";
 import { CandidateCombobox, getCandidateLabel } from "./CandidateCombobox";
+import Editor from "@monaco-editor/react";
 
 interface CandidateResultsProps {
   readonly token: string;
@@ -207,7 +208,7 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
         )}
         {!loading && results && (
           <div className="review-results-layout">
-            <CollapsibleSection eyebrow="Private Review" title="Notes and Rubric">
+            <CollapsibleSection eyebrow="Private Review" title="Notes and rubric">
               <ReviewEditor
                 disabled={reviewSaving}
                 form={reviewForm}
@@ -219,6 +220,14 @@ export function CandidateResults({ token, candidates }: CandidateResultsProps) {
                 onUpdate={setReviewForm}
                 problemOptions={reviewContext?.assignments ?? []}
                 selectedProblemId={selectedProblemId}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection eyebrow="Scratch Terminal" title={`Run code for ${results.candidate.name}`}>
+              <ScratchRunPanel
+                candidate={results.candidate}
+                problemId={selectedProblemId}
+                token={token}
               />
             </CollapsibleSection>
 
@@ -279,6 +288,180 @@ function CollapsibleSection({
       </div>
       {open ? children : null}
     </section>
+  );
+}
+
+function ScratchRunPanel({
+  candidate,
+  problemId,
+  token
+}: {
+  readonly candidate: AuthUser;
+  readonly problemId: string;
+  readonly token: string;
+}) {
+  const [sourceCode, setSourceCode] = useState("");
+  const [language, setLanguage] = useState<SupportedLanguage>("python");
+  const [customInput, setCustomInput] = useState("");
+  const [customRun, setCustomRun] = useState<CustomRunDetail | null>(null);
+  const [customRunLoading, setCustomRunLoading] = useState(false);
+  const [customRunError, setCustomRunError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCustomRun(null);
+    setCustomInput("");
+    setCustomRunError(null);
+  }, [candidate.id, problemId]);
+
+  useEffect(() => {
+    if (!customRun || !["queued", "running"].includes(customRun.status)) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer!: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const nextRun = await getAdminCustomRun(token, customRun.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        setCustomRun(nextRun);
+        if (["queued", "running"].includes(nextRun.status)) {
+          timer = setTimeout(poll, 800);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCustomRunError(err instanceof Error ? err.message : "Failed to poll custom run");
+        }
+      }
+    };
+
+    timer = setTimeout(poll, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [customRun?.id, customRun?.status, token]);
+
+  async function handleCustomRun() {
+    if (!problemId) {
+      return;
+    }
+
+    setCustomRunLoading(true);
+    setCustomRunError(null);
+
+    try {
+      const created = await createAdminCustomRun(token, {
+        candidateId: candidate.id,
+        problemId,
+        language,
+        sourceCode,
+        stdin: customInput
+      });
+      const now = new Date().toISOString();
+
+      setCustomRun({
+        id: created.runId,
+        candidateId: candidate.id,
+        problemId,
+        requestedBy: "",
+        language,
+        sourceCode,
+        stdin: customInput,
+        status: created.status,
+        stdout: null,
+        stderr: null,
+        errorType: null,
+        errorMessage: null,
+        executionTimeMs: null,
+        createdAt: now,
+        updatedAt: now
+      });
+    } catch (err) {
+      setCustomRunError(err instanceof Error ? err.message : "Failed to start custom run");
+    } finally {
+      setCustomRunLoading(false);
+    }
+  }
+
+  return (
+    <div className="collapsible-content">
+      <label className="field">
+        <span>Language</span>
+        <select
+          disabled={!problemId}
+          onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
+          value={language}
+        >
+          <option value="python">python</option>
+          <option value="cpp">cpp</option>
+        </select>
+      </label>
+
+      <div className="scratch-run-editor">
+        <Editor
+          height="260px"
+          language={language === "cpp" ? "cpp" : language}
+          onChange={(value) => setSourceCode(value ?? "")}
+          options={{
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: "on"
+          }}
+          theme="light"
+          value={sourceCode}
+        />
+      </div>
+
+      <div className="scratch-run-terminal">
+        <div className="panel-header compact-panel-header">
+          <div>
+            <p className="eyebrow">Terminal</p>
+            <h3>Run current code</h3>
+          </div>
+          <button className="chip-button" disabled={!problemId || customRunLoading} onClick={handleCustomRun} type="button">
+            {customRunLoading ? "Starting..." : "Run"}
+          </button>
+        </div>
+
+        <label className="field">
+          <span>stdin</span>
+          <textarea
+            disabled={!problemId}
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder="Input passed to stdin"
+            rows={4}
+            value={customInput}
+          />
+        </label>
+
+        {customRunError ? <p className="error-text">{customRunError}</p> : null}
+
+        {customRun ? (
+          <div className="terminal-output-grid">
+            <div className={`run-status-strip run-status-${customRun.status === "failed" ? "error" : "ok"}`}>
+              <span>{customRun.status}</span>
+              {customRun.executionTimeMs === null ? null : <span>{customRun.executionTimeMs} ms</span>}
+            </div>
+            {customRun.errorMessage ? <p className="error-text">{customRun.errorMessage}</p> : null}
+            <div>
+              <p className="label-text">stdout</p>
+              <pre className="terminal-pre">{customRun.stdout ?? (["queued", "running"].includes(customRun.status) ? "Running..." : "")}</pre>
+            </div>
+            <div>
+              <p className="label-text">stderr</p>
+              <pre className="terminal-pre">{customRun.stderr ?? ""}</pre>
+            </div>
+          </div>
+        ) : (
+          <p className="helper-text">Run code with stdin without creating an official submission.</p>
+        )}
+      </div>
+    </div>
   );
 }
 

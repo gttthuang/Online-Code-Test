@@ -43,12 +43,6 @@ export type TestHarness = {
 export type CreateHarnessOptions = {
   judgeQueue?: JudgeQueue;
   opsToken?: string;
-  /**
-   * Insert the example problems + alice assignments that used to ship in
-   * `buildSeedData`. Tests that reference those fixed ids opt in explicitly
-   * now that the production seed no longer provisions them.
-   */
-  seedExample?: boolean;
 };
 
 const basePostgresConfig = {
@@ -81,96 +75,12 @@ export async function createHarness(options: CreateHarnessOptions = {}): Promise
   });
   await app.ready();
 
-  const adminPool = createPostgresPool(postgres);
-
-  if (options.seedExample) {
-    await seedExampleData(adminPool);
-  }
-
   return {
     app,
-    adminPool,
+    adminPool: createPostgresPool(postgres),
     workerPool: createWorkerPostgresPool(postgres),
     dbName
   };
-}
-
-// Fixtures that used to live in buildSeedData's `problems`/`assignments`. They
-// are inserted directly (preserving the fixed ids the tests reference) so the
-// production seed can stay empty while seed-dependent tests provision their own
-// preconditions via `createHarness({ seedExample: true })`.
-const exampleProblems = [
-  {
-    id: "problem_reverse_string",
-    title: "Reverse String",
-    description: "Read a string and return the reversed result.",
-    sampleInput: "\"cloud\"",
-    sampleOutput: "\"duolc\"",
-    displayNumber: 1,
-    hiddenTestCases: [{ id: "case_reverse_hidden_1", input: "\"native\"", expectedOutput: "\"evitan\"" }]
-  },
-  {
-    id: "problem_two_sum",
-    title: "Two Sum",
-    description:
-      "Given an array of integers and a target value, return the indices of the two numbers that add up to the target.",
-    sampleInput: "nums = [2, 7, 11, 15], target = 9",
-    sampleOutput: "[0, 1]",
-    displayNumber: 2,
-    hiddenTestCases: [{ id: "case_two_sum_hidden_1", input: "nums = [3, 2, 4], target = 6", expectedOutput: "[1, 2]" }]
-  }
-];
-
-const exampleAssignments = [
-  {
-    id: "assignment_alice_reverse_string",
-    problemId: "problem_reverse_string",
-    assignedAt: "2026-04-14T00:05:00.000Z"
-  },
-  {
-    id: "assignment_alice_two_sum",
-    problemId: "problem_two_sum",
-    assignedAt: "2026-04-14T00:00:00.000Z"
-  }
-];
-
-export async function seedExampleData(pool: Pool) {
-  for (const problem of exampleProblems) {
-    await pool.query(
-      `
-        insert into problems (
-          id, title, description, difficulty, time_limit_ms, memory_limit_kb,
-          supported_languages, sample_input, sample_output, created_by
-        )
-        values ($1, $2, $3, 'easy', 1000, 65536, $4::text[], $5, $6, 'problem_admin_cindy')
-        on conflict (id) do nothing
-      `,
-      [problem.id, problem.title, problem.description, ["python", "cpp"], problem.sampleInput, problem.sampleOutput]
-    );
-
-    await pool.query(
-      `insert into problem_display_numbers (problem_id, display_number) values ($1, $2) on conflict (problem_id) do nothing`,
-      [problem.id, problem.displayNumber]
-    );
-
-    for (const testCase of problem.hiddenTestCases) {
-      await pool.query(
-        `insert into test_cases (id, problem_id, input, expected_output, is_hidden) values ($1, $2, $3, $4, true) on conflict (id) do nothing`,
-        [testCase.id, problem.id, testCase.input, testCase.expectedOutput]
-      );
-    }
-  }
-
-  for (const assignment of exampleAssignments) {
-    await pool.query(
-      `
-        insert into assignments (id, candidate_id, problem_id, assigned_by, assigned_at)
-        values ($1, 'candidate_alice', $2, 'interviewer_bob', $3::timestamptz)
-        on conflict (id) do nothing
-      `,
-      [assignment.id, assignment.problemId, assignment.assignedAt]
-    );
-  }
 }
 
 export async function destroyHarness(harness: TestHarness) {

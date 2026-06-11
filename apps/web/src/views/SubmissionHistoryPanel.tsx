@@ -1,4 +1,4 @@
-import type { JudgeResult, SubmissionDetail, SubmissionHistoryItem, SubmissionStatus } from "@oct/contracts";
+import type { SubmissionHistoryItem } from "@oct/contracts";
 import { useState } from "react";
 import { ChevronDown, Eye } from "lucide-react";
 
@@ -232,29 +232,15 @@ export interface SubmissionVerdict {
   className: string;
 }
 
-// Accepts either a full history item (with pre-computed case counts) or a bare
-// SubmissionDetail (case counts derived from the judge result), so the same
-// verdict logic backs both the history panel and the live output block.
-type VerdictInput = Pick<SubmissionDetail, "status" | "result"> & {
-  status: SubmissionStatus;
-  passedCases?: number;
-  totalCases?: number;
-  result?: JudgeResult | null;
-};
-
-export function getSubmissionVerdict(submission: VerdictInput): SubmissionVerdict {
+export function getSubmissionVerdict(submission: SubmissionHistoryItem): SubmissionVerdict {
   // Judge still queued or running -> Pending (yellow/orange)
   if (submission.status === "queued" || submission.status === "running") {
     return { kind: "pending", label: "Pending", className: "badge-warning" };
   }
 
-  const totalCases = submission.totalCases ?? submission.result?.cases.length ?? 0;
-  const passedCases =
-    submission.passedCases ?? submission.result?.cases.filter((testCase) => testCase.passed).length ?? 0;
-
   // Judge ran to completion -> Accepted if every case passed, otherwise Wrong Answer
   if (submission.status === "finished") {
-    if (totalCases > 0 && passedCases === totalCases) {
+    if (submission.totalCases > 0 && submission.passedCases === submission.totalCases) {
       return { kind: "accepted", label: "Accepted", className: "badge-success" };
     }
     return { kind: "wrong_answer", label: "Wrong Answer", className: "badge-error" };
