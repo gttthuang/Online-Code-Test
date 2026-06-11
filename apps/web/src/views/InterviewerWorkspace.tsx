@@ -40,18 +40,14 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
   // its own scroll; Results keeps internal scroll areas).
   const fitViewport = activeSection === "users";
 
+  // Problems rarely change within a session, so load them once.
   useEffect(() => {
     let cancelled = false;
 
-    // Fetch initial data needed across the workspace
-    Promise.all([
-      getAdminProblems(token),
-      getCandidates(token).catch(() => []) // It's okay if this fails initially, or we handle it gracefully
-    ])
-      .then(([problemsData, candidatesData]) => {
+    getAdminProblems(token)
+      .then((problemsData) => {
         if (!cancelled) {
           setProblems(problemsData);
-          setCandidates(candidatesData);
         }
       })
       .catch((nextError) => {
@@ -64,6 +60,27 @@ export function InterviewerWorkspace({ currentUserId, token }: InterviewerWorksp
       cancelled = true;
     };
   }, [token]);
+
+  // Candidates can be created in the Users section, and this component does not
+  // remount when switching sections — so refetch whenever the section changes to
+  // keep the Assign/Results candidate list fresh.
+  useEffect(() => {
+    let cancelled = false;
+
+    getCandidates(token)
+      .then((candidatesData) => {
+        if (!cancelled) {
+          setCandidates(candidatesData);
+        }
+      })
+      .catch(() => {
+        // Non-fatal: the assign/results views handle an empty candidate list.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, activeSection]);
 
   return (
     <div className={fitViewport ? "workspace-container workspace-fit" : "workspace-container"}>
