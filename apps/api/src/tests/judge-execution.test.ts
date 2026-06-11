@@ -56,7 +56,7 @@ test("successful submission is judged and visible in interviewer results", async
 });
 
 test("invalid code fails submissions", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -80,7 +80,7 @@ test("invalid code fails submissions", async () => {
 });
 
 test("wrong answers finish with zero score", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -104,7 +104,7 @@ test("wrong answers finish with zero score", async () => {
 });
 
 test("timeouts fail submissions", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");

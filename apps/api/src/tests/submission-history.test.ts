@@ -13,7 +13,7 @@ import {
 } from "./helpers.js";
 
 test("candidate submission history includes code snapshots and testcase results", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -49,7 +49,7 @@ test("candidate submission history includes code snapshots and testcase results"
 });
 
 test("interviewer can inspect candidate submission history but not admin preview runs", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
@@ -101,7 +101,7 @@ test("interviewer can inspect candidate submission history but not admin preview
 });
 
 test("problem admin can inspect all submission history", async () => {
-  const harness = await createHarness();
+  const harness = await createHarness({ seedExample: true });
 
   try {
     const candidate = await login(harness.app, "alice.candidate@example.com");
